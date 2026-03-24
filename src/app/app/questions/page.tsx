@@ -8,12 +8,12 @@ import { computeNextReward } from "@/lib/logic/scoring";
 import { getViewerContext } from "@/lib/view-model";
 
 type Props = {
-  searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
 export default async function QuestionsPage({ searchParams }: Props) {
   const { bundle, strings } = await getViewerContext();
-  const params = ((searchParams ? await searchParams : undefined) ?? {}) as Record<string, string | string[] | undefined>;
+  const params = (searchParams ? await searchParams : {}) as Record<string, string | string[] | undefined>;
   const saved = params.saved === "1";
   const nextReward = computeNextReward(bundle.score.total_points, bundle.rewards);
   const firstReward = bundle.rewards[0] ?? null;

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { APP_NAME } from "@/lib/constants";
+import { SubmissionReviewForm } from "@/components/submission-review-form";
 import { getGameRepository } from "@/lib/repositories/game-repository";
 import { getSession } from "@/lib/session";
 import {
@@ -8,7 +9,6 @@ import {
   createRewardAction,
   deleteRewardAction,
   logoutAction,
-  reviewSubmissionAction,
   updateRewardAction,
   updateRulesAction
 } from "@/lib/services/actions";
@@ -64,28 +64,17 @@ export default async function ManagerPage() {
                   : data.rules.non_productive_penalty}{" "}
                 pts
               </p>
-              <form action={reviewSubmissionAction} className="mt-3 grid grid-cols-2 gap-2">
-                <input name="submission_id" type="hidden" value={submission.id} />
-                <input className="input col-span-2" name="note" placeholder="Optional note" />
-                <input
-                  className="input"
-                  defaultValue={
-                    submission.productive
-                      ? data.rules.submission_points + data.rules.productive_points
-                      : data.rules.non_productive_penalty
-                  }
-                  name="points"
-                  type="number"
-                />
-                <div className="col-span-2 grid grid-cols-2 gap-2">
-                  <button className="btn btn-primary w-full" name="approved" type="submit" value="true">
-                    Give Points
-                  </button>
-                  <button className="btn btn-muted w-full" name="approved" type="submit" value="false">
-                    No
-                  </button>
-                </div>
-              </form>
+              <SubmissionReviewForm
+                defaultPoints={
+                  submission.productive
+                    ? data.rules.submission_points + data.rules.productive_points
+                    : data.rules.non_productive_penalty
+                }
+                mood={submission.mood}
+                productive={submission.productive}
+                submissionId={submission.id}
+                taskSummary={submission.task_list.join(", ")}
+              />
             </article>
           ))}
           {data.pendingSubmissions.length === 0 && <p className="text-sm text-slate-500">No pending submissions.</p>}

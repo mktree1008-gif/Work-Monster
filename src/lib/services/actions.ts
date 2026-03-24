@@ -1,6 +1,5 @@
 "use server";
 
-import { Buffer } from "node:buffer";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { Locale, RuleConfig, UserRole } from "@/lib/types";
@@ -28,6 +27,23 @@ function parseNumber(input: FormDataEntryValue | null, fallback = 0): number {
 function parseBoolean(input: FormDataEntryValue | null): boolean {
   if (typeof input !== "string") return false;
   return input === "true" || input === "on";
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  if (typeof Buffer !== "undefined") {
+    return Buffer.from(bytes).toString("base64");
+  }
+
+  let binary = "";
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+
+  if (typeof btoa === "function") {
+    return btoa(binary);
+  }
+
+  throw new Error("Base64 encoding is not available in this runtime.");
 }
 
 export async function loginAction(formData: FormData): Promise<void> {
@@ -91,8 +107,8 @@ export async function updateProfileAvatarAction(formData: FormData): Promise<voi
       throw new Error("Please upload an image under 2MB.");
     }
 
-    const buffer = Buffer.from(await file.arrayBuffer());
-    imageUrl = `data:${file.type};base64,${buffer.toString("base64")}`;
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    imageUrl = `data:${file.type};base64,${bytesToBase64(bytes)}`;
   }
 
   const emoji = rawEmoji.length > 0 ? rawEmoji.slice(0, 2) : "😺";
