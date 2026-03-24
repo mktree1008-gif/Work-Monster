@@ -2,6 +2,7 @@ import { DEFAULT_REWARDS, DEFAULT_RULES } from "@/lib/constants";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { getAdminDb, isFirebaseServerConfigured } from "@/lib/firebase/admin";
 import {
+  Announcement,
   DashboardBundle,
   Locale,
   ManagerAuditLog,
@@ -70,6 +71,8 @@ export interface GameRepository {
   listPendingRewardClaimAlerts(limit?: number): Promise<RewardClaim[]>;
   saveRewardClaim(claim: RewardClaim): Promise<RewardClaim>;
   markRewardClaimsNotified(claimIds: string[], notifiedAtISO: string): Promise<void>;
+  listAnnouncements(limit?: number): Promise<Announcement[]>;
+  saveAnnouncement(announcement: Announcement): Promise<Announcement>;
   listSubmissionsByUser(userId: string): Promise<Submission[]>;
   listPendingSubmissions(): Promise<Submission[]>;
   getSubmission(submissionId: string): Promise<Submission | null>;
@@ -108,6 +111,7 @@ type MemoryDB = {
   submissions: Map<string, Submission>;
   rewards: Map<string, Reward>;
   rewardClaims: Map<string, RewardClaim>;
+  announcements: Map<string, Announcement>;
   penaltyHistory: Map<string, PenaltyEvent>;
   auditLogs: Map<string, ManagerAuditLog>;
 };
@@ -134,6 +138,7 @@ function createMemoryDB(): MemoryDB {
         password_salt: userSeedCredential.salt,
         last_seen_rule_version: 0,
         last_seen_manager_update_at: now,
+        last_seen_notification_at: now,
         created_at: now
       }
     ],
@@ -154,6 +159,7 @@ function createMemoryDB(): MemoryDB {
         password_salt: managerSeedCredential.salt,
         last_seen_rule_version: DEFAULT_RULES.rule_version,
         last_seen_manager_update_at: now,
+        last_seen_notification_at: now,
         created_at: now
       }
     ]
@@ -171,6 +177,7 @@ function createMemoryDB(): MemoryDB {
     submissions: new Map<string, Submission>(),
     rewards: new Map(DEFAULT_REWARDS.map((reward) => [reward.id, reward])),
     rewardClaims: new Map<string, RewardClaim>(),
+    announcements: new Map<string, Announcement>(),
     penaltyHistory: new Map<string, PenaltyEvent>(),
     auditLogs: new Map<string, ManagerAuditLog>()
   };
@@ -210,7 +217,8 @@ class MemoryGameRepository implements GameRepository {
         character_glasses: existing.character_glasses ?? true,
         profile_avatar_type: existing.profile_avatar_type ?? "emoji",
         profile_avatar_emoji: existing.profile_avatar_emoji ?? (role === "manager" ? "🧑‍💼" : "😺"),
-        auth_provider: existing.auth_provider ?? "google"
+        auth_provider: existing.auth_provider ?? "google",
+        last_seen_notification_at: existing.last_seen_notification_at ?? nowISO()
       };
       this.db.users.set(updated.id, updated);
       return updated;
@@ -232,6 +240,7 @@ class MemoryGameRepository implements GameRepository {
       auth_provider: "google",
       last_seen_rule_version: 0,
       last_seen_manager_update_at: nowISO(),
+      last_seen_notification_at: nowISO(),
       created_at: nowISO()
     };
 
@@ -279,6 +288,7 @@ class MemoryGameRepository implements GameRepository {
       password_salt: salt,
       last_seen_rule_version: 0,
       last_seen_manager_update_at: nowISO(),
+      last_seen_notification_at: nowISO(),
       created_at: nowISO()
     };
 
@@ -392,6 +402,17 @@ class MemoryGameRepository implements GameRepository {
     }
   }
 
+  async listAnnouncements(limit = 20): Promise<Announcement[]> {
+    return [...this.db.announcements.values()]
+      .sort((a, b) => (a.created_at > b.created_at ? -1 : 1))
+      .slice(0, limit);
+  }
+
+  async saveAnnouncement(announcement: Announcement): Promise<Announcement> {
+    this.db.announcements.set(announcement.id, announcement);
+    return announcement;
+  }
+
   async listSubmissionsByUser(userId: string): Promise<Submission[]> {
     return [...this.db.submissions.values()]
       .filter((submission) => submission.user_id === userId)
@@ -467,7 +488,9 @@ class MemoryGameRepository implements GameRepository {
       rewardClaims,
       submissions,
       penaltyHistory,
-      managerUpdates: []
+      managerUpdates: [],
+      notifications: [],
+      unread_notification_count: 0
     };
   }
 }
@@ -519,6 +542,7 @@ class FirestoreGameRepository implements GameRepository {
         auth_provider: "google",
         last_seen_rule_version: 0,
         last_seen_manager_update_at: nowISO(),
+        last_seen_notification_at: nowISO(),
         created_at: nowISO()
       };
 
@@ -536,7 +560,8 @@ class FirestoreGameRepository implements GameRepository {
       character_glasses: found.user.character_glasses ?? true,
       profile_avatar_type: found.user.profile_avatar_type ?? "emoji",
       profile_avatar_emoji: found.user.profile_avatar_emoji ?? (role === "manager" ? "🧑‍💼" : "😺"),
-      auth_provider: found.user.auth_provider ?? "google"
+      auth_provider: found.user.auth_provider ?? "google",
+      last_seen_notification_at: found.user.last_seen_notification_at ?? nowISO()
     };
     await this.db.collection("users").doc(found.id).set(next, { merge: true });
     return next;
@@ -579,6 +604,7 @@ class FirestoreGameRepository implements GameRepository {
       password_salt: credential.salt,
       last_seen_rule_version: 0,
       last_seen_manager_update_at: nowISO(),
+      last_seen_notification_at: nowISO(),
       created_at: nowISO()
     };
 
@@ -718,6 +744,16 @@ class FirestoreGameRepository implements GameRepository {
     await batch.commit();
   }
 
+  async listAnnouncements(limit = 20): Promise<Announcement[]> {
+    const snap = await this.db.collection("announcements").orderBy("created_at", "desc").limit(limit).get();
+    return snap.docs.map((doc) => doc.data() as Announcement);
+  }
+
+  async saveAnnouncement(announcement: Announcement): Promise<Announcement> {
+    await this.db.collection("announcements").doc(announcement.id).set(announcement, { merge: true });
+    return announcement;
+  }
+
   async listSubmissionsByUser(userId: string): Promise<Submission[]> {
     const snap = await this.db.collection("submissions").where("user_id", "==", userId).get();
     return snap.docs
@@ -830,7 +866,9 @@ class FirestoreGameRepository implements GameRepository {
       rewardClaims,
       submissions,
       penaltyHistory,
-      managerUpdates: []
+      managerUpdates: [],
+      notifications: [],
+      unread_notification_count: 0
     };
   }
 }

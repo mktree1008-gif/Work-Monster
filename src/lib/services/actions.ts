@@ -10,6 +10,7 @@ import {
   approveSubmission,
   claimPenaltyReward,
   claimReward,
+  createAnnouncement,
   createReward,
   deleteReward,
   getDashboard,
@@ -191,6 +192,16 @@ export async function acknowledgeManagerUpdatesAction(_formData: FormData): Prom
   revalidatePath("/app");
 }
 
+export async function acknowledgeNotificationsAction(_formData: FormData): Promise<void> {
+  const session = await getSession();
+  if (!session) redirect("/auth/login");
+
+  const repo = getGameRepository();
+  await repo.updateUser(session.uid, { last_seen_notification_at: new Date().toISOString() });
+  revalidatePath("/app");
+  revalidatePath("/manager");
+}
+
 export async function claimRewardAction(formData: FormData): Promise<void> {
   const session = await getSession();
   if (!session) redirect("/auth/login");
@@ -368,6 +379,41 @@ export async function createRewardAction(formData: FormData): Promise<void> {
 
   revalidatePath("/manager");
   revalidatePath("/app/rewards");
+}
+
+export async function createAnnouncementAction(formData: FormData): Promise<void> {
+  const session = await getSession();
+  if (!session || session.role !== "manager") redirect("/auth/login");
+  await assertManagerOwner(session.uid);
+
+  const title = String(formData.get("title") ?? "").trim();
+  const message = String(formData.get("message") ?? "").trim();
+  const rawUrl = String(formData.get("image_url") ?? "").trim();
+  const file = formData.get("image_file");
+
+  let imageUrl = rawUrl;
+  if (file instanceof File && file.size > 0) {
+    if (!file.type.startsWith("image/")) {
+      throw new Error("Please upload an image file.");
+    }
+    if (file.size > 3 * 1024 * 1024) {
+      throw new Error("Please upload an image under 3MB.");
+    }
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    imageUrl = `data:${file.type};base64,${bytesToBase64(bytes)}`;
+  }
+
+  await createAnnouncement(session.uid, {
+    title,
+    message,
+    image_url: imageUrl
+  });
+
+  revalidatePath("/manager");
+  revalidatePath("/app");
+  const params = new URLSearchParams();
+  params.set("announce", "1");
+  redirect(`/manager?${params.toString()}`);
 }
 
 export async function updateRewardAction(formData: FormData): Promise<void> {

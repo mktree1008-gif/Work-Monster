@@ -52,6 +52,7 @@ export interface UserProfile {
   password_salt?: string;
   last_seen_rule_version: number;
   last_seen_manager_update_at?: string;
+  last_seen_notification_at?: string;
   created_at: string;
 }
 
@@ -118,6 +119,32 @@ export interface ManagerUpdateNotification {
   created_at: string;
 }
 
+export interface Announcement {
+  id: string;
+  title: string;
+  message: string;
+  image_url?: string;
+  created_by: string;
+  created_at: string;
+}
+
+export type AppNotificationKind =
+  | "manager_update"
+  | "announcement"
+  | "reward_claim_request"
+  | "checkin_arrived";
+
+export interface AppNotification {
+  id: string;
+  kind: AppNotificationKind;
+  title: string;
+  message: string;
+  created_at: string;
+  is_new: boolean;
+  image_url?: string;
+  source_id?: string;
+}
+
 export interface PenaltyEvent {
   id: string;
   user_id: string;
@@ -170,4 +197,6 @@ export interface DashboardBundle {
   submissions: Submission[];
   penaltyHistory: PenaltyEvent[];
   managerUpdates: ManagerUpdateNotification[];
+  notifications: AppNotification[];
+  unread_notification_count: number;
 }

@@ -4,7 +4,7 @@ import { getViewerContext } from "@/lib/view-model";
 import { RulesOnboardingModal } from "@/components/rules-onboarding-modal";
 import { TopAppBar } from "@/components/top-app-bar";
 import { UserManagerUpdatesModal } from "@/components/user-manager-updates-modal";
-import { acknowledgeManagerUpdatesAction } from "@/lib/services/actions";
+import { acknowledgeManagerUpdatesAction, acknowledgeNotificationsAction } from "@/lib/services/actions";
 
 export default async function UserLayout({
   children
@@ -34,6 +34,9 @@ export default async function UserLayout({
         profileAvatarEmoji={bundle.user.profile_avatar_emoji}
         profileAvatarUrl={bundle.user.profile_avatar_url}
         role={bundle.user.role}
+        notifications={bundle.notifications}
+        unreadNotificationCount={bundle.unread_notification_count}
+        notificationAction={acknowledgeNotificationsAction}
       />
       <main className="container-mobile page-padding">{children}</main>
       <UserManagerUpdatesModal action={acknowledgeManagerUpdatesAction} updates={showOnboarding ? [] : bundle.managerUpdates} />

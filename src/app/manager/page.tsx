@@ -4,11 +4,14 @@ import { isManagerOwnerEmail } from "@/lib/constants";
 import { ManagerClaimAlertsModal } from "@/components/manager-claim-alerts-modal";
 import { ManagerRulesSavedPopup } from "@/components/manager-rules-saved-popup";
 import { ManagerReviewResultPopup } from "@/components/manager-review-result-popup";
+import { NotificationBell } from "@/components/notification-bell";
 import { SubmissionReviewForm } from "@/components/submission-review-form";
 import { getGameRepository } from "@/lib/repositories/game-repository";
 import { getSession } from "@/lib/session";
 import {
+  acknowledgeNotificationsAction,
   acknowledgeManagerRewardAlertsAction,
+  createAnnouncementAction,
   createRewardAction,
   deleteRewardAction,
   logoutAction,
@@ -39,7 +42,7 @@ export default async function ManagerPage({ searchParams }: Props) {
     redirect("/auth/nickname");
   }
 
-  const data = await getManagerOverview();
+  const data = await getManagerOverview(session.uid);
   const params = (searchParams ? await searchParams : {}) as Record<string, string | string[] | undefined>;
   const reviewed = params.reviewed === "1";
   const approved = params.approved === "1";
@@ -81,7 +84,13 @@ export default async function ManagerPage({ searchParams }: Props) {
       <header className="card mb-4 p-4">
         <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Manager Console</p>
         <h1 className="display-cute text-4xl font-extrabold text-indigo-900">{APP_NAME}</h1>
-        <div className="mt-3 flex gap-2">
+        <div className="mt-3 flex items-center gap-2">
+          <NotificationBell
+            action={acknowledgeNotificationsAction}
+            notifications={data.notifications}
+            role="manager"
+            unreadCount={data.unreadNotificationCount}
+          />
           <form action={logoutAction}>
             <button className="btn btn-primary text-sm" type="submit">
               Sign out
@@ -89,6 +98,36 @@ export default async function ManagerPage({ searchParams }: Props) {
           </form>
         </div>
       </header>
+
+      <section className="card mb-4 p-4">
+        <h2 className="text-xl font-black text-indigo-900">Notification broadcast</h2>
+        <p className="mt-1 text-sm text-slate-600">
+          Send a message/photo to all users. It will appear in each user&apos;s bell notifications.
+        </p>
+        <form action={createAnnouncementAction} className="mt-3 space-y-2" encType="multipart/form-data">
+          <input className="input" name="title" placeholder="Announcement title (optional)" />
+          <textarea className="input h-24 resize-none" name="message" placeholder="Announcement message" required />
+          <input className="input" name="image_url" placeholder="Image URL (optional)" type="url" />
+          <label className="block">
+            <span className="mb-1 block text-xs font-semibold text-slate-600">Or upload photo (max 3MB)</span>
+            <input accept="image/*" className="input cursor-pointer" name="image_file" type="file" />
+          </label>
+          <button className="btn btn-primary w-full" type="submit">
+            Announce
+          </button>
+        </form>
+        <div className="mt-3 space-y-2">
+          {data.announcements.map((item) => (
+            <article key={item.id} className="rounded-xl bg-slate-100 p-3 text-sm">
+              <p className="font-bold text-indigo-900">{item.title}</p>
+              <p className="text-slate-700">{item.message}</p>
+            </article>
+          ))}
+          {data.announcements.length === 0 && (
+            <p className="rounded-xl bg-slate-100 p-3 text-sm text-slate-600">No announcements yet.</p>
+          )}
+        </div>
+      </section>
 
       <section className="card mb-4 p-4">
         <h2 className="text-xl font-black text-indigo-900">Manager priorities</h2>

@@ -8,6 +8,8 @@ import {
   SubmissionDraft
 } from "@/lib/repositories/game-repository";
 import {
+  Announcement,
+  AppNotification,
   DashboardBundle,
   ManagerUpdateNotification,
   ManagerReviewInput,
@@ -365,6 +367,40 @@ export async function deleteReward(managerId: string, rewardId: string): Promise
   );
 }
 
+export async function createAnnouncement(
+  managerId: string,
+  payload: {
+    title?: string;
+    message: string;
+    image_url?: string;
+  }
+): Promise<Announcement> {
+  const repo = getGameRepository();
+  const message = payload.message.trim();
+  if (!message) {
+    throw new Error("Announcement message is required.");
+  }
+
+  const imageUrl = payload.image_url?.trim();
+  const announcement: Announcement = {
+    id: createId("announcement"),
+    title: payload.title?.trim() || "Manager Announcement",
+    message,
+    created_by: managerId,
+    created_at: nowISO(),
+    ...(imageUrl ? { image_url: imageUrl } : {})
+  };
+
+  await repo.saveAnnouncement(announcement);
+  await repo.saveAuditLog(
+    createAuditLog(managerId, "announcement.created", announcement.id, {
+      title: announcement.title
+    })
+  );
+
+  return announcement;
+}
+
 export async function acknowledgeRuleVersion(userId: string): Promise<UserProfile> {
   const repo = getGameRepository();
   const rules = await repo.getRules();
@@ -375,66 +411,114 @@ export async function getDashboard(uid: string): Promise<DashboardBundle> {
   const repo = getGameRepository();
   const bundle = await repo.getDashboardBundle(uid);
   const threshold = bundle.user.last_seen_manager_update_at ?? bundle.user.created_at;
+  const notificationsThreshold = bundle.user.last_seen_notification_at ?? bundle.user.created_at;
   const submissionIds = new Set(bundle.submissions.map((submission) => submission.id));
-  const logs = await repo.listAuditLogs(40);
+  const [logs, announcements] = await Promise.all([repo.listAuditLogs(40), repo.listAnnouncements(20)]);
 
   const managerUpdates: ManagerUpdateNotification[] = [];
+  const managerUpdateFeed: ManagerUpdateNotification[] = [];
+  const ruleUpdateItem: ManagerUpdateNotification = {
+    id: `rule-${bundle.rules.rule_version}`,
+    kind: "rule_update",
+    title: `Rules updated to v${bundle.rules.rule_version}`,
+    message: "Manager updated game rules. Open Rules tab to check details.",
+    created_at: bundle.rules.last_updated
+  };
+
+  managerUpdateFeed.push(ruleUpdateItem);
 
   if (bundle.rules.last_updated > threshold) {
-    managerUpdates.push({
-      id: `rule-${bundle.rules.rule_version}`,
-      kind: "rule_update",
-      title: `Rules updated to v${bundle.rules.rule_version}`,
-      message: "Manager updated game rules. Open Rules tab to check details.",
-      created_at: bundle.rules.last_updated
-    });
+    managerUpdates.push(ruleUpdateItem);
   }
 
   for (const log of logs) {
-    if (log.created_at <= threshold) continue;
-
     if (log.action === "submission.reviewed" && submissionIds.has(log.target_id)) {
       const approved = Boolean(log.details.approved);
       const points = Number(log.details.points ?? 0);
       const note = String(log.details.note ?? "").trim();
-      managerUpdates.push({
+      const updateItem: ManagerUpdateNotification = {
         id: log.id,
         kind: "submission_review",
         title: approved ? "Manager reviewed your check-in" : "Manager left a no-points review",
         message: note.length > 0 ? note : approved ? `+${points} pts reflected in your score.` : "Check manager comment in Questions/Record.",
         created_at: log.created_at
-      });
+      };
+      managerUpdateFeed.push(updateItem);
+      if (log.created_at > threshold) {
+        managerUpdates.push(updateItem);
+      }
     }
 
     if (log.action === "reward.created" || log.action === "reward.updated" || log.action === "reward.deleted") {
-      managerUpdates.push({
+      const updateItem: ManagerUpdateNotification = {
         id: log.id,
         kind: "reward_update",
         title: "Reward catalog updated",
         message: "Manager changed reward settings. Check Rewards tab.",
         created_at: log.created_at
-      });
+      };
+      managerUpdateFeed.push(updateItem);
+      if (log.created_at > threshold) {
+        managerUpdates.push(updateItem);
+      }
     }
   }
 
+  const sortedManagerUpdates = managerUpdates
+    .sort((a, b) => (a.created_at > b.created_at ? -1 : 1))
+    .slice(0, 8);
+  const sortedManagerUpdateFeed = managerUpdateFeed
+    .sort((a, b) => (a.created_at > b.created_at ? -1 : 1))
+    .slice(0, 16);
+
+  const managerUpdateNotifications: AppNotification[] = sortedManagerUpdateFeed.map((item) => ({
+    id: `mu-${item.id}`,
+    kind: "manager_update",
+    title: item.title,
+    message: item.message,
+    created_at: item.created_at,
+    is_new: item.created_at > notificationsThreshold,
+    source_id: item.id
+  }));
+
+  const announcementNotifications: AppNotification[] = announcements.map((item) => ({
+    id: `announce-${item.id}`,
+    kind: "announcement",
+    title: "Manager로부터 메시지가 도착했습니다",
+    message: item.message,
+    created_at: item.created_at,
+    is_new: item.created_at > notificationsThreshold,
+    image_url: item.image_url,
+    source_id: item.id
+  }));
+
+  const notifications = [...managerUpdateNotifications, ...announcementNotifications]
+    .sort((a, b) => (a.created_at > b.created_at ? -1 : 1))
+    .slice(0, 20);
+
   return {
     ...bundle,
-    managerUpdates: managerUpdates
-      .sort((a, b) => (a.created_at > b.created_at ? -1 : 1))
-      .slice(0, 4)
+    managerUpdates: sortedManagerUpdates,
+    notifications,
+    unread_notification_count: notifications.filter((item) => item.is_new).length
   };
 }
 
-export async function getManagerOverview() {
+export async function getManagerOverview(managerId: string) {
   const repo = getGameRepository();
-  const [pendingSubmissions, rules, rewards, openPenaltyEvents, auditLogs, rewardClaimAlerts] = await Promise.all([
+  const [managerUser, pendingSubmissions, rules, rewards, openPenaltyEvents, auditLogs, rewardClaimAlerts, announcements] = await Promise.all([
+    repo.getUser(managerId),
     repo.listPendingSubmissions(),
     repo.getRules(),
     repo.listRewards(),
     repo.listOpenPenaltyEventsAll(),
     repo.listAuditLogs(20),
-    repo.listPendingRewardClaimAlerts(20)
+    repo.listPendingRewardClaimAlerts(20),
+    repo.listAnnouncements(12)
   ]);
+  const userIds = [...new Set(pendingSubmissions.map((submission) => submission.user_id))];
+  const userPairs = await Promise.all(userIds.map(async (id) => [id, await repo.getUser(id)] as const));
+  const userMap = new Map(userPairs);
 
   const claimAlerts = await Promise.all(
     rewardClaimAlerts.map(async (claim) => {
@@ -449,13 +533,59 @@ export async function getManagerOverview() {
     })
   );
 
+  const notificationsThreshold = managerUser?.last_seen_notification_at ?? managerUser?.created_at ?? "";
+
+  const checkinNotifications: AppNotification[] = pendingSubmissions.map((submission) => {
+    const user = userMap.get(submission.user_id);
+    const displayName = (user?.name ?? "").trim() || user?.login_id || submission.user_id;
+    return {
+      id: `checkin-${submission.id}`,
+      kind: "checkin_arrived",
+      title: "새로운 Daily Check-in이 도착했습니다",
+      message: `${displayName} submitted ${submission.date}`,
+      created_at: submission.created_at,
+      is_new: notificationsThreshold ? submission.created_at > notificationsThreshold : true,
+      source_id: submission.id
+    };
+  });
+
+  const rewardClaimNotifications: AppNotification[] = claimAlerts.map((item) => ({
+    id: `claim-${item.claim.id}`,
+    kind: "reward_claim_request",
+    title: "보상 Claim 요청이 도착했습니다",
+    message: `${item.userDisplay} · ${item.rewardTitle} (${item.rewardPoints} pts)`,
+    created_at: item.claim.claimed_at ?? item.claim.created_at,
+    is_new: notificationsThreshold
+      ? (item.claim.claimed_at ?? item.claim.created_at) > notificationsThreshold
+      : true,
+    source_id: item.claim.id
+  }));
+
+  const announcementNotifications: AppNotification[] = announcements.map((item) => ({
+    id: `announce-self-${item.id}`,
+    kind: "announcement",
+    title: "최근 공지",
+    message: item.message,
+    created_at: item.created_at,
+    is_new: notificationsThreshold ? item.created_at > notificationsThreshold : false,
+    image_url: item.image_url,
+    source_id: item.id
+  }));
+
+  const notifications = [...checkinNotifications, ...rewardClaimNotifications, ...announcementNotifications]
+    .sort((a, b) => (a.created_at > b.created_at ? -1 : 1))
+    .slice(0, 20);
+
   return {
     pendingSubmissions,
     rules: rules ?? DEFAULT_RULES,
     rewards,
     openPenaltyEvents,
     auditLogs,
-    rewardClaimAlerts: claimAlerts
+    rewardClaimAlerts: claimAlerts,
+    announcements,
+    notifications,
+    unreadNotificationCount: notifications.filter((item) => item.is_new).length
   };
 }
 

@@ -3,9 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { CircleUserRound, House, Menu, X } from "lucide-react";
-import { Locale, UserRole } from "@/lib/types";
+import { AppNotification, Locale, UserRole } from "@/lib/types";
 import { logoutAction, setLocaleAction } from "@/lib/services/actions";
 import { ProfileAvatar } from "@/components/profile-avatar";
+import { NotificationBell } from "@/components/notification-bell";
 
 type Props = {
   appName: string;
@@ -22,11 +23,25 @@ type Props = {
   displayName?: string;
   profileAvatarEmoji?: string;
   profileAvatarUrl?: string;
+  notifications: AppNotification[];
+  unreadNotificationCount: number;
+  notificationAction: (formData: FormData) => Promise<void>;
 };
 
 type PanelMode = "nav" | "profile" | null;
 
-export function TopAppBar({ appName, role, locale, labels, displayName, profileAvatarEmoji, profileAvatarUrl }: Props) {
+export function TopAppBar({
+  appName,
+  role,
+  locale,
+  labels,
+  displayName,
+  profileAvatarEmoji,
+  profileAvatarUrl,
+  notifications,
+  unreadNotificationCount,
+  notificationAction
+}: Props) {
   const [panel, setPanel] = useState<PanelMode>(null);
   const [navTab, setNavTab] = useState<"main" | "more">("main");
   const [profileTab, setProfileTab] = useState<"account" | "settings">("account");
@@ -75,20 +90,28 @@ export function TopAppBar({ appName, role, locale, labels, displayName, profileA
               {appName}
             </Link>
           </div>
-          <button
-            aria-label="Open profile panel"
-            className="rounded-full bg-indigo-100 p-1 text-indigo-900"
-            onClick={openProfile}
-            type="button"
-          >
-            <ProfileAvatar
-              className="ring-indigo-200"
-              emoji={profileAvatarEmoji}
-              imageUrl={profileAvatarUrl}
-              name={displayName}
-              size={30}
+          <div className="flex items-center gap-2">
+            <NotificationBell
+              action={notificationAction}
+              notifications={notifications}
+              role={role}
+              unreadCount={unreadNotificationCount}
             />
-          </button>
+            <button
+              aria-label="Open profile panel"
+              className="rounded-full bg-indigo-100 p-1 text-indigo-900"
+              onClick={openProfile}
+              type="button"
+            >
+              <ProfileAvatar
+                className="ring-indigo-200"
+                emoji={profileAvatarEmoji}
+                imageUrl={profileAvatarUrl}
+                name={displayName}
+                size={30}
+              />
+            </button>
+          </div>
         </div>
       </header>
 
