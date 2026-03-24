@@ -103,6 +103,9 @@ export async function submitCheckInAction(formData: FormData): Promise<void> {
       blocker: String(formData.get("blocker") ?? ""),
       win: String(formData.get("win") ?? "")
     }
+  }, {
+    clientLocalDate: String(formData.get("client_local_date") ?? ""),
+    clientTimeZone: String(formData.get("client_time_zone") ?? "")
   });
 
   revalidatePath("/app/questions");

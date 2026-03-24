@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CharacterAlert } from "@/components/character-alert";
 import { getUserCue } from "@/lib/character-system";
 import { submitCheckInAction } from "@/lib/services/actions";
@@ -23,9 +23,32 @@ export function QuestionsFlow({ locale, withGlasses }: Props) {
   const [productive, setProductive] = useState(true);
   const [taskList, setTaskList] = useState("");
   const [fileUrl, setFileUrl] = useState("");
+  const [clientTimeZone, setClientTimeZone] = useState("UTC");
+  const [clientLocalDate, setClientLocalDate] = useState("");
 
   const progress = useMemo(() => Math.round(((step + 1) / 3) * 100), [step]);
   const determinedCue = getUserCue("questions_determined", locale);
+
+  useEffect(() => {
+    try {
+      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+      const parts = new Intl.DateTimeFormat("en-CA", {
+        timeZone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+      }).formatToParts(new Date());
+      const year = parts.find((part) => part.type === "year")?.value;
+      const month = parts.find((part) => part.type === "month")?.value;
+      const day = parts.find((part) => part.type === "day")?.value;
+
+      setClientTimeZone(timeZone);
+      setClientLocalDate(year && month && day ? `${year}-${month}-${day}` : "");
+    } catch (_error) {
+      setClientTimeZone("UTC");
+      setClientLocalDate("");
+    }
+  }, []);
 
   return (
     <div className="space-y-4">
@@ -39,6 +62,9 @@ export function QuestionsFlow({ locale, withGlasses }: Props) {
         <div className="h-2 overflow-hidden rounded-full bg-white">
           <div className="h-full rounded-full bg-indigo-600 transition-all" style={{ width: `${progress}%` }} />
         </div>
+        <p className="mt-2 text-[11px] text-slate-500">
+          Date auto-sync: {clientLocalDate || "syncing..."} ({clientTimeZone})
+        </p>
       </div>
 
       {step === 0 && (
@@ -133,6 +159,8 @@ export function QuestionsFlow({ locale, withGlasses }: Props) {
             <input name="productive" type="hidden" value={productive ? "true" : "false"} />
             <input name="task_list" type="hidden" value={taskList} />
             <input name="file_url" type="hidden" value={fileUrl} />
+            <input name="client_time_zone" type="hidden" value={clientTimeZone} />
+            <input name="client_local_date" type="hidden" value={clientLocalDate} />
             <button className="btn btn-primary w-full" type="submit">
               Save check-in
             </button>

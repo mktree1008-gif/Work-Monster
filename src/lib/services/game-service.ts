@@ -18,7 +18,7 @@ import {
   Submission,
   UserProfile
 } from "@/lib/types";
-import { createId, nowISO } from "@/lib/utils";
+import { createId, isISODateString, nowISO, toISODate, toISODateInTimeZone } from "@/lib/utils";
 
 function resolvePenaltyReward(rules: RuleConfig, threshold: number): { label: string; value: string } {
   const found = rules.penalty_rewards.find((reward) => reward.threshold === threshold);
@@ -29,9 +29,36 @@ function resolvePenaltyReward(rules: RuleConfig, threshold: number): { label: st
   return { label: "Manager reward unlocked", value: "$0 equivalent" };
 }
 
-export async function submitDailyCheckIn(userId: string, draft: Omit<SubmissionDraft, "user_id">) {
+type CheckInClientMeta = {
+  clientLocalDate?: string;
+  clientTimeZone?: string;
+};
+
+function resolveSubmissionDate(meta?: CheckInClientMeta): string {
+  const rawDate = (meta?.clientLocalDate ?? "").trim();
+  if (rawDate && isISODateString(rawDate)) {
+    return rawDate;
+  }
+
+  const rawTimeZone = (meta?.clientTimeZone ?? "").trim();
+  if (rawTimeZone) {
+    try {
+      return toISODateInTimeZone(rawTimeZone);
+    } catch (_error) {
+      return toISODate();
+    }
+  }
+
+  return toISODate();
+}
+
+export async function submitDailyCheckIn(
+  userId: string,
+  draft: Omit<SubmissionDraft, "user_id">,
+  meta?: CheckInClientMeta
+) {
   const repo = getGameRepository();
-  const submission = makeSubmissionFromDraft({ ...draft, user_id: userId });
+  const submission = makeSubmissionFromDraft({ ...draft, user_id: userId }, resolveSubmissionDate(meta));
   await repo.saveSubmission(submission);
 
   return submission;

@@ -1,8 +1,23 @@
+import { CalendarDays } from "lucide-react";
 import { CharacterAlert } from "@/components/character-alert";
 import { getManagerCue } from "@/lib/character-system";
 import { UserPageShell } from "@/components/user-page-shell";
-import { formatDateLabel } from "@/lib/utils";
+import { formatDateLabel, toISODate } from "@/lib/utils";
 import { getViewerContext } from "@/lib/view-model";
+
+function shiftISODate(baseISO: string, offsetDays: number): string {
+  const date = new Date(`${baseISO}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + offsetDays);
+  return date.toISOString().slice(0, 10);
+}
+
+function calendarCellClass(delta: number): string {
+  if (delta >= 10) return "bg-emerald-500 text-white";
+  if (delta > 0) return "bg-emerald-200 text-emerald-900";
+  if (delta <= -10) return "bg-rose-500 text-white";
+  if (delta < 0) return "bg-rose-200 text-rose-900";
+  return "bg-slate-100 text-slate-500";
+}
 
 export default async function RecordPage() {
   const { bundle, strings } = await getViewerContext();
@@ -11,6 +26,15 @@ export default async function RecordPage() {
   const avgCalories =
     recent.length > 0 ? Math.round(recent.reduce((sum, item) => sum + item.calories, 0) / recent.length) : 0;
   const managerCue = getManagerCue("record_approval", bundle.user.locale);
+  const todayISO = toISODate();
+  const latestSubmissionDate = bundle.submissions[0]?.date ?? todayISO;
+  const calendarEndDate = latestSubmissionDate > todayISO ? latestSubmissionDate : todayISO;
+  const calendarDays = Array.from({ length: 28 }, (_, index) => shiftISODate(calendarEndDate, index - 27));
+  const pointsByDate = bundle.submissions.reduce<Record<string, number>>((acc, submission) => {
+    const delta = submission.status === "approved" ? submission.points_awarded : 0;
+    acc[submission.date] = (acc[submission.date] ?? 0) + delta;
+    return acc;
+  }, {});
 
   return (
     <UserPageShell activeTab="record" labels={strings} subtitle="Your momentum map" title="Record">
@@ -42,6 +66,30 @@ export default async function RecordPage() {
       </section>
 
       <section className="card mt-4 p-4">
+        <div className="flex items-center gap-2">
+          <CalendarDays className="text-indigo-600" size={18} />
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Points calendar</p>
+        </div>
+        <p className="mt-2 text-sm text-slate-600">Green = earned points, Red = lost points</p>
+        <div className="mt-3 grid grid-cols-7 gap-2">
+          {calendarDays.map((date) => {
+            const delta = pointsByDate[date] ?? 0;
+            const day = Number(date.slice(8, 10));
+            return (
+              <div
+                key={date}
+                className={`rounded-xl p-2 text-center ${calendarCellClass(delta)}`}
+                title={`${date}: ${delta > 0 ? `+${delta}` : delta} pts`}
+              >
+                <p className="text-[11px] font-bold">{day}</p>
+                <p className="text-[10px]">{delta > 0 ? `+${delta}` : delta}</p>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="card mt-4 p-4">
         <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Submission history</p>
         <ul className="mt-3 space-y-2">
           {bundle.submissions.slice(0, 10).map((item) => (
@@ -49,7 +97,9 @@ export default async function RecordPage() {
               <div className="flex items-center justify-between">
                 <span>{formatDateLabel(item.date)}</span>
                 <span className="font-semibold">
-                  {item.status === "approved" ? `+${item.points_awarded} pts` : item.status}
+                  {item.status === "approved"
+                    ? `${item.points_awarded > 0 ? `+${item.points_awarded}` : item.points_awarded} pts`
+                    : item.status}
                 </span>
               </div>
               {item.status === "approved" && (

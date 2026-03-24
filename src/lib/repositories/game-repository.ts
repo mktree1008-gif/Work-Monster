@@ -791,11 +791,11 @@ export function resetInMemoryRepositoryForTests() {
   memoryRepo = new MemoryGameRepository();
 }
 
-export function makeSubmissionFromDraft(draft: SubmissionDraft): Submission {
+export function makeSubmissionFromDraft(draft: SubmissionDraft, submissionDate?: string): Submission {
   return {
     id: createId("submission"),
     user_id: draft.user_id,
-    date: toISODate(new Date()),
+    date: submissionDate ?? toISODate(new Date()),
     mood: draft.mood,
     feeling: draft.feeling,
     calories: draft.calories,
