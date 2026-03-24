@@ -66,7 +66,9 @@ export interface GameRepository {
   saveReward(reward: Reward): Promise<Reward>;
   deleteReward(rewardId: string): Promise<void>;
   listRewardClaims(userId: string): Promise<RewardClaim[]>;
+  listPendingRewardClaimAlerts(limit?: number): Promise<RewardClaim[]>;
   saveRewardClaim(claim: RewardClaim): Promise<RewardClaim>;
+  markRewardClaimsNotified(claimIds: string[], notifiedAtISO: string): Promise<void>;
   listSubmissionsByUser(userId: string): Promise<Submission[]>;
   listPendingSubmissions(): Promise<Submission[]>;
   getSubmission(submissionId: string): Promise<Submission | null>;
@@ -130,6 +132,7 @@ function createMemoryDB(): MemoryDB {
         password_hash: userSeedCredential.hash,
         password_salt: userSeedCredential.salt,
         last_seen_rule_version: 0,
+        last_seen_manager_update_at: now,
         created_at: now
       }
     ],
@@ -149,6 +152,7 @@ function createMemoryDB(): MemoryDB {
         password_hash: managerSeedCredential.hash,
         password_salt: managerSeedCredential.salt,
         last_seen_rule_version: DEFAULT_RULES.rule_version,
+        last_seen_manager_update_at: now,
         created_at: now
       }
     ]
@@ -226,6 +230,7 @@ class MemoryGameRepository implements GameRepository {
       profile_avatar_emoji: role === "manager" ? "🧑‍💼" : "😺",
       auth_provider: "google",
       last_seen_rule_version: 0,
+      last_seen_manager_update_at: nowISO(),
       created_at: nowISO()
     };
 
@@ -272,6 +277,7 @@ class MemoryGameRepository implements GameRepository {
       password_hash: hash,
       password_salt: salt,
       last_seen_rule_version: 0,
+      last_seen_manager_update_at: nowISO(),
       created_at: nowISO()
     };
 
@@ -365,9 +371,24 @@ class MemoryGameRepository implements GameRepository {
     return [...this.db.rewardClaims.values()].filter((claim) => claim.user_id === userId);
   }
 
+  async listPendingRewardClaimAlerts(limit = 20): Promise<RewardClaim[]> {
+    return [...this.db.rewardClaims.values()]
+      .filter((claim) => claim.status === "claimed" && !claim.manager_notified_at)
+      .sort((a, b) => (a.claimed_at ?? "") > (b.claimed_at ?? "") ? -1 : 1)
+      .slice(0, limit);
+  }
+
   async saveRewardClaim(claim: RewardClaim): Promise<RewardClaim> {
-    this.db.rewardClaims.set(claim.id, claim);
+    this.db.rewardClaims.set(claim.id, { ...claim, manager_notified_at: claim.manager_notified_at ?? null });
     return claim;
+  }
+
+  async markRewardClaimsNotified(claimIds: string[], notifiedAtISO: string): Promise<void> {
+    for (const claimId of claimIds) {
+      const found = this.db.rewardClaims.get(claimId);
+      if (!found) continue;
+      this.db.rewardClaims.set(claimId, { ...found, manager_notified_at: notifiedAtISO });
+    }
   }
 
   async listSubmissionsByUser(userId: string): Promise<Submission[]> {
@@ -444,7 +465,8 @@ class MemoryGameRepository implements GameRepository {
       rewards,
       rewardClaims,
       submissions,
-      penaltyHistory
+      penaltyHistory,
+      managerUpdates: []
     };
   }
 }
@@ -495,6 +517,7 @@ class FirestoreGameRepository implements GameRepository {
         profile_avatar_emoji: role === "manager" ? "🧑‍💼" : "😺",
         auth_provider: "google",
         last_seen_rule_version: 0,
+        last_seen_manager_update_at: nowISO(),
         created_at: nowISO()
       };
 
@@ -554,6 +577,7 @@ class FirestoreGameRepository implements GameRepository {
       password_hash: credential.hash,
       password_salt: credential.salt,
       last_seen_rule_version: 0,
+      last_seen_manager_update_at: nowISO(),
       created_at: nowISO()
     };
 
@@ -667,9 +691,30 @@ class FirestoreGameRepository implements GameRepository {
     return snap.docs.map((doc) => doc.data() as RewardClaim);
   }
 
+  async listPendingRewardClaimAlerts(limit = 20): Promise<RewardClaim[]> {
+    const snap = await this.db.collection("reward_claims").where("status", "==", "claimed").limit(limit * 2).get();
+    return snap.docs
+      .map((doc) => doc.data() as RewardClaim)
+      .filter((claim) => !claim.manager_notified_at)
+      .slice(0, limit);
+  }
+
   async saveRewardClaim(claim: RewardClaim): Promise<RewardClaim> {
-    await this.db.collection("reward_claims").doc(claim.id).set(claim, { merge: true });
+    await this.db
+      .collection("reward_claims")
+      .doc(claim.id)
+      .set({ ...claim, manager_notified_at: claim.manager_notified_at ?? null }, { merge: true });
     return claim;
+  }
+
+  async markRewardClaimsNotified(claimIds: string[], notifiedAtISO: string): Promise<void> {
+    if (claimIds.length === 0) return;
+    const batch = this.db.batch();
+    for (const claimId of claimIds) {
+      const ref = this.db.collection("reward_claims").doc(claimId);
+      batch.set(ref, { manager_notified_at: notifiedAtISO }, { merge: true });
+    }
+    await batch.commit();
   }
 
   async listSubmissionsByUser(userId: string): Promise<Submission[]> {
@@ -783,7 +828,8 @@ class FirestoreGameRepository implements GameRepository {
       rewards,
       rewardClaims,
       submissions,
-      penaltyHistory
+      penaltyHistory,
+      managerUpdates: []
     };
   }
 }

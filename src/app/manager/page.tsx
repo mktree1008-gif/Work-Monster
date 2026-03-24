@@ -1,13 +1,13 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { APP_NAME } from "@/lib/constants";
 import { isManagerOwnerEmail } from "@/lib/constants";
+import { ManagerClaimAlertsModal } from "@/components/manager-claim-alerts-modal";
 import { ManagerReviewResultPopup } from "@/components/manager-review-result-popup";
 import { SubmissionReviewForm } from "@/components/submission-review-form";
 import { getGameRepository } from "@/lib/repositories/game-repository";
 import { getSession } from "@/lib/session";
 import {
-  claimPenaltyRewardAction,
+  acknowledgeManagerRewardAlertsAction,
   createRewardAction,
   deleteRewardAction,
   logoutAction,
@@ -44,6 +44,13 @@ export default async function ManagerPage({ searchParams }: Props) {
   const approved = params.approved === "1";
   const reviewedPoints = Number(params.points ?? 0);
   const reviewedNote = typeof params.note === "string" ? params.note : "";
+  const managerClaimAlerts = data.rewardClaimAlerts.map((item) => ({
+    claimId: item.claim.id,
+    userDisplay: item.userDisplay,
+    rewardTitle: item.rewardTitle,
+    rewardPoints: item.rewardPoints,
+    claimedAt: item.claim.claimed_at
+  }));
 
   return (
     <main className="container-mobile page-padding">
@@ -53,14 +60,12 @@ export default async function ManagerPage({ searchParams }: Props) {
         openOnMount={reviewed}
         points={Number.isFinite(reviewedPoints) ? reviewedPoints : 0}
       />
+      <ManagerClaimAlertsModal action={acknowledgeManagerRewardAlertsAction} alerts={managerClaimAlerts} />
 
       <header className="card mb-4 p-4">
         <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Manager Console</p>
         <h1 className="display-cute text-4xl font-extrabold text-indigo-900">{APP_NAME}</h1>
         <div className="mt-3 flex gap-2">
-          <Link className="btn btn-muted text-sm" href="/app/questions">
-            Open user app
-          </Link>
           <form action={logoutAction}>
             <button className="btn btn-primary text-sm" type="submit">
               Sign out
@@ -68,6 +73,45 @@ export default async function ManagerPage({ searchParams }: Props) {
           </form>
         </div>
       </header>
+
+      <section className="card mb-4 p-4">
+        <h2 className="text-xl font-black text-indigo-900">Manager priorities</h2>
+        <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-slate-700">
+          <li>Review daily check-ins and assign points/comments.</li>
+          <li>Update rules/rewards and tune game balance.</li>
+          <li>Handle user reward-claim requests from popup to-do alerts.</li>
+        </ol>
+        <p className="mt-2 rounded-xl bg-indigo-50 p-3 text-xs text-indigo-700">
+          Manager account is restricted to one owner only. Non-owner manager access is blocked.
+        </p>
+      </section>
+
+      <section className="card mb-4 p-4">
+        <h2 className="text-xl font-black text-indigo-900">Reward claim inbox</h2>
+        <p className="mt-1 text-sm text-slate-600">When users claim rewards, requests appear here and as login popup.</p>
+        {data.rewardClaimAlerts.length > 0 ? (
+          <>
+            <ul className="mt-3 space-y-2">
+              {data.rewardClaimAlerts.map((item) => (
+                <li key={item.claim.id} className="rounded-xl bg-indigo-50 p-3 text-sm">
+                  <p className="font-semibold text-indigo-900">{item.userDisplay}</p>
+                  <p className="text-indigo-700">
+                    🎁 {item.rewardTitle} ({item.rewardPoints} pts)
+                  </p>
+                </li>
+              ))}
+            </ul>
+            <form action={acknowledgeManagerRewardAlertsAction} className="mt-3">
+              <input name="claim_ids" type="hidden" value={managerClaimAlerts.map((item) => item.claimId).join(",")} />
+              <button className="btn btn-primary w-full" type="submit">
+                Mark reward claim alerts as done
+              </button>
+            </form>
+          </>
+        ) : (
+          <p className="mt-2 rounded-xl bg-slate-100 p-3 text-sm text-slate-600">No pending reward-claim requests.</p>
+        )}
+      </section>
 
       <section className="card mb-4 p-4">
         <h2 className="text-xl font-black text-indigo-900">Submission review</h2>
@@ -221,18 +265,42 @@ export default async function ManagerPage({ searchParams }: Props) {
               </p>
               <p className="text-xs text-amber-700">{event.reward_label}</p>
               {event.manager_reward_unlocked && (
-                <form action={claimPenaltyRewardAction} className="mt-2">
-                  <input name="event_id" type="hidden" value={event.id} />
-                  <button className="btn btn-primary w-full text-sm" type="submit">
-                    Claim manager reward
-                  </button>
-                </form>
+                <div className="mt-2 rounded-xl border border-amber-200 bg-white px-3 py-2 text-xs text-amber-700">
+                  Claim action is disabled in manager mode to keep this console review-only.
+                </div>
               )}
             </article>
           ))}
           {data.openPenaltyEvents.length === 0 && (
             <p className="text-sm text-slate-500">No active penalty rewards to claim.</p>
           )}
+        </div>
+      </section>
+
+      <section className="card mb-4 p-4">
+        <h2 className="text-xl font-black text-indigo-900">User view preview</h2>
+        <p className="mt-1 text-sm text-slate-600">
+          These values are exactly what users will see after manager edits.
+        </p>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="rounded-xl bg-slate-100 p-3 text-sm">
+            <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Rule version</p>
+            <p className="font-bold text-indigo-900">v{data.rules.rule_version}</p>
+          </div>
+          <div className="rounded-xl bg-slate-100 p-3 text-sm">
+            <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Multiplier</p>
+            <p className="font-bold text-indigo-900">
+              {data.rules.multiplier_trigger_days} days / x{data.rules.multiplier_value}
+            </p>
+          </div>
+          <div className="rounded-xl bg-slate-100 p-3 text-sm">
+            <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Penalty thresholds</p>
+            <p className="font-bold text-indigo-900">{data.rules.penalty_thresholds.join(", ")}</p>
+          </div>
+          <div className="rounded-xl bg-slate-100 p-3 text-sm">
+            <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Rewards</p>
+            <p className="font-bold text-indigo-900">{data.rewards.length} cards</p>
+          </div>
         </div>
       </section>
 

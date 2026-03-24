@@ -13,6 +13,7 @@ import {
   createReward,
   deleteReward,
   getDashboard,
+  markRewardClaimAlertsSeen,
   submitDailyCheckIn,
   updateReward,
   updateRules
@@ -181,6 +182,15 @@ export async function acknowledgeRulesAction(): Promise<void> {
   revalidatePath("/app");
 }
 
+export async function acknowledgeManagerUpdatesAction(_formData: FormData): Promise<void> {
+  const session = await getSession();
+  if (!session) redirect("/auth/login");
+
+  const repo = getGameRepository();
+  await repo.updateUser(session.uid, { last_seen_manager_update_at: new Date().toISOString() });
+  revalidatePath("/app");
+}
+
 export async function claimRewardAction(formData: FormData): Promise<void> {
   const session = await getSession();
   if (!session) redirect("/auth/login");
@@ -233,6 +243,22 @@ export async function reviewSubmissionAction(formData: FormData): Promise<void> 
     params.set("note", note.slice(0, 120));
   }
   redirect(`/manager?${params.toString()}`);
+}
+
+export async function acknowledgeManagerRewardAlertsAction(formData: FormData): Promise<void> {
+  const session = await getSession();
+  if (!session || session.role !== "manager") redirect("/auth/login");
+  await assertManagerOwner(session.uid);
+
+  const raw = String(formData.get("claim_ids") ?? "");
+  const claimIds = raw
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  await markRewardClaimAlertsSeen(claimIds);
+  revalidatePath("/manager");
+  redirect("/manager");
 }
 
 export async function updateRulesAction(formData: FormData): Promise<void> {

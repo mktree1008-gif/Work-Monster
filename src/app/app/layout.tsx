@@ -1,7 +1,10 @@
 import { APP_NAME } from "@/lib/constants";
+import { redirect } from "next/navigation";
 import { getViewerContext } from "@/lib/view-model";
 import { RulesOnboardingModal } from "@/components/rules-onboarding-modal";
 import { TopAppBar } from "@/components/top-app-bar";
+import { UserManagerUpdatesModal } from "@/components/user-manager-updates-modal";
+import { acknowledgeManagerUpdatesAction } from "@/lib/services/actions";
 
 export default async function UserLayout({
   children
@@ -9,6 +12,9 @@ export default async function UserLayout({
   children: React.ReactNode;
 }>) {
   const { bundle, strings } = await getViewerContext();
+  if (bundle.user.role === "manager") {
+    redirect("/manager");
+  }
   const showOnboarding = bundle.user.last_seen_rule_version < bundle.rules.rule_version;
 
   return (
@@ -30,6 +36,7 @@ export default async function UserLayout({
         role={bundle.user.role}
       />
       <main className="container-mobile page-padding">{children}</main>
+      <UserManagerUpdatesModal action={acknowledgeManagerUpdatesAction} updates={bundle.managerUpdates} />
       <RulesOnboardingModal
         changelog={bundle.rules.changelog}
         lastSeenVersion={bundle.user.last_seen_rule_version}

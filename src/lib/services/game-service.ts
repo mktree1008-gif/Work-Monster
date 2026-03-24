@@ -9,6 +9,7 @@ import {
 } from "@/lib/repositories/game-repository";
 import {
   DashboardBundle,
+  ManagerUpdateNotification,
   ManagerReviewInput,
   PenaltyEvent,
   Reward,
@@ -118,7 +119,8 @@ export async function approveSubmission(
   await repo.saveAuditLog(
     createAuditLog(managerId, "submission.reviewed", reviewed.id, {
       approved: input.approved,
-      points: reviewed.points_awarded
+      points: reviewed.points_awarded,
+      note: reviewed.manager_note ?? ""
     })
   );
 
@@ -271,6 +273,7 @@ export async function claimReward(userId: string, rewardId: string): Promise<Rew
     reward_id: rewardId,
     status: "claimed",
     claimed_at: nowISO(),
+    manager_notified_at: existing?.manager_notified_at ?? null,
     created_at: existing?.created_at ?? nowISO()
   };
 
@@ -349,24 +352,94 @@ export async function acknowledgeRuleVersion(userId: string): Promise<UserProfil
 
 export async function getDashboard(uid: string): Promise<DashboardBundle> {
   const repo = getGameRepository();
-  return repo.getDashboardBundle(uid);
+  const bundle = await repo.getDashboardBundle(uid);
+  const threshold = bundle.user.last_seen_manager_update_at ?? bundle.user.created_at;
+  const submissionIds = new Set(bundle.submissions.map((submission) => submission.id));
+  const logs = await repo.listAuditLogs(40);
+
+  const managerUpdates: ManagerUpdateNotification[] = [];
+
+  if (bundle.rules.last_updated > threshold) {
+    managerUpdates.push({
+      id: `rule-${bundle.rules.rule_version}`,
+      kind: "rule_update",
+      title: `Rules updated to v${bundle.rules.rule_version}`,
+      message: "Manager updated game rules. Open Rules tab to check details.",
+      created_at: bundle.rules.last_updated
+    });
+  }
+
+  for (const log of logs) {
+    if (log.created_at <= threshold) continue;
+
+    if (log.action === "submission.reviewed" && submissionIds.has(log.target_id)) {
+      const approved = Boolean(log.details.approved);
+      const points = Number(log.details.points ?? 0);
+      const note = String(log.details.note ?? "").trim();
+      managerUpdates.push({
+        id: log.id,
+        kind: "submission_review",
+        title: approved ? "Manager reviewed your check-in" : "Manager left a no-points review",
+        message: note.length > 0 ? note : approved ? `+${points} pts reflected in your score.` : "Check manager comment in Questions/Record.",
+        created_at: log.created_at
+      });
+    }
+
+    if (log.action === "reward.created" || log.action === "reward.updated" || log.action === "reward.deleted") {
+      managerUpdates.push({
+        id: log.id,
+        kind: "reward_update",
+        title: "Reward catalog updated",
+        message: "Manager changed reward settings. Check Rewards tab.",
+        created_at: log.created_at
+      });
+    }
+  }
+
+  return {
+    ...bundle,
+    managerUpdates: managerUpdates
+      .sort((a, b) => (a.created_at > b.created_at ? -1 : 1))
+      .slice(0, 4)
+  };
 }
 
 export async function getManagerOverview() {
   const repo = getGameRepository();
-  const [pendingSubmissions, rules, rewards, openPenaltyEvents, auditLogs] = await Promise.all([
+  const [pendingSubmissions, rules, rewards, openPenaltyEvents, auditLogs, rewardClaimAlerts] = await Promise.all([
     repo.listPendingSubmissions(),
     repo.getRules(),
     repo.listRewards(),
     repo.listOpenPenaltyEventsAll(),
-    repo.listAuditLogs(20)
+    repo.listAuditLogs(20),
+    repo.listPendingRewardClaimAlerts(20)
   ]);
+
+  const claimAlerts = await Promise.all(
+    rewardClaimAlerts.map(async (claim) => {
+      const [user] = await Promise.all([repo.getUser(claim.user_id)]);
+      const reward = rewards.find((item) => item.id === claim.reward_id) ?? null;
+      return {
+        claim,
+        userDisplay: (user?.name ?? "").trim() || user?.login_id || claim.user_id,
+        rewardTitle: reward?.title ?? claim.reward_id,
+        rewardPoints: reward?.required_points ?? 0
+      };
+    })
+  );
 
   return {
     pendingSubmissions,
     rules: rules ?? DEFAULT_RULES,
     rewards,
     openPenaltyEvents,
-    auditLogs
+    auditLogs,
+    rewardClaimAlerts: claimAlerts
   };
+}
+
+export async function markRewardClaimAlertsSeen(claimIds: string[]): Promise<void> {
+  if (claimIds.length === 0) return;
+  const repo = getGameRepository();
+  await repo.markRewardClaimsNotified(claimIds, nowISO());
 }

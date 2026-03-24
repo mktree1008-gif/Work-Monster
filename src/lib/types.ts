@@ -51,6 +51,7 @@ export interface UserProfile {
   password_hash?: string;
   password_salt?: string;
   last_seen_rule_version: number;
+  last_seen_manager_update_at?: string;
   created_at: string;
 }
 
@@ -105,6 +106,15 @@ export interface RewardClaim {
   reward_id: string;
   status: RewardClaimStatus;
   claimed_at?: string;
+  manager_notified_at?: string | null;
+  created_at: string;
+}
+
+export interface ManagerUpdateNotification {
+  id: string;
+  kind: "rule_update" | "reward_update" | "submission_review";
+  title: string;
+  message: string;
   created_at: string;
 }
 
@@ -159,4 +169,5 @@ export interface DashboardBundle {
   rewardClaims: RewardClaim[];
   submissions: Submission[];
   penaltyHistory: PenaltyEvent[];
+  managerUpdates: ManagerUpdateNotification[];
 }
