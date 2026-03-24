@@ -9,7 +9,6 @@ import { Locale } from "@/lib/types";
 
 type Props = {
   locale: Locale;
-  withGlasses: boolean;
 };
 
 type ChoiceKey = "A" | "B" | "C";
@@ -146,7 +145,7 @@ function answerLabel(stepIndex: number, state: StepState): string {
   return selectedOption(stepIndex, state)?.label ?? "";
 }
 
-export function QuestionsFlow({ locale, withGlasses }: Props) {
+export function QuestionsFlow({ locale }: Props) {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<StepState[]>(initialSteps);
@@ -269,7 +268,7 @@ export function QuestionsFlow({ locale, withGlasses }: Props) {
 
   return (
     <div className="space-y-4">
-      <CharacterAlert role="user" cue={determinedCue} glasses={withGlasses} compact />
+      <CharacterAlert role="user" cue={determinedCue} compact />
 
       <div className="soft-card p-3">
         <div className="mb-1 flex items-center justify-between text-xs text-slate-500">
@@ -329,7 +328,7 @@ export function QuestionsFlow({ locale, withGlasses }: Props) {
           <div className="flex items-center justify-center gap-3">
             <ChibiAvatar emotion={managerEmotion} role="manager" size={48} />
             <p className="anim-pop text-3xl">{reactionEmoji}</p>
-            <ChibiAvatar emotion={userEmotion} glasses={withGlasses} role="user" size={48} />
+            <ChibiAvatar emotion={userEmotion} role="user" size={48} />
           </div>
           <p className="mt-1 text-center text-sm font-semibold text-amber-800">{reactionText}</p>
         </div>
@@ -377,7 +376,7 @@ export function QuestionsFlow({ locale, withGlasses }: Props) {
             <span className="inline-flex items-center gap-2">
               <ChibiAvatar emotion={allAnswered ? "approval" : "encouraging"} role="manager" size={24} />
               {saving ? "Saving..." : "Save check-in"}
-              <ChibiAvatar emotion={allAnswered ? "excited" : "neutral"} glasses={withGlasses} role="user" size={24} />
+              <ChibiAvatar emotion={allAnswered ? "excited" : "neutral"} role="user" size={24} />
             </span>
           </button>
         )}

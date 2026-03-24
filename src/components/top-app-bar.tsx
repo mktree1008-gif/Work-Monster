@@ -2,9 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { CircleUserRound, Compass, Menu, UserRound, X } from "lucide-react";
+import { CircleUserRound, Compass, Menu, X } from "lucide-react";
 import { Locale, UserRole } from "@/lib/types";
 import { logoutAction, setLocaleAction } from "@/lib/services/actions";
+import { ProfileAvatar } from "@/components/profile-avatar";
 
 type Props = {
   appName: string;
@@ -18,11 +19,14 @@ type Props = {
     rules: string;
     account: string;
   };
+  displayName?: string;
+  profileAvatarEmoji?: string;
+  profileAvatarUrl?: string;
 };
 
 type PanelMode = "nav" | "profile" | null;
 
-export function TopAppBar({ appName, role, locale, labels }: Props) {
+export function TopAppBar({ appName, role, locale, labels, displayName, profileAvatarEmoji, profileAvatarUrl }: Props) {
   const [panel, setPanel] = useState<PanelMode>(null);
   const [navTab, setNavTab] = useState<"main" | "more">("main");
   const [profileTab, setProfileTab] = useState<"account" | "settings">("account");
@@ -71,11 +75,17 @@ export function TopAppBar({ appName, role, locale, labels }: Props) {
           </div>
           <button
             aria-label="Open profile panel"
-            className="rounded-full bg-indigo-100 p-2 text-indigo-900"
+            className="rounded-full bg-indigo-100 p-1 text-indigo-900"
             onClick={openProfile}
             type="button"
           >
-            <UserRound size={18} />
+            <ProfileAvatar
+              className="ring-indigo-200"
+              emoji={profileAvatarEmoji}
+              imageUrl={profileAvatarUrl}
+              name={displayName}
+              size={30}
+            />
           </button>
         </div>
       </header>
@@ -171,6 +181,18 @@ export function TopAppBar({ appName, role, locale, labels }: Props) {
 
                 {profileTab === "account" ? (
                   <div className="space-y-2">
+                    <div className="flex items-center gap-3 rounded-xl bg-slate-100 p-3">
+                      <ProfileAvatar
+                        emoji={profileAvatarEmoji}
+                        imageUrl={profileAvatarUrl}
+                        name={displayName}
+                        size={40}
+                      />
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-indigo-900">{displayName || "Work Monster"}</p>
+                        <p className="text-xs text-slate-500">{role}</p>
+                      </div>
+                    </div>
                     <div className="rounded-xl bg-slate-100 p-3 text-sm">
                       <p className="text-xs uppercase tracking-[0.14em] text-slate-500">{ui.currentRole}</p>
                       <p className="mt-1 font-semibold text-indigo-900">{role}</p>

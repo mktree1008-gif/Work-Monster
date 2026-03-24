@@ -1,5 +1,6 @@
 "use server";
 
+import { Buffer } from "node:buffer";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { Locale, RuleConfig, UserRole } from "@/lib/types";
@@ -70,18 +71,52 @@ export async function setLocaleAction(formData: FormData): Promise<void> {
   revalidatePath("/manager");
 }
 
-export async function setCharacterStyleAction(formData: FormData): Promise<void> {
+export async function updateProfileAvatarAction(formData: FormData): Promise<void> {
   const session = await getSession();
   if (!session) redirect("/auth/login");
 
-  const withGlasses = String(formData.get("character_glasses") ?? "true") !== "false";
   const repo = getGameRepository();
-  await repo.updateUser(session.uid, { character_glasses: withGlasses });
+  const mode = String(formData.get("avatar_mode") ?? "emoji");
+  const rawEmoji = String(formData.get("avatar_emoji") ?? "").trim();
+  const rawUrl = String(formData.get("avatar_url") ?? "").trim();
+  const file = formData.get("avatar_file");
+
+  let imageUrl = rawUrl;
+
+  if (file instanceof File && file.size > 0) {
+    if (!file.type.startsWith("image/")) {
+      throw new Error("Please upload an image file.");
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      throw new Error("Please upload an image under 2MB.");
+    }
+
+    const buffer = Buffer.from(await file.arrayBuffer());
+    imageUrl = `data:${file.type};base64,${buffer.toString("base64")}`;
+  }
+
+  const emoji = rawEmoji.length > 0 ? rawEmoji.slice(0, 2) : "😺";
+
+  if (mode === "image" && imageUrl) {
+    await repo.updateUser(session.uid, {
+      profile_avatar_type: "image",
+      profile_avatar_url: imageUrl,
+      profile_avatar_emoji: emoji
+    });
+  } else {
+    await repo.updateUser(session.uid, {
+      profile_avatar_type: "emoji",
+      profile_avatar_emoji: emoji,
+      profile_avatar_url: undefined
+    });
+  }
 
   revalidatePath("/account");
+  revalidatePath("/app");
   revalidatePath("/app/questions");
-  revalidatePath("/app/score");
   revalidatePath("/app/record");
+  revalidatePath("/app/rewards");
+  revalidatePath("/app/score");
 }
 
 export async function submitCheckInAction(formData: FormData): Promise<void> {

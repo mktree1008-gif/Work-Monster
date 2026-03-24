@@ -14,7 +14,7 @@ export default async function RewardsPage() {
     <UserPageShell activeTab="rewards" labels={strings} subtitle="Collect and claim" title="Rewards">
       {hasAvailable && (
         <section className="mb-4">
-          <CharacterAlert role="user" cue={milestoneCue} glasses={bundle.user.character_glasses ?? true} tone="success" />
+          <CharacterAlert role="user" cue={milestoneCue} tone="success" />
         </section>
       )}
 

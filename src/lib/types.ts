@@ -44,6 +44,9 @@ export interface UserProfile {
   name: string;
   locale: Locale;
   character_glasses?: boolean;
+  profile_avatar_type?: "emoji" | "image";
+  profile_avatar_emoji?: string;
+  profile_avatar_url?: string;
   auth_provider?: "password" | "google";
   password_hash?: string;
   password_salt?: string;

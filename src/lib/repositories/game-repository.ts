@@ -124,6 +124,8 @@ function createMemoryDB(): MemoryDB {
         name: "Ashton",
         locale: "en",
         character_glasses: true,
+        profile_avatar_type: "emoji",
+        profile_avatar_emoji: "😺",
         auth_provider: "password",
         password_hash: userSeedCredential.hash,
         password_salt: userSeedCredential.salt,
@@ -141,6 +143,8 @@ function createMemoryDB(): MemoryDB {
         name: "Manager",
         locale: "en",
         character_glasses: false,
+        profile_avatar_type: "emoji",
+        profile_avatar_emoji: "🧑‍💼",
         auth_provider: "password",
         password_hash: managerSeedCredential.hash,
         password_salt: managerSeedCredential.salt,
@@ -199,6 +203,8 @@ class MemoryGameRepository implements GameRepository {
         role,
         locale,
         character_glasses: existing.character_glasses ?? true,
+        profile_avatar_type: existing.profile_avatar_type ?? "emoji",
+        profile_avatar_emoji: existing.profile_avatar_emoji ?? (role === "manager" ? "🧑‍💼" : "😺"),
         auth_provider: existing.auth_provider ?? "google"
       };
       this.db.users.set(updated.id, updated);
@@ -216,6 +222,8 @@ class MemoryGameRepository implements GameRepository {
       locale,
       name: normalized.split("@")[0] ?? "Player",
       character_glasses: true,
+      profile_avatar_type: "emoji",
+      profile_avatar_emoji: role === "manager" ? "🧑‍💼" : "😺",
       auth_provider: "google",
       last_seen_rule_version: 0,
       created_at: nowISO()
@@ -258,6 +266,8 @@ class MemoryGameRepository implements GameRepository {
       locale,
       name: "",
       character_glasses: true,
+      profile_avatar_type: "emoji",
+      profile_avatar_emoji: role === "manager" ? "🧑‍💼" : "😺",
       auth_provider: "password",
       password_hash: hash,
       password_salt: salt,
@@ -481,6 +491,8 @@ class FirestoreGameRepository implements GameRepository {
         locale,
         name: normalized.split("@")[0] ?? "Player",
         character_glasses: true,
+        profile_avatar_type: "emoji",
+        profile_avatar_emoji: role === "manager" ? "🧑‍💼" : "😺",
         auth_provider: "google",
         last_seen_rule_version: 0,
         created_at: nowISO()
@@ -498,6 +510,8 @@ class FirestoreGameRepository implements GameRepository {
       role,
       locale,
       character_glasses: found.user.character_glasses ?? true,
+      profile_avatar_type: found.user.profile_avatar_type ?? "emoji",
+      profile_avatar_emoji: found.user.profile_avatar_emoji ?? (role === "manager" ? "🧑‍💼" : "😺"),
       auth_provider: found.user.auth_provider ?? "google"
     };
     await this.db.collection("users").doc(found.id).set(next, { merge: true });
@@ -534,6 +548,8 @@ class FirestoreGameRepository implements GameRepository {
       locale,
       name: "",
       character_glasses: true,
+      profile_avatar_type: "emoji",
+      profile_avatar_emoji: role === "manager" ? "🧑‍💼" : "😺",
       auth_provider: "password",
       password_hash: credential.hash,
       password_salt: credential.salt,

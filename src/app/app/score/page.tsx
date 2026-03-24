@@ -25,7 +25,7 @@ export default async function ScorePage() {
   return (
     <UserPageShell activeTab="score" labels={strings} subtitle="Game HUD" title="Score">
       <section className="mb-4">
-        <CharacterAlert role="user" cue={userScoreCue} glasses={bundle.user.character_glasses ?? true} />
+        <CharacterAlert role="user" cue={userScoreCue} />
       </section>
 
       <section className="grid grid-cols-2 gap-3">
@@ -94,13 +94,13 @@ export default async function ScorePage() {
 
       {milestoneUnlocked && (
         <section className="mt-4">
-          <CharacterAlert role="user" cue={milestoneCue} glasses={bundle.user.character_glasses ?? true} tone="success" />
+          <CharacterAlert role="user" cue={milestoneCue} tone="success" />
         </section>
       )}
 
       {majorPenalty && (
         <section className="mt-4">
-          <CharacterAlert role="user" cue={majorPenaltyCue} glasses={bundle.user.character_glasses ?? true} tone="warning" />
+          <CharacterAlert role="user" cue={majorPenaltyCue} tone="warning" />
         </section>
       )}
     </UserPageShell>

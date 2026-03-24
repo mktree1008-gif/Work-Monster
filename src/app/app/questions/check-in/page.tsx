@@ -16,7 +16,7 @@ export default async function CheckInPage() {
             Back to Questions Home
           </Link>
         </div>
-        <QuestionsFlow locale={bundle.user.locale} withGlasses={bundle.user.character_glasses ?? true} />
+        <QuestionsFlow locale={bundle.user.locale} />
       </section>
     </UserPageShell>
   );

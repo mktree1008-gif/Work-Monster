@@ -7,12 +7,12 @@ import { computeNextReward } from "@/lib/logic/scoring";
 import { getViewerContext } from "@/lib/view-model";
 
 type Props = {
-  searchParams?: Record<string, string | string[] | undefined>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>> | Record<string, string | string[] | undefined>;
 };
 
 export default async function QuestionsPage({ searchParams }: Props) {
   const { bundle, strings } = await getViewerContext();
-  const params = searchParams ?? {};
+  const params = ((searchParams ? await searchParams : undefined) ?? {}) as Record<string, string | string[] | undefined>;
   const saved = params.saved === "1";
   const nextReward = computeNextReward(bundle.score.total_points, bundle.rewards);
   const firstReward = bundle.rewards[0] ?? null;
@@ -110,7 +110,7 @@ export default async function QuestionsPage({ searchParams }: Props) {
 
       {milestoneUnlocked && (
         <section className="mt-4">
-          <CharacterAlert role="user" cue={milestoneCue} glasses={bundle.user.character_glasses ?? true} tone="success" />
+          <CharacterAlert role="user" cue={milestoneCue} tone="success" />
         </section>
       )}
 
