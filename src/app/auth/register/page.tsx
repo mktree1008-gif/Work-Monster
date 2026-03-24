@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { Suspense } from "react";
 import { Compass } from "lucide-react";
 import { RegisterForm } from "@/components/register-form";
 
@@ -27,7 +28,15 @@ export default function RegisterPage() {
             <p className="mt-1 text-sm text-slate-500">Create your account and start the game.</p>
           </header>
 
-          <RegisterForm />
+          <Suspense
+            fallback={
+              <div className="px-6 pb-6">
+                <div className="h-10 w-full animate-pulse rounded-xl bg-slate-100" />
+              </div>
+            }
+          >
+            <RegisterForm />
+          </Suspense>
         </section>
       </div>
     </main>

@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { Suspense } from "react";
 import { Compass, CalendarDays, Sparkles, Star, Target, TrendingUp } from "lucide-react";
 import { LoginForm } from "@/components/login-form";
 
@@ -40,7 +41,15 @@ export default function LoginPage() {
             <p className="mt-1 text-lg text-slate-500">Design your progress, one habit at a time.</p>
           </header>
 
-          <LoginForm />
+          <Suspense
+            fallback={
+              <div className="px-6 pb-6">
+                <div className="h-10 w-full animate-pulse rounded-xl bg-slate-100" />
+              </div>
+            }
+          >
+            <LoginForm />
+          </Suspense>
         </section>
 
         <section className="card mt-4 p-4">
