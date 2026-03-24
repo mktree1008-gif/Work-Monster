@@ -20,7 +20,9 @@ function getFirebaseAdminApp(): App {
   if (!app) {
     const projectId = process.env.FIREBASE_PROJECT_ID as string;
     const clientEmail = process.env.FIREBASE_CLIENT_EMAIL as string;
-    const privateKey = (process.env.FIREBASE_PRIVATE_KEY as string).replace(/\\n/g, "\n");
+    const privateKey = (process.env.FIREBASE_PRIVATE_KEY as string)
+      .replace(/^"+|"+$/g, "")
+      .replace(/\\n/g, "\n");
 
     app = getApps()[0] ??
       initializeApp({
