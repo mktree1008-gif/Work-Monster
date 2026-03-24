@@ -1,4 +1,5 @@
 import { CharacterCue, ManagerExpression, UserExpression } from "@/lib/character-system";
+import { ChibiAvatar } from "@/components/chibi-avatar";
 
 type Props = {
   role: "manager" | "user";
@@ -40,19 +41,29 @@ function toneClass(tone: Props["tone"]): string {
 }
 
 export function CharacterAlert({ role, cue, glasses = false, compact = false, tone = "default" }: Props) {
-  const baseAvatar = role === "manager" ? "👩‍💼" : "🧑";
   const characterName = role === "manager" ? "Manager Character" : "User Character";
   const expression = expressionEmoji(cue.expression);
+  const emotion =
+    cue.expression === "wide-eyes"
+      ? "alert"
+      : cue.expression === "clap" || cue.expression === "jump"
+        ? "excited"
+        : cue.expression === "wink" || cue.expression === "nods"
+          ? "approval"
+          : cue.expression === "sad" || cue.expression === "nervous"
+            ? "alert"
+            : "encouraging";
 
   return (
     <div className={`anim-pop rounded-2xl border p-3 ${toneClass(tone)} ${compact ? "" : "shadow-sm"}`}>
       <div className="flex items-start gap-3">
-        <div className="anim-float relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white text-2xl">
-          <span>{baseAvatar}</span>
-          {role === "user" && glasses && (
-            <span className="absolute -bottom-1 -right-1 rounded-full bg-indigo-100 px-1 text-xs text-indigo-700">👓</span>
-          )}
-        </div>
+        <ChibiAvatar
+          className="anim-float shrink-0"
+          emotion={emotion}
+          glasses={role === "user" ? glasses : false}
+          role={role}
+          size={56}
+        />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">{characterName}</p>

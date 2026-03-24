@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { CharacterAlert } from "@/components/character-alert";
+import { ChibiAvatar } from "@/components/chibi-avatar";
 import { getUserCue } from "@/lib/character-system";
-import { submitCheckInAction } from "@/lib/services/actions";
 import { Locale } from "@/lib/types";
 
 type Props = {
@@ -146,12 +147,15 @@ function answerLabel(stepIndex: number, state: StepState): string {
 }
 
 export function QuestionsFlow({ locale, withGlasses }: Props) {
+  const router = useRouter();
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<StepState[]>(initialSteps);
   const [taskList, setTaskList] = useState("");
   const [fileUrl, setFileUrl] = useState("");
   const [clientTimeZone, setClientTimeZone] = useState("UTC");
   const [clientLocalDate, setClientLocalDate] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
   const progress = useMemo(() => Math.round(((step + 1) / stepDefinitions.length) * 100), [step]);
   const determinedCue = getUserCue("questions_determined", locale);
@@ -159,11 +163,17 @@ export function QuestionsFlow({ locale, withGlasses }: Props) {
   const currentStepDef = stepDefinitions[step];
   const currentState = answers[step];
   const currentOption = selectedOption(step, currentState);
-  const reactionEmoji = currentOption?.emoji ?? (currentState.customText.trim() ? "✍️" : "🙂");
-  const reactionText = currentOption?.label ?? (currentState.customText.trim() || "Choose an option");
-
   const stepCompleted = hasAnswer(currentState);
   const allAnswered = answers.every((item) => hasAnswer(item));
+  const reactionEmoji = currentOption?.emoji ?? (currentState.customText.trim() ? "✍️" : "🙂");
+  const reactionText = currentOption?.label ?? (currentState.customText.trim() || "Choose an option");
+  const userEmotion =
+    currentState.choice === ""
+      ? "neutral"
+      : currentOption?.productive === false || currentState.choice === "CUSTOM"
+        ? "alert"
+        : "excited";
+  const managerEmotion = stepCompleted ? "approval" : "encouraging";
 
   useEffect(() => {
     try {
@@ -187,6 +197,7 @@ export function QuestionsFlow({ locale, withGlasses }: Props) {
   }, []);
 
   function chooseOption(key: ChoiceKey) {
+    setSubmitError("");
     setAnswers((prev) =>
       prev.map((item, index) => {
         if (index !== step) return item;
@@ -196,6 +207,7 @@ export function QuestionsFlow({ locale, withGlasses }: Props) {
   }
 
   function updateCustom(value: string) {
+    setSubmitError("");
     setAnswers((prev) =>
       prev.map((item, index) => {
         if (index !== step) return item;
@@ -214,6 +226,46 @@ export function QuestionsFlow({ locale, withGlasses }: Props) {
     (selectedOption(0, answers[0])?.productive ?? true) &&
     (selectedOption(1, answers[1])?.productive ?? true) &&
     (selectedOption(2, answers[2])?.productive ?? true);
+
+  async function onSubmitCheckIn() {
+    if (!allAnswered || saving) return;
+
+    setSaving(true);
+    setSubmitError("");
+
+    try {
+      const response = await fetch("/api/submissions/check-in", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mood,
+          feeling: mood,
+          focus: answerLabel(0, answers[0]),
+          blocker: progressAnswer,
+          win: nextMoveAnswer,
+          calories: 0,
+          productive,
+          task_list: taskList,
+          file_url: fileUrl,
+          client_time_zone: clientTimeZone,
+          client_local_date: clientLocalDate
+        })
+      });
+
+      if (!response.ok) {
+        const payload = (await response.json()) as { error?: string };
+        throw new Error(payload.error ?? "Failed to save check-in.");
+      }
+
+      const payload = (await response.json()) as { redirectTo?: string };
+      router.push(payload.redirectTo ?? "/app/questions?saved=1");
+      router.refresh();
+    } catch (caught) {
+      setSubmitError(caught instanceof Error ? caught.message : "Failed to save check-in.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -273,9 +325,13 @@ export function QuestionsFlow({ locale, withGlasses }: Props) {
           />
         </label>
 
-        <div className="rounded-2xl bg-amber-50 p-3 text-center">
-          <p className="anim-pop text-3xl">{reactionEmoji}</p>
-          <p className="mt-1 text-sm font-semibold text-amber-800">{reactionText}</p>
+        <div className="rounded-2xl bg-amber-50 p-3">
+          <div className="flex items-center justify-center gap-3">
+            <ChibiAvatar emotion={managerEmotion} role="manager" size={48} />
+            <p className="anim-pop text-3xl">{reactionEmoji}</p>
+            <ChibiAvatar emotion={userEmotion} glasses={withGlasses} role="user" size={48} />
+          </div>
+          <p className="mt-1 text-center text-sm font-semibold text-amber-800">{reactionText}</p>
         </div>
       </article>
 
@@ -317,24 +373,21 @@ export function QuestionsFlow({ locale, withGlasses }: Props) {
             Next
           </button>
         ) : (
-          <form action={submitCheckInAction} className="w-full">
-            <input name="mood" type="hidden" value={mood} />
-            <input name="feeling" type="hidden" value={mood} />
-            <input name="focus" type="hidden" value={answerLabel(0, answers[0])} />
-            <input name="blocker" type="hidden" value={progressAnswer} />
-            <input name="win" type="hidden" value={nextMoveAnswer} />
-            <input name="calories" type="hidden" value="0" />
-            <input name="productive" type="hidden" value={productive ? "true" : "false"} />
-            <input name="task_list" type="hidden" value={taskList} />
-            <input name="file_url" type="hidden" value={fileUrl} />
-            <input name="client_time_zone" type="hidden" value={clientTimeZone} />
-            <input name="client_local_date" type="hidden" value={clientLocalDate} />
-            <button className="btn btn-primary w-full" disabled={!allAnswered} type="submit">
-              Save check-in
-            </button>
-          </form>
+          <button className="btn btn-primary w-full" disabled={!allAnswered || saving} onClick={onSubmitCheckIn} type="button">
+            <span className="inline-flex items-center gap-2">
+              <ChibiAvatar emotion={allAnswered ? "approval" : "encouraging"} role="manager" size={24} />
+              {saving ? "Saving..." : "Save check-in"}
+              <ChibiAvatar emotion={allAnswered ? "excited" : "neutral"} glasses={withGlasses} role="user" size={24} />
+            </span>
+          </button>
         )}
       </div>
+
+      {submitError && (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+          {submitError}
+        </div>
+      )}
     </div>
   );
 }

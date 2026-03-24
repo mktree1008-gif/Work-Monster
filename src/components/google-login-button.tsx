@@ -10,9 +10,10 @@ import { Locale, UserRole } from "@/lib/types";
 type Props = {
   role: UserRole;
   locale: Locale;
+  onSuccessRedirect?: (redirectTo: string) => void;
 };
 
-export function GoogleLoginButton({ role, locale }: Props) {
+export function GoogleLoginButton({ role, locale, onSuccessRedirect }: Props) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
@@ -59,8 +60,12 @@ export function GoogleLoginButton({ role, locale }: Props) {
       }
 
       const payload = (await response.json()) as { redirectTo: string };
-      router.push(payload.redirectTo);
-      router.refresh();
+      if (onSuccessRedirect) {
+        onSuccessRedirect(payload.redirectTo);
+      } else {
+        router.push(payload.redirectTo);
+        router.refresh();
+      }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Google sign-in failed.");
     } finally {

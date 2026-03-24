@@ -110,6 +110,7 @@ export async function submitCheckInAction(formData: FormData): Promise<void> {
 
   revalidatePath("/app/questions");
   revalidatePath("/app/record");
+  redirect("/app/questions?saved=1");
 }
 
 export async function acknowledgeRulesAction(): Promise<void> {

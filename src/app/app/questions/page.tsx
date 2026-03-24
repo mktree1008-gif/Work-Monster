@@ -6,8 +6,14 @@ import { UserPageShell } from "@/components/user-page-shell";
 import { computeNextReward } from "@/lib/logic/scoring";
 import { getViewerContext } from "@/lib/view-model";
 
-export default async function QuestionsPage() {
+type Props = {
+  searchParams?: Record<string, string | string[] | undefined>;
+};
+
+export default async function QuestionsPage({ searchParams }: Props) {
   const { bundle, strings } = await getViewerContext();
+  const params = searchParams ?? {};
+  const saved = params.saved === "1";
   const nextReward = computeNextReward(bundle.score.total_points, bundle.rewards);
   const firstReward = bundle.rewards[0] ?? null;
   const firstRewardRemaining = firstReward ? Math.max(0, firstReward.required_points - bundle.score.total_points) : 0;
@@ -29,11 +35,26 @@ export default async function QuestionsPage() {
       subtitle="How was your day?"
       title={
         <>
-          <span className="block leading-[1.08]">Hello, Work Monster!</span>
-          <span className="mt-1 block text-[0.68em] font-semibold text-indigo-700">{displayName}</span>
+          <span className="block text-balance leading-[1.06]">Hello, Work Monster!</span>
+          <span className="block break-keep text-balance leading-[1.06] font-extrabold text-cyan-600">{displayName}</span>
         </>
       }
     >
+      {saved && (
+        <section className="mb-4">
+          <CharacterAlert
+            cue={{
+              emoji: "🎉",
+              expression: "clap",
+              title: "Saved Successfully",
+              message: "Your check-in is now pending manager approval."
+            }}
+            role="manager"
+            tone="success"
+          />
+        </section>
+      )}
+
       <section className="card anim-pop mb-4 overflow-hidden bg-gradient-to-br from-blue-700 via-indigo-700 to-indigo-900 p-5 text-white">
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-100/90">Current Momentum</p>
         <div className="mt-2 flex items-end gap-2">
