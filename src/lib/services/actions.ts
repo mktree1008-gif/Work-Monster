@@ -266,21 +266,64 @@ export async function updateRulesAction(formData: FormData): Promise<void> {
   if (!session || session.role !== "manager") redirect("/auth/login");
   await assertManagerOwner(session.uid);
 
-  const thresholds = String(formData.get("penalty_thresholds") ?? "-1,-5,-10")
-    .split(",")
-    .map((value) => Number(value.trim()))
-    .filter((value) => Number.isFinite(value) && value < 0)
-    .sort((a, b) => b - a);
+  const rowMap = new Map<number, { threshold?: number; label?: string; value?: string }>();
 
-  const rewardsRaw = String(formData.get("penalty_rewards_json") ?? "[]");
-  let parsedRewards: RuleConfig["penalty_rewards"] = [];
-  try {
-    parsedRewards = JSON.parse(rewardsRaw) as RuleConfig["penalty_rewards"];
-  } catch (_error) {
-    parsedRewards = [];
+  for (const [key, raw] of formData.entries()) {
+    const value = String(raw ?? "").trim();
+    if (key.startsWith("penalty_item_threshold_")) {
+      const idx = Number(key.replace("penalty_item_threshold_", ""));
+      if (!Number.isFinite(idx)) continue;
+      const parsed = Number(value);
+      const row = rowMap.get(idx) ?? {};
+      row.threshold = Number.isFinite(parsed) ? parsed : undefined;
+      rowMap.set(idx, row);
+      continue;
+    }
+    if (key.startsWith("penalty_item_label_")) {
+      const idx = Number(key.replace("penalty_item_label_", ""));
+      if (!Number.isFinite(idx)) continue;
+      const row = rowMap.get(idx) ?? {};
+      row.label = value;
+      rowMap.set(idx, row);
+      continue;
+    }
+    if (key.startsWith("penalty_item_value_")) {
+      const idx = Number(key.replace("penalty_item_value_", ""));
+      if (!Number.isFinite(idx)) continue;
+      const row = rowMap.get(idx) ?? {};
+      row.value = value;
+      rowMap.set(idx, row);
+    }
   }
 
-  await updateRules(
+  const configuredRows = [...rowMap.values()].filter((row) => Number.isFinite(row.threshold) && Number(row.threshold) < 0);
+
+  let thresholds = configuredRows
+    .map((row) => Math.floor(Number(row.threshold)))
+    .filter((value) => Number.isFinite(value) && value < 0);
+
+  thresholds = [...new Set(thresholds)].sort((a, b) => b - a);
+  if (thresholds.length === 0) {
+    thresholds = [-1, -5, -10];
+  }
+
+  const parsedRewards: RuleConfig["penalty_rewards"] = thresholds.map((threshold) => {
+    const found = configuredRows.find((row) => Math.floor(Number(row.threshold)) === threshold);
+    return {
+      threshold,
+      label: (found?.label ?? "").trim() || "Manager reward unlocked",
+      value: (found?.value ?? "").trim() || "$0 equivalent"
+    };
+  });
+
+  const targetRuleVersionRaw = String(formData.get("target_rule_version") ?? "").trim();
+  const targetRuleVersionParsed = Number(targetRuleVersionRaw);
+  const targetRuleVersion =
+    targetRuleVersionRaw.length > 0 && Number.isFinite(targetRuleVersionParsed) && targetRuleVersionParsed > 0
+      ? Math.floor(targetRuleVersionParsed)
+      : undefined;
+
+  const saved = await updateRules(
     {
       checkin_points: parseNumber(formData.get("checkin_points"), 2),
       submission_points: parseNumber(formData.get("submission_points"), 5),
@@ -297,6 +340,7 @@ export async function updateRulesAction(formData: FormData): Promise<void> {
       rewards_blurb: String(formData.get("rewards_blurb") ?? ""),
       penalty_thresholds: thresholds,
       penalty_rewards: parsedRewards,
+      target_rule_version: targetRuleVersion,
       note: String(formData.get("note") ?? "")
     },
     session.uid
@@ -305,6 +349,10 @@ export async function updateRulesAction(formData: FormData): Promise<void> {
   revalidatePath("/manager");
   revalidatePath("/app/rules");
   revalidatePath("/app/score");
+  const params = new URLSearchParams();
+  params.set("rules_saved", "1");
+  params.set("version", String(saved.rule_version));
+  redirect(`/manager?${params.toString()}`);
 }
 
 export async function createRewardAction(formData: FormData): Promise<void> {

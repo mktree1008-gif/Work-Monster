@@ -41,7 +41,7 @@ export function RulesOnboardingModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/40 p-4">
+    <div className="fixed inset-0 z-[75] bg-slate-950/40 p-4">
       <CharacterToast cue={managerCue} durationMs={2400} openOnMount={openOnLoad} role="manager" tone="success" />
       <div className="container-mobile card mt-12 max-h-[80dvh] overflow-y-auto p-5">
         <p className="text-xs uppercase tracking-[0.2em] text-indigo-500">Rule Update</p>
@@ -71,7 +71,12 @@ export function RulesOnboardingModal({
           <button className="btn btn-muted w-full" onClick={() => setOpen(false)} type="button">
             Close
           </button>
-          <form action={acknowledgeRulesAction}>
+          <form
+            action={acknowledgeRulesAction}
+            onSubmit={() => {
+              setOpen(false);
+            }}
+          >
             <button className="btn btn-primary w-full" type="submit">
               I understand
             </button>

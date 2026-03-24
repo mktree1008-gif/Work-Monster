@@ -36,7 +36,7 @@ export default async function UserLayout({
         role={bundle.user.role}
       />
       <main className="container-mobile page-padding">{children}</main>
-      <UserManagerUpdatesModal action={acknowledgeManagerUpdatesAction} updates={bundle.managerUpdates} />
+      <UserManagerUpdatesModal action={acknowledgeManagerUpdatesAction} updates={showOnboarding ? [] : bundle.managerUpdates} />
       <RulesOnboardingModal
         changelog={bundle.rules.changelog}
         lastSeenVersion={bundle.user.last_seen_rule_version}

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { APP_NAME } from "@/lib/constants";
 import { isManagerOwnerEmail } from "@/lib/constants";
 import { ManagerClaimAlertsModal } from "@/components/manager-claim-alerts-modal";
+import { ManagerRulesSavedPopup } from "@/components/manager-rules-saved-popup";
 import { ManagerReviewResultPopup } from "@/components/manager-review-result-popup";
 import { SubmissionReviewForm } from "@/components/submission-review-form";
 import { getGameRepository } from "@/lib/repositories/game-repository";
@@ -44,6 +45,9 @@ export default async function ManagerPage({ searchParams }: Props) {
   const approved = params.approved === "1";
   const reviewedPoints = Number(params.points ?? 0);
   const reviewedNote = typeof params.note === "string" ? params.note : "";
+  const rulesSaved = params.rules_saved === "1";
+  const rulesVersion = Number(params.version ?? data.rules.rule_version);
+  const safeRulesVersion = Number.isFinite(rulesVersion) && rulesVersion > 0 ? Math.floor(rulesVersion) : data.rules.rule_version;
   const managerClaimAlerts = data.rewardClaimAlerts.map((item) => ({
     claimId: item.claim.id,
     userDisplay: item.userDisplay,
@@ -51,9 +55,21 @@ export default async function ManagerPage({ searchParams }: Props) {
     rewardPoints: item.rewardPoints,
     claimedAt: item.claim.claimed_at
   }));
+  const rewardByThreshold = new Map(data.rules.penalty_rewards.map((reward) => [reward.threshold, reward]));
+  const thresholds = [...new Set([...data.rules.penalty_thresholds, ...data.rules.penalty_rewards.map((reward) => reward.threshold)])]
+    .sort((a, b) => b - a);
+  const penaltyRows = [...thresholds, NaN, NaN].map((threshold) => {
+    const reward = Number.isFinite(threshold) ? rewardByThreshold.get(threshold) : undefined;
+    return {
+      threshold: Number.isFinite(threshold) ? String(threshold) : "",
+      label: reward?.label ?? "Manager reward unlocked",
+      value: reward?.value ?? "$0 equivalent"
+    };
+  });
 
   return (
     <main className="container-mobile page-padding">
+      <ManagerRulesSavedPopup openOnMount={rulesSaved} version={safeRulesVersion} />
       <ManagerReviewResultPopup
         approved={approved}
         note={reviewedNote}
@@ -224,21 +240,45 @@ export default async function ManagerPage({ searchParams }: Props) {
           <article className="rounded-2xl bg-slate-50 p-3">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">4) Penalty (Risk Zone)</p>
             <p className="mt-1 text-xs text-slate-500">
-              Thresholds use negative values only. Example: -1, -5, -10
+              Add, edit, or remove rows freely. Empty rows are ignored automatically.
             </p>
             <div className="mt-2 space-y-2">
               <label className="text-xs font-semibold text-slate-600">
                 Penalty description
                 <textarea className="input mt-1 h-20 resize-none" defaultValue={data.rules.penalty_description} name="penalty_description" />
               </label>
-              <label className="text-xs font-semibold text-slate-600">
-                Penalty thresholds (comma separated)
-                <input className="input mt-1" defaultValue={data.rules.penalty_thresholds.join(",")} name="penalty_thresholds" placeholder="-1,-5,-10" />
-              </label>
-              <label className="text-xs font-semibold text-slate-600">
-                Penalty reward config (JSON)
-                <textarea className="input mt-1 h-24 resize-none font-mono text-xs" defaultValue={JSON.stringify(data.rules.penalty_rewards)} name="penalty_rewards_json" />
-              </label>
+              <div className="rounded-xl border border-slate-200 bg-white p-2">
+                <div className="grid grid-cols-12 gap-2 px-1 pb-1 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                  <p className="col-span-3">Threshold</p>
+                  <p className="col-span-5">Reward Label</p>
+                  <p className="col-span-4">Reward Value</p>
+                </div>
+                <div className="space-y-2">
+                  {penaltyRows.map((row, idx) => (
+                    <div key={`penalty-row-${idx}`} className="grid grid-cols-12 gap-2">
+                      <input
+                        className="input col-span-3"
+                        defaultValue={row.threshold}
+                        name={`penalty_item_threshold_${idx}`}
+                        placeholder="-5"
+                        type="number"
+                      />
+                      <input
+                        className="input col-span-5"
+                        defaultValue={row.label}
+                        name={`penalty_item_label_${idx}`}
+                        placeholder="Manager reward unlocked"
+                      />
+                      <input
+                        className="input col-span-4"
+                        defaultValue={row.value}
+                        name={`penalty_item_value_${idx}`}
+                        placeholder="$200 equivalent"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </article>
 
@@ -248,8 +288,21 @@ export default async function ManagerPage({ searchParams }: Props) {
               Changelog note (what changed)
               <input className="input mt-1 bg-white" name="note" placeholder="Example: lowered productive bonus from 4 to 3" />
             </label>
+            <label className="mt-2 block text-xs font-semibold text-indigo-700">
+              Manual rule version (optional)
+              <input
+                className="input mt-1 bg-white"
+                min={1}
+                name="target_rule_version"
+                placeholder="Leave blank to auto bump"
+                type="number"
+              />
+            </label>
             <button className="btn btn-primary mt-3 w-full" type="submit">
               Save rules and bump version
+            </button>
+            <button className="btn btn-muted mt-2 w-full" name="target_rule_version" type="submit" value="1">
+              Reset version label to 1 (keep content)
             </button>
           </article>
         </form>

@@ -16,7 +16,7 @@ export default async function CheckInPage() {
         <div className="mb-3">
           <Link className="inline-flex items-center gap-1 text-sm font-semibold text-indigo-700" href="/app/questions">
             <ArrowLeft size={16} />
-            Back to Questions Home
+            Back to Home
           </Link>
         </div>
         <article className="card mb-3 overflow-hidden p-3">

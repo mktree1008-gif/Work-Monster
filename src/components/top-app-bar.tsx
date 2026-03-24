@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { CircleUserRound, Compass, Menu, X } from "lucide-react";
+import { CircleUserRound, House, Menu, X } from "lucide-react";
 import { Locale, UserRole } from "@/lib/types";
 import { logoutAction, setLocaleAction } from "@/lib/services/actions";
 import { ProfileAvatar } from "@/components/profile-avatar";
@@ -71,7 +71,9 @@ export function TopAppBar({ appName, role, locale, labels, displayName, profileA
             >
               <Menu size={18} />
             </button>
-            <span className="display-cute text-2xl font-bold">{appName}</span>
+            <Link className="display-cute text-2xl font-bold" href="/app/questions">
+              {appName}
+            </Link>
           </div>
           <button
             aria-label="Open profile panel"
@@ -130,7 +132,7 @@ export function TopAppBar({ appName, role, locale, labels, displayName, profileA
                 {navTab === "main" ? (
                   <nav className="space-y-2">
                     <Link href="/app/questions" className="flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-sm font-medium" onClick={closePanel}>
-                      <Compass size={16} />
+                      <House size={16} />
                       {labels.questions}
                     </Link>
                     <Link href="/app/record" className="block rounded-xl bg-slate-100 px-3 py-2 text-sm font-medium" onClick={closePanel}>

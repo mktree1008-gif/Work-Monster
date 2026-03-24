@@ -185,25 +185,46 @@ export async function updateRules(
 ): Promise<RuleConfig> {
   const repo = getGameRepository();
   const current = await repo.getRules();
-  const { note, ...rulePatch } = payload;
+  const { note, target_rule_version, ...rulePatch } = payload;
 
   const changedFields = Object.keys(rulePatch);
+  const manualTarget = Number.isFinite(target_rule_version) && Number(target_rule_version) > 0
+    ? Math.floor(Number(target_rule_version))
+    : null;
+  const nextVersion = manualTarget ?? current.rule_version + 1;
+  const updatedAt = nowISO();
+  const changeTitle = note?.trim()
+    ? note.trim()
+    : manualTarget
+      ? `Rule version set to v${nextVersion}`
+      : "Manager updated the rules";
+  const changeDescription = note?.trim()
+    ? note.trim()
+    : manualTarget
+      ? "Manager adjusted the rule version label."
+      : "Rules have been adjusted.";
+  const changeEntry = {
+    version: nextVersion,
+    title: changeTitle,
+    description: changeDescription,
+    sections: changedFields.length > 0 ? changedFields : ["rule_version"],
+    updated_at: updatedAt
+  };
+
+  const nextChangelog =
+    manualTarget && nextVersion <= 1
+      ? [changeEntry]
+      : [
+          changeEntry,
+          ...current.changelog.filter((item) => !manualTarget || item.version < nextVersion)
+        ];
 
   const next: RuleConfig = {
     ...current,
     ...rulePatch,
-    rule_version: current.rule_version + 1,
-    last_updated: nowISO(),
-    changelog: [
-      {
-        version: current.rule_version + 1,
-        title: note ?? "Manager updated the rules",
-        description: note ?? "Rules have been adjusted.",
-        sections: changedFields,
-        updated_at: nowISO()
-      },
-      ...current.changelog
-    ]
+    rule_version: nextVersion,
+    last_updated: updatedAt,
+    changelog: nextChangelog
   };
 
   const saved = await repo.saveRules(next);

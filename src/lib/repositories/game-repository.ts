@@ -29,6 +29,7 @@ export interface SubmissionDraft {
 
 export interface RuleUpdatePayload extends Partial<RuleConfig> {
   note?: string;
+  target_rule_version?: number;
 }
 
 function normalizeLoginId(loginId: string): string {

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LucideIcon, ChartColumn, Gift, HelpCircle, ShieldAlert, Star } from "lucide-react";
+import { LucideIcon, ChartColumn, Gift, House, ShieldAlert, Star } from "lucide-react";
 
 type Tab = {
   href: string;
@@ -21,7 +21,7 @@ type BottomTabsProps = {
 
 export function BottomTabs({ active, labels }: BottomTabsProps) {
   const tabs: Tab[] = [
-    { key: "questions", href: "/app/questions", label: labels.questions, icon: HelpCircle },
+    { key: "questions", href: "/app/questions", label: labels.questions, icon: House },
     { key: "record", href: "/app/record", label: labels.record, icon: ChartColumn },
     { key: "rewards", href: "/app/rewards", label: labels.rewards, icon: Gift },
     { key: "score", href: "/app/score", label: labels.score, icon: Star },
