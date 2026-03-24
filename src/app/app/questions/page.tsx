@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Rocket, Sparkles } from "lucide-react";
 import { CharacterAlert } from "@/components/character-alert";
+import { CharacterToast } from "@/components/character-toast";
 import { QuestionsSaveCelebration } from "@/components/questions-save-celebration";
 import { getManagerCue, getUserCue } from "@/lib/character-system";
 import { UserPageShell } from "@/components/user-page-shell";
@@ -28,6 +29,7 @@ export default async function QuestionsPage({ searchParams }: Props) {
     bundle.score.multiplier_active ||
     bundle.rewardClaims.some((claim) => claim.status === "claimed");
   const milestoneCue = getUserCue("milestone_jump", bundle.user.locale);
+  const tiredCue = getUserCue("major_penalty_sad", bundle.user.locale);
 
   return (
     <UserPageShell
@@ -42,6 +44,8 @@ export default async function QuestionsPage({ searchParams }: Props) {
       }
     >
       <QuestionsSaveCelebration openOnMount={saved} />
+      <CharacterToast cue={pendingCue} openOnMount={saved || pendingSubmission} role="manager" />
+      <CharacterToast cue={tiredCue} openOnMount={saved && !latestSubmission?.productive} role="user" tone="warning" />
 
       {saved && (
         <section className="mb-4">
@@ -49,6 +53,7 @@ export default async function QuestionsPage({ searchParams }: Props) {
             cue={{
               emoji: "🎉",
               expression: "clap",
+              spriteName: "manager_approving",
               title: "Saved Successfully",
               message: "Your check-in is now pending manager approval."
             }}

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { APP_NAME } from "@/lib/constants";
 import { isManagerOwnerEmail } from "@/lib/constants";
+import { ManagerReviewResultPopup } from "@/components/manager-review-result-popup";
 import { SubmissionReviewForm } from "@/components/submission-review-form";
 import { getGameRepository } from "@/lib/repositories/game-repository";
 import { getSession } from "@/lib/session";
@@ -15,7 +16,11 @@ import {
 } from "@/lib/services/actions";
 import { getManagerOverview } from "@/lib/services/game-service";
 
-export default async function ManagerPage() {
+type Props = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function ManagerPage({ searchParams }: Props) {
   const session = await getSession();
   if (!session || session.role !== "manager") {
     redirect("/auth/login");
@@ -34,9 +39,21 @@ export default async function ManagerPage() {
   }
 
   const data = await getManagerOverview();
+  const params = (searchParams ? await searchParams : {}) as Record<string, string | string[] | undefined>;
+  const reviewed = params.reviewed === "1";
+  const approved = params.approved === "1";
+  const reviewedPoints = Number(params.points ?? 0);
+  const reviewedNote = typeof params.note === "string" ? params.note : "";
 
   return (
     <main className="container-mobile page-padding">
+      <ManagerReviewResultPopup
+        approved={approved}
+        note={reviewedNote}
+        openOnMount={reviewed}
+        points={Number.isFinite(reviewedPoints) ? reviewedPoints : 0}
+      />
+
       <header className="card mb-4 p-4">
         <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Manager Console</p>
         <h1 className="display-cute text-4xl font-extrabold text-indigo-900">{APP_NAME}</h1>

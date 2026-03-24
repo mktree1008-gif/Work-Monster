@@ -188,9 +188,19 @@ export async function claimRewardAction(formData: FormData): Promise<void> {
   const rewardId = String(formData.get("reward_id") ?? "");
   if (!rewardId) return;
 
+  const repo = getGameRepository();
+  const rewards = await repo.listRewards();
+  const targetReward = rewards.find((item) => item.id === rewardId);
   await claimReward(session.uid, rewardId);
   revalidatePath("/app/rewards");
   revalidatePath("/app/score");
+  if (targetReward) {
+    const params = new URLSearchParams();
+    params.set("claimed", "1");
+    params.set("reward", targetReward.title);
+    params.set("points", String(targetReward.required_points));
+    redirect(`/app/rewards?${params.toString()}`);
+  }
 }
 
 export async function reviewSubmissionAction(formData: FormData): Promise<void> {
@@ -198,12 +208,16 @@ export async function reviewSubmissionAction(formData: FormData): Promise<void> 
   if (!session || session.role !== "manager") redirect("/auth/login");
   await assertManagerOwner(session.uid);
 
+  const approved = parseBoolean(formData.get("approved"));
+  const note = String(formData.get("note") ?? "");
+  const points = parseNumber(formData.get("points"), 0);
+
   await approveSubmission(
     {
       submissionId: String(formData.get("submission_id") ?? ""),
-      approved: parseBoolean(formData.get("approved")),
-      note: String(formData.get("note") ?? ""),
-      points: parseNumber(formData.get("points"), 0)
+      approved,
+      note,
+      points
     },
     session.uid
   );
@@ -211,6 +225,14 @@ export async function reviewSubmissionAction(formData: FormData): Promise<void> 
   revalidatePath("/manager");
   revalidatePath("/app/score");
   revalidatePath("/app/record");
+  const params = new URLSearchParams();
+  params.set("reviewed", "1");
+  params.set("approved", approved ? "1" : "0");
+  params.set("points", String(points));
+  if (note.trim().length > 0) {
+    params.set("note", note.slice(0, 120));
+  }
+  redirect(`/manager?${params.toString()}`);
 }
 
 export async function updateRulesAction(formData: FormData): Promise<void> {

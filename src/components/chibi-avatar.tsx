@@ -54,6 +54,7 @@ function emotionMotionClass(emotion: NonNullable<Props["emotion"]>): string {
 
 export function ChibiAvatar({ role, emotion = "neutral", glasses = false, size = 56, className = "" }: Props) {
   const marker = emotionOverlay[emotion];
+  const showGlasses = role === "user" && glasses;
 
   return (
     <div
@@ -70,8 +71,13 @@ export function ChibiAvatar({ role, emotion = "neutral", glasses = false, size =
         src="/images/login-hero.svg"
         style={{ objectFit: "cover", objectPosition: objectPosition(role), transform: role === "manager" ? "scale(2.1)" : "scale(2.0)" }}
       />
-      {role === "user" && glasses && (
-        <span className="absolute -bottom-1 -right-1 rounded-full bg-indigo-100 px-1 text-[10px] text-indigo-700">👓</span>
+      {showGlasses && (
+        <>
+          <span className="pointer-events-none absolute left-1/2 top-[43%] h-[14%] w-[42%] -translate-x-1/2 rounded-full border-2 border-slate-900/70" />
+          <span className="pointer-events-none absolute left-[37%] top-[43%] h-[14%] w-[14%] rounded-full border-2 border-slate-900/70" />
+          <span className="pointer-events-none absolute left-[49%] top-[43%] h-[14%] w-[14%] rounded-full border-2 border-slate-900/70" />
+          <span className="absolute -bottom-1 -right-1 rounded-full bg-indigo-100 px-1 text-[10px] text-indigo-700">👓</span>
+        </>
       )}
       {marker && <span className="anim-pop absolute -top-1 -left-1 text-sm">{marker}</span>}
     </div>

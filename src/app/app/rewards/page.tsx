@@ -1,17 +1,31 @@
 import { CharacterAlert } from "@/components/character-alert";
+import { RewardClaimPopup } from "@/components/reward-claim-popup";
 import { getUserCue } from "@/lib/character-system";
 import { claimRewardAction } from "@/lib/services/actions";
 import { UserPageShell } from "@/components/user-page-shell";
 import { getViewerContext } from "@/lib/view-model";
 
-export default async function RewardsPage() {
+type Props = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function RewardsPage({ searchParams }: Props) {
   const { bundle, strings } = await getViewerContext();
+  const params = (searchParams ? await searchParams : {}) as Record<string, string | string[] | undefined>;
   const claims = new Map(bundle.rewardClaims.map((claim) => [claim.reward_id, claim]));
   const hasAvailable = bundle.rewards.some((reward) => bundle.score.total_points >= reward.required_points);
   const milestoneCue = getUserCue("milestone_jump", bundle.user.locale);
+  const claimedOnLoad = params.claimed === "1";
+  const claimedTitle = typeof params.reward === "string" ? params.reward : "";
+  const claimedPoints = Number(params.points ?? 0);
 
   return (
     <UserPageShell activeTab="rewards" labels={strings} subtitle="Collect and claim" title="Rewards">
+      <RewardClaimPopup
+        openOnMount={claimedOnLoad}
+        requiredPoints={Number.isFinite(claimedPoints) ? claimedPoints : 0}
+        rewardTitle={claimedTitle}
+      />
       {hasAvailable && (
         <section className="mb-4">
           <CharacterAlert role="user" cue={milestoneCue} tone="success" />

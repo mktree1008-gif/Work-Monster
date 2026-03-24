@@ -14,6 +14,10 @@ type Props = {
   progressTarget?: number;
   progressCaption?: string;
   characterMode?: CharacterMode;
+  userGlasses?: boolean;
+  managerEmotion?: "neutral" | "encouraging" | "alert" | "excited" | "approval";
+  userEmotion?: "neutral" | "encouraging" | "alert" | "excited" | "approval";
+  autoCloseMs?: number;
   closeLabel?: string;
   onClose: () => void;
 };
@@ -29,6 +33,10 @@ export function AnimatedCelebrationPopup({
   progressTarget = 0,
   progressCaption = "Progress",
   characterMode = "both",
+  userGlasses = false,
+  managerEmotion = "excited",
+  userEmotion = "approval",
+  autoCloseMs,
   closeLabel = "Awesome",
   onClose
 }: Props) {
@@ -60,6 +68,12 @@ export function AnimatedCelebrationPopup({
     return () => cancelAnimationFrame(raf);
   }, [open, normalizedTarget]);
 
+  useEffect(() => {
+    if (!open || !autoCloseMs) return;
+    const timer = window.setTimeout(() => onClose(), autoCloseMs);
+    return () => window.clearTimeout(timer);
+  }, [open, autoCloseMs, onClose]);
+
   if (!open) return null;
 
   const offset = ringLength * (1 - progress / 100);
@@ -74,10 +88,10 @@ export function AnimatedCelebrationPopup({
 
         <div className="mx-auto mb-3 flex items-center justify-center gap-2">
           {(characterMode === "manager" || characterMode === "both") && (
-            <ChibiAvatar className="anim-bounce-soft" emotion="excited" role="manager" size={54} />
+            <ChibiAvatar className="anim-bounce-soft" emotion={managerEmotion} role="manager" size={54} />
           )}
           {(characterMode === "user" || characterMode === "both") && (
-            <ChibiAvatar className="anim-float" emotion="approval" role="user" size={54} />
+            <ChibiAvatar className="anim-float" emotion={userEmotion} glasses={userGlasses} role="user" size={54} />
           )}
         </div>
 

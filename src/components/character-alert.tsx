@@ -41,7 +41,7 @@ function toneClass(tone: Props["tone"]): string {
 }
 
 export function CharacterAlert({ role, cue, glasses = false, compact = false, tone = "default" }: Props) {
-  const characterName = role === "manager" ? "Manager Character" : "User Character";
+  const characterName = cue.spriteName;
   const expression = expressionEmoji(cue.expression);
   const emotion =
     cue.expression === "wide-eyes"

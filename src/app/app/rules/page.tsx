@@ -1,4 +1,5 @@
 import { CharacterAlert } from "@/components/character-alert";
+import { CharacterToast } from "@/components/character-toast";
 import { getManagerCue } from "@/lib/character-system";
 import { getLocalizedRuleLine, localizeRuleChangelogItem, localizeRuleLongText } from "@/lib/rules-copy";
 import { UserPageShell } from "@/components/user-page-shell";
@@ -17,6 +18,7 @@ export default async function RulesPage() {
 
   return (
     <UserPageShell activeTab="rules" labels={strings} subtitle="Know the game mechanics" title="Rules">
+      <CharacterToast cue={managerCue} durationMs={2000} openOnMount role="manager" tone="success" />
       <section className="mb-4">
         <CharacterAlert role="manager" cue={managerCue} />
       </section>

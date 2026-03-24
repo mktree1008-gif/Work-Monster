@@ -93,12 +93,15 @@ export function ScoreAchievementPopup({
       characterMode="both"
       closeLabel="Keep Momentum"
       message={popup?.message ?? ""}
+      managerEmotion="approval"
       onClose={() => setOpen(false)}
       open={open}
       pointsLabel={popup?.pointsLabel}
       progressCaption="Reward Path"
       progressTarget={popup?.progressTarget ?? 0}
       title={popup?.title ?? ""}
+      userEmotion={currentStreak >= 7 || multiplierActive ? "excited" : "approval"}
+      autoCloseMs={currentStreak >= 7 || multiplierActive ? 2000 : undefined}
     />
   );
 }

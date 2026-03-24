@@ -1,5 +1,6 @@
 import { AlertTriangle, Flame, Sparkles } from "lucide-react";
 import { CharacterAlert } from "@/components/character-alert";
+import { CharacterToast } from "@/components/character-toast";
 import { ScoreAchievementPopup } from "@/components/score-achievement-popup";
 import { getManagerCue, getUserCue } from "@/lib/character-system";
 import { UserPageShell } from "@/components/user-page-shell";
@@ -32,6 +33,7 @@ export default async function ScorePage() {
         nextRewardProgress={nextReward.progressPercent}
         totalPoints={bundle.score.total_points}
       />
+      <CharacterToast cue={penaltyCue} openOnMount={bundle.score.penalty_active} role="manager" tone="warning" />
 
       <section className="mb-4">
         <CharacterAlert role="user" cue={userScoreCue} />
@@ -55,6 +57,11 @@ export default async function ScorePage() {
             <p className="text-xs uppercase tracking-[0.2em]">🔥 Streak</p>
           </div>
           <p className="mt-1 text-3xl font-black text-indigo-900">{bundle.score.current_streak}</p>
+          {bundle.score.current_streak >= 7 && (
+            <p className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-700">
+              🏃🔥 7-Day Streak
+            </p>
+          )}
         </article>
         <article className="card p-4">
           <div className="flex items-center gap-2 text-indigo-500">
@@ -81,6 +88,11 @@ export default async function ScorePage() {
           <h2 className="text-lg font-black text-indigo-900">
             {bundle.score.penalty_active ? "Risk Zone Active" : "Safe Zone"}
           </h2>
+          {bundle.score.penalty_active && (
+            <span className="anim-pulse-soft rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-bold text-rose-700">
+              WATCH OUT! Risk Level Active.
+            </span>
+          )}
         </div>
 
         <p className="mt-2 text-sm font-semibold text-slate-600">
@@ -93,6 +105,15 @@ export default async function ScorePage() {
           <p className="mt-2 rounded-xl bg-amber-50 p-3 text-sm font-semibold text-amber-700">
             Manager reward unlocked
           </p>
+        )}
+        {majorPenalty && (
+          <div className="mt-2 inline-flex items-center gap-2 rounded-xl bg-rose-50 px-3 py-2 text-sm font-bold text-rose-700">
+            <span className="relative inline-flex h-8 w-8 items-center justify-center">
+              <span className="text-2xl">💰</span>
+              <span className="absolute inset-0 flex items-center justify-center text-xl text-rose-600">⛔</span>
+            </span>
+            Major Penalty -10 PTS visual
+          </div>
         )}
         {bundle.score.penalty_active && (
           <div className="mt-3">
@@ -110,6 +131,14 @@ export default async function ScorePage() {
       {majorPenalty && (
         <section className="mt-4">
           <CharacterAlert role="user" cue={majorPenaltyCue} tone="warning" />
+        </section>
+      )}
+
+      {bundle.score.total_points >= 150 && (
+        <section className="card mt-4 p-4">
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Premium milestone</p>
+          <p className="mt-1 text-lg font-black text-indigo-900">👑 Premium Reward Tier unlocked (150+ pts)</p>
+          <p className="text-sm text-slate-600">Crown milestone active. Keep stacking approvals.</p>
         </section>
       )}
     </UserPageShell>

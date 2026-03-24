@@ -4,11 +4,12 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CharacterAlert } from "@/components/character-alert";
 import { ChibiAvatar } from "@/components/chibi-avatar";
-import { getUserCue } from "@/lib/character-system";
+import { getManagerCue, getUserCue } from "@/lib/character-system";
 import { Locale } from "@/lib/types";
 
 type Props = {
   locale: Locale;
+  glasses?: boolean;
 };
 
 type ChoiceKey = "A" | "B" | "C";
@@ -145,7 +146,7 @@ function answerLabel(stepIndex: number, state: StepState): string {
   return selectedOption(stepIndex, state)?.label ?? "";
 }
 
-export function QuestionsFlow({ locale }: Props) {
+export function QuestionsFlow({ locale, glasses = false }: Props) {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<StepState[]>(initialSteps);
@@ -155,9 +156,12 @@ export function QuestionsFlow({ locale }: Props) {
   const [clientLocalDate, setClientLocalDate] = useState("");
   const [saving, setSaving] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  const [showConfusedHint, setShowConfusedHint] = useState(false);
 
   const progress = useMemo(() => Math.round(((step + 1) / stepDefinitions.length) * 100), [step]);
   const determinedCue = getUserCue("questions_determined", locale);
+  const confusedCue = getUserCue("questions_confused", locale);
+  const managerCuriousCue = getManagerCue("upload_saved_pending", locale);
 
   const currentStepDef = stepDefinitions[step];
   const currentState = answers[step];
@@ -197,6 +201,7 @@ export function QuestionsFlow({ locale }: Props) {
 
   function chooseOption(key: ChoiceKey) {
     setSubmitError("");
+    setShowConfusedHint(false);
     setAnswers((prev) =>
       prev.map((item, index) => {
         if (index !== step) return item;
@@ -207,6 +212,7 @@ export function QuestionsFlow({ locale }: Props) {
 
   function updateCustom(value: string) {
     setSubmitError("");
+    setShowConfusedHint(false);
     setAnswers((prev) =>
       prev.map((item, index) => {
         if (index !== step) return item;
@@ -227,7 +233,11 @@ export function QuestionsFlow({ locale }: Props) {
     (selectedOption(2, answers[2])?.productive ?? true);
 
   async function onSubmitCheckIn() {
-    if (!allAnswered || saving) return;
+    if (saving) return;
+    if (!allAnswered) {
+      setShowConfusedHint(true);
+      return;
+    }
 
     setSaving(true);
     setSubmitError("");
@@ -268,7 +278,7 @@ export function QuestionsFlow({ locale }: Props) {
 
   return (
     <div className="space-y-4">
-      <CharacterAlert role="user" cue={determinedCue} compact />
+      <CharacterAlert glasses={glasses} role="user" cue={determinedCue} compact />
 
       <div className="soft-card p-3">
         <div className="mb-1 flex items-center justify-between text-xs text-slate-500">
@@ -328,10 +338,16 @@ export function QuestionsFlow({ locale }: Props) {
           <div className="flex items-center justify-center gap-3">
             <ChibiAvatar emotion={managerEmotion} role="manager" size={48} />
             <p className="anim-pop text-3xl">{reactionEmoji}</p>
-            <ChibiAvatar emotion={userEmotion} role="user" size={48} />
+            <ChibiAvatar emotion={userEmotion} glasses={glasses} role="user" size={48} />
           </div>
           <p className="mt-1 text-center text-sm font-semibold text-amber-800">{reactionText}</p>
         </div>
+
+        {showConfusedHint && (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-2">
+            <CharacterAlert glasses={glasses} role="user" cue={confusedCue} compact tone="warning" />
+          </div>
+        )}
       </article>
 
       {step === stepDefinitions.length - 1 && (
@@ -349,6 +365,11 @@ export function QuestionsFlow({ locale }: Props) {
             File link (optional)
             <input className="input mt-2" onChange={(event) => setFileUrl(event.target.value)} value={fileUrl} />
           </label>
+          {(fileUrl.trim().length > 0 || allAnswered) && (
+            <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-2">
+              <CharacterAlert role="manager" cue={managerCuriousCue} compact />
+            </div>
+          )}
         </article>
       )}
 
@@ -365,18 +386,24 @@ export function QuestionsFlow({ locale }: Props) {
         {step < stepDefinitions.length - 1 ? (
           <button
             className="btn btn-primary w-full"
-            disabled={!stepCompleted}
-            onClick={() => setStep((value) => Math.min(stepDefinitions.length - 1, value + 1))}
+            onClick={() => {
+              if (!stepCompleted) {
+                setShowConfusedHint(true);
+                return;
+              }
+              setShowConfusedHint(false);
+              setStep((value) => Math.min(stepDefinitions.length - 1, value + 1));
+            }}
             type="button"
           >
             Next
           </button>
         ) : (
-          <button className="btn btn-primary w-full" disabled={!allAnswered || saving} onClick={onSubmitCheckIn} type="button">
+          <button className="btn btn-primary w-full" disabled={saving} onClick={onSubmitCheckIn} type="button">
             <span className="inline-flex items-center gap-2">
               <ChibiAvatar emotion={allAnswered ? "approval" : "encouraging"} role="manager" size={24} />
               {saving ? "Saving..." : "Save check-in"}
-              <ChibiAvatar emotion={allAnswered ? "excited" : "neutral"} role="user" size={24} />
+              <ChibiAvatar emotion={allAnswered ? "excited" : "neutral"} glasses={glasses} role="user" size={24} />
             </span>
           </button>
         )}
