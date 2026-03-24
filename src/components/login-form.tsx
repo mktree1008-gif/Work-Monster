@@ -21,6 +21,7 @@ export function LoginForm({ initialRole = "user", initialLocale = "en" }: Props)
   const [pending, setPending] = useState(false);
   const [redirectTo, setRedirectTo] = useState<string | null>(null);
   const [showWelcome, setShowWelcome] = useState(false);
+  const [accessDeniedMessage, setAccessDeniedMessage] = useState("");
   const [error, setError] = useState("");
   const router = useRouter();
 
@@ -58,7 +59,11 @@ export function LoginForm({ initialRole = "user", initialLocale = "en" }: Props)
       setRedirectTo(payload.redirectTo);
       setShowWelcome(true);
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : copy.failed);
+      const message = caught instanceof Error ? caught.message : copy.failed;
+      setError(message);
+      if (message.includes("권한이 없습니다")) {
+        setAccessDeniedMessage(message);
+      }
     } finally {
       setPending(false);
     }
@@ -73,6 +78,12 @@ export function LoginForm({ initialRole = "user", initialLocale = "en" }: Props)
   function onAuthSuccess(nextPath: string) {
     setRedirectTo(nextPath);
     setShowWelcome(true);
+  }
+
+  function onAuthError(message: string) {
+    if (message.includes("권한이 없습니다")) {
+      setAccessDeniedMessage(message);
+    }
   }
 
   return (
@@ -141,7 +152,7 @@ export function LoginForm({ initialRole = "user", initialLocale = "en" }: Props)
           </Link>
         </p>
 
-        <GoogleLoginButton locale={locale} onSuccessRedirect={onAuthSuccess} role={role} />
+        <GoogleLoginButton locale={locale} onError={onAuthError} onSuccessRedirect={onAuthSuccess} role={role} />
         {error && <p className="mt-2 text-sm text-rose-600">{error}</p>}
       </form>
 
@@ -171,6 +182,23 @@ export function LoginForm({ initialRole = "user", initialLocale = "en" }: Props)
               <Zap size={16} />
               <Sparkles className="anim-pulse-soft" size={16} />
               Continue
+            </button>
+          </div>
+        </div>
+      )}
+
+      {accessDeniedMessage && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/45 p-4">
+          <div className="container-mobile card anim-pop p-5 text-center">
+            <div className="mb-3 flex items-center justify-center gap-2">
+              <ChibiAvatar className="anim-shake-soft" emotion="alert" role="manager" size={52} />
+              <span className="text-xl">🚫</span>
+            </div>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-rose-600">Manager Access</p>
+            <h3 className="mt-1 text-2xl font-black text-indigo-900">권한이 없습니다</h3>
+            <p className="mt-2 text-sm text-slate-600">{accessDeniedMessage}</p>
+            <button className="btn btn-primary mt-4 w-full" onClick={() => setAccessDeniedMessage("")} type="button">
+              확인
             </button>
           </div>
         </div>

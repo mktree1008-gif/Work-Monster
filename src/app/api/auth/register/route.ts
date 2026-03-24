@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { MANAGER_OWNER_EMAIL } from "@/lib/constants";
 import { getGameRepository } from "@/lib/repositories/game-repository";
 import { LOCALE_COOKIE, ROLE_COOKIE, UID_COOKIE } from "@/lib/session";
 import { Locale, UserRole } from "@/lib/types";
@@ -15,7 +16,8 @@ export async function POST(request: NextRequest) {
     const body = (await request.json()) as RegisterBody;
     const loginId = body.loginId?.trim().toLowerCase() ?? "";
     const password = body.password ?? "";
-    const role = body.role === "manager" ? "manager" : "user";
+    const requestedManager = body.role === "manager";
+    const role = requestedManager ? "manager" : "user";
     const locale = body.locale === "ko" ? "ko" : "en";
 
     if (!loginId) {
@@ -23,6 +25,16 @@ export async function POST(request: NextRequest) {
     }
     if (!password) {
       return NextResponse.json({ error: "Security code is required." }, { status: 400 });
+    }
+
+    if (requestedManager && loginId !== MANAGER_OWNER_EMAIL) {
+      return NextResponse.json(
+        {
+          code: "MANAGER_ACCESS_DENIED",
+          error: "권한이 없습니다. 관리자 계정은 지정된 호스트 이메일만 생성할 수 있습니다."
+        },
+        { status: 403 }
+      );
     }
 
     const repo = getGameRepository();

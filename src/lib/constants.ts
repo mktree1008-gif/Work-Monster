@@ -66,3 +66,8 @@ export const DEFAULT_REWARDS: Reward[] = [
 ];
 
 export const APP_NAME = "Work Monster";
+export const MANAGER_OWNER_EMAIL = "mktree1008@gmail.com";
+
+export function isManagerOwnerEmail(email?: string): boolean {
+  return (email ?? "").trim().toLowerCase() === MANAGER_OWNER_EMAIL;
+}

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { isManagerOwnerEmail } from "@/lib/constants";
 import { getAdminAuth, isFirebaseServerConfigured } from "@/lib/firebase/admin";
 import { getGameRepository } from "@/lib/repositories/game-repository";
 import { LOCALE_COOKIE, ROLE_COOKIE, UID_COOKIE } from "@/lib/session";
@@ -15,7 +16,8 @@ type GoogleLoginBody = {
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as GoogleLoginBody;
-    const role = body.role === "manager" ? "manager" : "user";
+    const requestedManager = body.role === "manager";
+    const role = requestedManager ? "manager" : "user";
     const locale = body.locale === "ko" ? "ko" : "en";
 
     let email = body.email?.trim().toLowerCase() ?? "";
@@ -33,6 +35,16 @@ export async function POST(request: NextRequest) {
 
     if (!email) {
       return NextResponse.json({ error: "Google email was not resolved." }, { status: 400 });
+    }
+
+    if (requestedManager && !isManagerOwnerEmail(email)) {
+      return NextResponse.json(
+        {
+          code: "MANAGER_ACCESS_DENIED",
+          error: "권한이 없습니다. 관리자 모드는 호스트 계정만 사용할 수 있습니다."
+        },
+        { status: 403 }
+      );
     }
 
     const repo = getGameRepository();

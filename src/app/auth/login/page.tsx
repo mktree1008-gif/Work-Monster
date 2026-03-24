@@ -21,21 +21,21 @@ export default function LoginPage() {
 
       <div className="container-mobile pb-10 pt-8">
         <section className="card overflow-hidden border border-white/70 bg-white">
-          <div className="relative h-52 w-full overflow-hidden rounded-b-3xl bg-gradient-to-b from-indigo-100 via-indigo-50 to-white">
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(255,255,255,0.75),transparent_45%),radial-gradient(circle_at_84%_16%,rgba(255,255,255,0.55),transparent_40%)]" />
+          <div className="relative h-56 w-full overflow-hidden bg-gradient-to-b from-indigo-100 via-[#e9edff] to-[#f8f9ff]">
+            <div className="absolute left-1/2 top-5 h-[176px] w-[286px] -translate-x-1/2 rounded-[30px] border border-white/70 bg-[linear-gradient(180deg,#ccd3f7_0%,#bec8f1_100%)] shadow-[0_12px_28px_rgba(67,87,170,0.24)]" />
             <Image
               alt="Work Monster team character illustration"
-              className="anim-float object-contain px-3 pt-2"
+              className="anim-float object-contain px-2 pt-2"
               fill
               priority
               sizes="(max-width: 480px) 100vw, 420px"
               src="/images/login-hero.svg"
-              style={{ objectPosition: "center 36%" }}
+              style={{ objectPosition: "center 35%" }}
             />
-            <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white via-white/92 to-transparent" />
+            <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-white via-white/95 to-transparent" />
           </div>
 
-          <header className="-mt-2 px-6 pb-2 text-center">
+          <header className="-mt-1 px-6 pb-2 text-center">
             <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-700 text-white shadow-xl shadow-indigo-300/40">
               <Compass size={20} />
             </div>

@@ -11,9 +11,10 @@ type Props = {
   role: UserRole;
   locale: Locale;
   onSuccessRedirect?: (redirectTo: string) => void;
+  onError?: (message: string) => void;
 };
 
-export function GoogleLoginButton({ role, locale, onSuccessRedirect }: Props) {
+export function GoogleLoginButton({ role, locale, onSuccessRedirect, onError }: Props) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
@@ -67,7 +68,9 @@ export function GoogleLoginButton({ role, locale, onSuccessRedirect }: Props) {
         router.refresh();
       }
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Google sign-in failed.");
+      const message = caught instanceof Error ? caught.message : "Google sign-in failed.";
+      setError(message);
+      onError?.(message);
     } finally {
       setPending(false);
     }

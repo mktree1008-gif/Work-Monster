@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { isManagerOwnerEmail } from "@/lib/constants";
 import { Locale, RuleConfig, UserRole } from "@/lib/types";
 import { clearSession, getSession, setSession, updateLocale } from "@/lib/session";
 import {
@@ -27,6 +28,14 @@ function parseNumber(input: FormDataEntryValue | null, fallback = 0): number {
 function parseBoolean(input: FormDataEntryValue | null): boolean {
   if (typeof input !== "string") return false;
   return input === "true" || input === "on";
+}
+
+async function assertManagerOwner(uid: string): Promise<void> {
+  const repo = getGameRepository();
+  const user = await repo.getUser(uid);
+  if (!user || !isManagerOwnerEmail(user.email)) {
+    throw new Error("권한이 없습니다. 관리자 모드는 호스트 계정만 사용할 수 있습니다.");
+  }
 }
 
 function bytesToBase64(bytes: Uint8Array): string {
@@ -187,6 +196,7 @@ export async function claimRewardAction(formData: FormData): Promise<void> {
 export async function reviewSubmissionAction(formData: FormData): Promise<void> {
   const session = await getSession();
   if (!session || session.role !== "manager") redirect("/auth/login");
+  await assertManagerOwner(session.uid);
 
   await approveSubmission(
     {
@@ -206,6 +216,7 @@ export async function reviewSubmissionAction(formData: FormData): Promise<void> 
 export async function updateRulesAction(formData: FormData): Promise<void> {
   const session = await getSession();
   if (!session || session.role !== "manager") redirect("/auth/login");
+  await assertManagerOwner(session.uid);
 
   const thresholds = String(formData.get("penalty_thresholds") ?? "-1,-5,-10")
     .split(",")
@@ -251,6 +262,7 @@ export async function updateRulesAction(formData: FormData): Promise<void> {
 export async function createRewardAction(formData: FormData): Promise<void> {
   const session = await getSession();
   if (!session || session.role !== "manager") redirect("/auth/login");
+  await assertManagerOwner(session.uid);
 
   await createReward(session.uid, {
     title: String(formData.get("title") ?? ""),
@@ -265,6 +277,7 @@ export async function createRewardAction(formData: FormData): Promise<void> {
 export async function updateRewardAction(formData: FormData): Promise<void> {
   const session = await getSession();
   if (!session || session.role !== "manager") redirect("/auth/login");
+  await assertManagerOwner(session.uid);
 
   const rewardId = String(formData.get("reward_id") ?? "");
   if (!rewardId) return;
@@ -284,6 +297,7 @@ export async function updateRewardAction(formData: FormData): Promise<void> {
 export async function deleteRewardAction(formData: FormData): Promise<void> {
   const session = await getSession();
   if (!session || session.role !== "manager") redirect("/auth/login");
+  await assertManagerOwner(session.uid);
 
   const rewardId = String(formData.get("reward_id") ?? "");
   if (!rewardId) return;
@@ -297,6 +311,7 @@ export async function deleteRewardAction(formData: FormData): Promise<void> {
 export async function claimPenaltyRewardAction(formData: FormData): Promise<void> {
   const session = await getSession();
   if (!session || session.role !== "manager") redirect("/auth/login");
+  await assertManagerOwner(session.uid);
 
   const eventId = String(formData.get("event_id") ?? "");
   if (!eventId) return;

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { APP_NAME } from "@/lib/constants";
+import { isManagerOwnerEmail } from "@/lib/constants";
 import { SubmissionReviewForm } from "@/components/submission-review-form";
 import { getGameRepository } from "@/lib/repositories/game-repository";
 import { getSession } from "@/lib/session";
@@ -24,6 +25,9 @@ export default async function ManagerPage() {
   const user = await repo.getUser(session.uid);
   if (!user) {
     redirect("/auth/login");
+  }
+  if (!isManagerOwnerEmail(user.email)) {
+    redirect("/app/questions");
   }
   if ((user.name ?? "").trim().length === 0) {
     redirect("/auth/nickname");
@@ -83,51 +87,110 @@ export default async function ManagerPage() {
 
       <section className="card mb-4 p-4">
         <h2 className="text-xl font-black text-indigo-900">Rule management</h2>
-        <form action={updateRulesAction} className="mt-3 space-y-2">
-          <input className="input" defaultValue={data.rules.checkin_points} name="checkin_points" type="number" />
-          <input className="input" defaultValue={data.rules.submission_points} name="submission_points" type="number" />
-          <input className="input" defaultValue={data.rules.productive_points} name="productive_points" type="number" />
-          <input
-            className="input"
-            defaultValue={data.rules.non_productive_penalty}
-            name="non_productive_penalty"
-            type="number"
-          />
-          <input className="input" defaultValue={data.rules.streak_days} name="streak_days" type="number" />
-          <input
-            className="input"
-            defaultValue={data.rules.multiplier_trigger_days}
-            name="multiplier_trigger_days"
-            type="number"
-          />
-          <input
-            className="input"
-            defaultValue={data.rules.multiplier_value}
-            name="multiplier_value"
-            step="0.1"
-            type="number"
-          />
-          <input className="input" defaultValue={data.rules.greeting_message} name="greeting_message" />
-          <input className="input" defaultValue={data.rules.success_message} name="success_message" />
-          <textarea className="input h-20 resize-none" defaultValue={data.rules.rule_description_text} name="rule_description_text" />
-          <textarea className="input h-20 resize-none" defaultValue={data.rules.manager_logic_text} name="manager_logic_text" />
-          <textarea className="input h-20 resize-none" defaultValue={data.rules.penalty_description} name="penalty_description" />
-          <input
-            className="input"
-            defaultValue={data.rules.penalty_thresholds.join(",")}
-            name="penalty_thresholds"
-            placeholder="-1,-5,-10"
-          />
-          <textarea
-            className="input h-24 resize-none font-mono text-xs"
-            defaultValue={JSON.stringify(data.rules.penalty_rewards)}
-            name="penalty_rewards_json"
-          />
-          <textarea className="input h-20 resize-none" defaultValue={data.rules.rewards_blurb} name="rewards_blurb" />
-          <input className="input" name="note" placeholder="Change note for changelog" />
-          <button className="btn btn-primary w-full" type="submit">
-            Save rules and bump version
-          </button>
+        <p className="mt-1 text-sm text-slate-600">
+          Edit each section below. Numbers are applied immediately after save, and rule version is updated with changelog note.
+        </p>
+        <form action={updateRulesAction} className="mt-3 space-y-3">
+          <article className="rounded-2xl bg-slate-50 p-3">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">1) Points setup</p>
+            <p className="mt-1 text-xs text-slate-500">How many points users gain/lose when manager approves submissions.</p>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <label className="text-xs font-semibold text-slate-600">
+                Check-in base points
+                <input className="input mt-1" defaultValue={data.rules.checkin_points} name="checkin_points" type="number" />
+              </label>
+              <label className="text-xs font-semibold text-slate-600">
+                Submission base points
+                <input className="input mt-1" defaultValue={data.rules.submission_points} name="submission_points" type="number" />
+              </label>
+              <label className="text-xs font-semibold text-slate-600">
+                Productive bonus points
+                <input className="input mt-1" defaultValue={data.rules.productive_points} name="productive_points" type="number" />
+              </label>
+              <label className="text-xs font-semibold text-slate-600">
+                Non-productive penalty
+                <input className="input mt-1" defaultValue={data.rules.non_productive_penalty} name="non_productive_penalty" type="number" />
+              </label>
+            </div>
+          </article>
+
+          <article className="rounded-2xl bg-slate-50 p-3">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">2) Streak & Multiplier</p>
+            <p className="mt-1 text-xs text-slate-500">Define when streak starts rewarding and when multiplier activates.</p>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <label className="text-xs font-semibold text-slate-600">
+                Streak milestone days
+                <input className="input mt-1" defaultValue={data.rules.streak_days} name="streak_days" type="number" />
+              </label>
+              <label className="text-xs font-semibold text-slate-600">
+                Multiplier trigger days
+                <input className="input mt-1" defaultValue={data.rules.multiplier_trigger_days} name="multiplier_trigger_days" type="number" />
+              </label>
+              <label className="col-span-2 text-xs font-semibold text-slate-600">
+                Multiplier value (e.g. 1.5, 2.0)
+                <input className="input mt-1" defaultValue={data.rules.multiplier_value} name="multiplier_value" step="0.1" type="number" />
+              </label>
+            </div>
+          </article>
+
+          <article className="rounded-2xl bg-slate-50 p-3">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">3) App messages</p>
+            <p className="mt-1 text-xs text-slate-500">Messages shown to user on home/success/rules pages.</p>
+            <div className="mt-2 space-y-2">
+              <label className="text-xs font-semibold text-slate-600">
+                Greeting message
+                <input className="input mt-1" defaultValue={data.rules.greeting_message} name="greeting_message" />
+              </label>
+              <label className="text-xs font-semibold text-slate-600">
+                Success message
+                <input className="input mt-1" defaultValue={data.rules.success_message} name="success_message" />
+              </label>
+              <label className="text-xs font-semibold text-slate-600">
+                Rules description text
+                <textarea className="input mt-1 h-20 resize-none" defaultValue={data.rules.rule_description_text} name="rule_description_text" />
+              </label>
+              <label className="text-xs font-semibold text-slate-600">
+                Manager logic text
+                <textarea className="input mt-1 h-20 resize-none" defaultValue={data.rules.manager_logic_text} name="manager_logic_text" />
+              </label>
+              <label className="text-xs font-semibold text-slate-600">
+                Rewards description text
+                <textarea className="input mt-1 h-20 resize-none" defaultValue={data.rules.rewards_blurb} name="rewards_blurb" />
+              </label>
+            </div>
+          </article>
+
+          <article className="rounded-2xl bg-slate-50 p-3">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">4) Penalty (Risk Zone)</p>
+            <p className="mt-1 text-xs text-slate-500">
+              Thresholds use negative values only. Example: -1, -5, -10
+            </p>
+            <div className="mt-2 space-y-2">
+              <label className="text-xs font-semibold text-slate-600">
+                Penalty description
+                <textarea className="input mt-1 h-20 resize-none" defaultValue={data.rules.penalty_description} name="penalty_description" />
+              </label>
+              <label className="text-xs font-semibold text-slate-600">
+                Penalty thresholds (comma separated)
+                <input className="input mt-1" defaultValue={data.rules.penalty_thresholds.join(",")} name="penalty_thresholds" placeholder="-1,-5,-10" />
+              </label>
+              <label className="text-xs font-semibold text-slate-600">
+                Penalty reward config (JSON)
+                <textarea className="input mt-1 h-24 resize-none font-mono text-xs" defaultValue={JSON.stringify(data.rules.penalty_rewards)} name="penalty_rewards_json" />
+              </label>
+            </div>
+          </article>
+
+          <article className="rounded-2xl bg-indigo-50 p-3">
+            <p className="text-xs font-bold uppercase tracking-[0.18em] text-indigo-700">5) Save update</p>
+            <label className="mt-2 block text-xs font-semibold text-indigo-700">
+              Changelog note (what changed)
+              <input className="input mt-1 bg-white" name="note" placeholder="Example: lowered productive bonus from 4 to 3" />
+            </label>
+            <button className="btn btn-primary mt-3 w-full" type="submit">
+              Save rules and bump version
+            </button>
+          </article>
         </form>
       </section>
 
