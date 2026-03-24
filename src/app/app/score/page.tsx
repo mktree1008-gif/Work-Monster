@@ -1,5 +1,6 @@
 import { AlertTriangle, Flame, Sparkles } from "lucide-react";
 import { CharacterAlert } from "@/components/character-alert";
+import { ScoreAchievementPopup } from "@/components/score-achievement-popup";
 import { getManagerCue, getUserCue } from "@/lib/character-system";
 import { UserPageShell } from "@/components/user-page-shell";
 import { computeNextReward } from "@/lib/logic/scoring";
@@ -24,6 +25,14 @@ export default async function ScorePage() {
 
   return (
     <UserPageShell activeTab="score" labels={strings} subtitle="Game HUD" title="Score">
+      <ScoreAchievementPopup
+        currentStreak={bundle.score.current_streak}
+        multiplierActive={bundle.score.multiplier_active}
+        multiplierValue={bundle.score.multiplier_value}
+        nextRewardProgress={nextReward.progressPercent}
+        totalPoints={bundle.score.total_points}
+      />
+
       <section className="mb-4">
         <CharacterAlert role="user" cue={userScoreCue} />
       </section>

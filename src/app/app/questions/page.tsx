@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Rocket, Sparkles } from "lucide-react";
 import { CharacterAlert } from "@/components/character-alert";
+import { QuestionsSaveCelebration } from "@/components/questions-save-celebration";
 import { getManagerCue, getUserCue } from "@/lib/character-system";
 import { UserPageShell } from "@/components/user-page-shell";
 import { computeNextReward } from "@/lib/logic/scoring";
@@ -40,6 +41,8 @@ export default async function QuestionsPage({ searchParams }: Props) {
         </>
       }
     >
+      <QuestionsSaveCelebration openOnMount={saved} />
+
       {saved && (
         <section className="mb-4">
           <CharacterAlert
