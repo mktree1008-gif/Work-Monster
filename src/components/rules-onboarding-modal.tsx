@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { CharacterAlert } from "@/components/character-alert";
 import { getManagerCue } from "@/lib/character-system";
+import { getLocalizedRuleLine, localizeRuleChangelogItem } from "@/lib/rules-copy";
 import { Locale, RuleChangeLogItem } from "@/lib/types";
 import { acknowledgeRulesAction } from "@/lib/services/actions";
 
@@ -28,6 +29,10 @@ export function RulesOnboardingModal({
     () => changelog.filter((item) => item.version > lastSeenVersion),
     [changelog, lastSeenVersion]
   );
+  const localizedUpdatedItems = useMemo(
+    () => updatedItems.map((item) => localizeRuleChangelogItem(item, locale)),
+    [updatedItems, locale]
+  );
   const managerCue = getManagerCue("rules_encouraging", locale);
 
   if (!open) {
@@ -45,7 +50,7 @@ export function RulesOnboardingModal({
         </div>
 
         <div className="mt-4 space-y-3">
-          {updatedItems.map((item) => (
+          {localizedUpdatedItems.map((item) => (
             <article key={item.version} className="rounded-2xl border border-indigo-100 bg-indigo-50 p-3">
               <p className="text-xs font-semibold uppercase tracking-wider text-indigo-500">
                 Updated v{item.version}
@@ -57,7 +62,7 @@ export function RulesOnboardingModal({
         </div>
 
         <p className="mt-4 rounded-xl bg-emerald-50 p-3 text-sm text-emerald-700">
-          You can recover by earning points. Nothing is blocked while Risk Zone is active.
+          {getLocalizedRuleLine(locale, "recovery_banner")}
         </p>
 
         <div className="mt-4 grid grid-cols-2 gap-2">

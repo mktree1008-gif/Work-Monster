@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { LockKeyhole, MailPlus } from "lucide-react";
 import { Locale, UserRole } from "@/lib/types";
@@ -19,39 +19,20 @@ export function RegisterForm() {
   const [error, setError] = useState("");
   const router = useRouter();
 
-  const copy = useMemo(
-    () =>
-      locale === "ko"
-        ? {
-            title: "계정 만들기",
-            user: "사용자",
-            manager: "매니저",
-            language: "언어",
-            id: "아이디 또는 이메일",
-            idHint: "이메일 형식 또는 monster_id 같은 임의 ID를 사용할 수 있어요.",
-            password: "보안 키",
-            confirm: "보안 키 확인",
-            submit: "계정 생성 후 닉네임 설정",
-            creating: "생성 중...",
-            mismatch: "보안 키가 서로 달라요.",
-            back: "이미 계정이 있어요? 로그인"
-          }
-        : {
-            title: "Create account",
-            user: "User",
-            manager: "Manager",
-            language: "Language",
-            id: "ID or Email",
-            idHint: "You can use an email or a custom ID like monster_id.",
-            password: "Security Key",
-            confirm: "Confirm Security Key",
-            submit: "Create account and set nickname",
-            creating: "Creating...",
-            mismatch: "Security keys do not match.",
-            back: "Already have an account? Log in"
-          },
-    [locale]
-  );
+  const copy = {
+    title: "Create account",
+    user: "User",
+    manager: "Manager",
+    language: "Language",
+    id: "ID or Email",
+    idHint: "You can use an email or a custom ID like monster_id.",
+    password: "Security Key",
+    confirm: "Confirm Security Key",
+    submit: "Create account and set nickname",
+    creating: "Creating...",
+    mismatch: "Security keys do not match.",
+    back: "Already have an account? Log in"
+  };
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

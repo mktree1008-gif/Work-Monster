@@ -41,32 +41,18 @@ export function TopAppBar({ appName, role, locale, labels }: Props) {
     setPanel(null);
   }
 
-  const ui =
-    locale === "ko"
-      ? {
-          mainTabs: "메인 탭",
-          more: "더보기",
-          workspace: "워크스페이스",
-          profile: "프로필",
-          settings: "설정",
-          currentRole: "현재 역할",
-          manager: "매니저",
-          language: "언어",
-          applyLanguage: "언어 적용",
-          signOut: "로그아웃"
-        }
-      : {
-          mainTabs: "Main Tabs",
-          more: "More",
-          workspace: "Workspace",
-          profile: "Profile",
-          settings: "Settings",
-          currentRole: "Current Role",
-          manager: "Manager",
-          language: "Language",
-          applyLanguage: "Apply language",
-          signOut: "Sign out"
-        };
+  const ui = {
+    mainTabs: "Main Tabs",
+    more: "More",
+    workspace: "Workspace",
+    profile: "Profile",
+    settings: "Settings",
+    currentRole: "Current Role",
+    manager: "Manager",
+    language: "Language",
+    applyLanguage: "Apply language",
+    signOut: "Sign out"
+  };
 
   return (
     <>

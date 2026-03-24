@@ -33,11 +33,9 @@ export default async function NicknamePage() {
               <Sparkles size={18} />
             </div>
             <h1 className="display-cute text-4xl">Work Monster</h1>
-            <p className="mt-1 text-sm text-indigo-50">
-              {user.locale === "ko" ? "닉네임을 설정하면 바로 플레이할 수 있어요." : "Set your nickname to jump right in."}
-            </p>
+            <p className="mt-1 text-sm text-indigo-50">Set your nickname to jump right in.</p>
           </div>
-          <NicknameForm locale={user.locale} loginId={user.login_id} suggestedName="" />
+          <NicknameForm loginId={user.login_id} suggestedName="" />
         </section>
       </div>
     </main>

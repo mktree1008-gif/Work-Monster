@@ -1,12 +1,19 @@
 import { CharacterAlert } from "@/components/character-alert";
 import { getManagerCue } from "@/lib/character-system";
+import { getLocalizedRuleLine, localizeRuleChangelogItem, localizeRuleLongText } from "@/lib/rules-copy";
 import { UserPageShell } from "@/components/user-page-shell";
 import { getViewerContext } from "@/lib/view-model";
 
 export default async function RulesPage() {
   const { bundle, strings } = await getViewerContext();
   const rules = bundle.rules;
+  const locale = bundle.user.locale;
   const managerCue = getManagerCue("rules_encouraging", bundle.user.locale);
+  const localizedRuleDescription = localizeRuleLongText(rules.rule_description_text, locale);
+  const localizedRewardsBlurb = localizeRuleLongText(rules.rewards_blurb, locale);
+  const localizedPenaltyDescription = localizeRuleLongText(rules.penalty_description, locale);
+  const localizedManagerLogic = localizeRuleLongText(rules.manager_logic_text, locale);
+  const localizedChangelog = rules.changelog.map((item) => localizeRuleChangelogItem(item, locale));
 
   return (
     <UserPageShell activeTab="rules" labels={strings} subtitle="Know the game mechanics" title="Rules">
@@ -22,6 +29,11 @@ export default async function RulesPage() {
 
       <section className="mt-4 space-y-3">
         <article className="card p-4">
+          <h2 className="font-black text-indigo-900">Rule summary</h2>
+          <p className="text-sm text-slate-600">{localizedRuleDescription}</p>
+        </article>
+
+        <article className="card p-4">
           <h2 className="font-black text-indigo-900">💰 Points system</h2>
           <p className="text-sm text-slate-600">Check-in: +{rules.checkin_points}</p>
           <p className="text-sm text-slate-600">Submission approved: +{rules.submission_points}</p>
@@ -31,26 +43,24 @@ export default async function RulesPage() {
 
         <article className="card p-4">
           <h2 className="font-black text-indigo-900">🔥 Streak system</h2>
-          <p className="text-sm text-slate-600">
-            Consecutive approvals build your streak. Current threshold target: {rules.streak_days} days.
-          </p>
+          <p className="text-sm text-slate-600">{getLocalizedRuleLine(locale, "streak_desc")}</p>
+          <p className="text-sm text-slate-600">Current threshold target: {rules.streak_days} days.</p>
         </article>
 
         <article className="card p-4">
           <h2 className="font-black text-indigo-900">⭐ Multiplier rules</h2>
-          <p className="text-sm text-slate-600">
-            Multiplier activates at {rules.multiplier_trigger_days} days, then applies x{rules.multiplier_value}.
-          </p>
+          <p className="text-sm text-slate-600">{getLocalizedRuleLine(locale, "multiplier_desc")}</p>
+          <p className="text-sm text-slate-600">Trigger: {rules.multiplier_trigger_days} days, Value: x{rules.multiplier_value}</p>
         </article>
 
         <article className="card p-4">
           <h2 className="font-black text-indigo-900">🎁 Rewards</h2>
-          <p className="text-sm text-slate-600">{rules.rewards_blurb}</p>
+          <p className="text-sm text-slate-600">{localizedRewardsBlurb}</p>
         </article>
 
         <article className="card p-4">
           <h2 className="font-black text-indigo-900">Penalty rules (Risk Zone)</h2>
-          <p className="text-sm text-slate-600">{rules.penalty_description}</p>
+          <p className="text-sm text-slate-600">{localizedPenaltyDescription}</p>
           <p className="text-sm text-slate-600">penalty_thresholds: {rules.penalty_thresholds.join(", ")}</p>
           <ul className="mt-2 space-y-1 text-sm text-slate-600">
             {rules.penalty_rewards.map((reward) => (
@@ -63,14 +73,14 @@ export default async function RulesPage() {
 
         <article className="card p-4">
           <h2 className="font-black text-indigo-900">Manager logic</h2>
-          <p className="text-sm text-slate-600">{rules.manager_logic_text}</p>
+          <p className="text-sm text-slate-600">{localizedManagerLogic}</p>
         </article>
       </section>
 
       <section className="card mt-4 p-4">
         <h2 className="font-black text-indigo-900">Recently Updated</h2>
         <ul className="mt-2 space-y-2 text-sm text-slate-600">
-          {rules.changelog.map((item) => (
+          {localizedChangelog.map((item) => (
             <li key={`${item.version}-${item.updated_at}`} className="rounded-xl bg-slate-100 p-3">
               <p className="font-semibold text-indigo-900">
                 v{item.version} - {item.title}

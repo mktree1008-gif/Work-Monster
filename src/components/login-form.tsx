@@ -19,32 +19,18 @@ export function LoginForm() {
   const [error, setError] = useState("");
   const router = useRouter();
 
-  const copy =
-    locale === "ko"
-      ? {
-          user: "사용자",
-          manager: "매니저",
-          language: "언어",
-          id: "아이디 또는 이메일",
-          password: "보안 키",
-          enter: "입장하기",
-          create: "계정 만들기",
-          createHint: "아직 계정이 없나요?",
-          entering: "입장 중...",
-          failed: "로그인에 실패했어요."
-        }
-      : {
-          user: "User",
-          manager: "Manager",
-          language: "Language",
-          id: "ID or Email",
-          password: "Security Key",
-          enter: "Enter Sanctuary",
-          create: "Create account",
-          createHint: "Need an account?",
-          entering: "Entering...",
-          failed: "Login failed."
-        };
+  const copy = {
+    user: "User",
+    manager: "Manager",
+    language: "Language",
+    id: "ID or Email",
+    password: "Security Key",
+    enter: "Enter Sanctuary",
+    create: "Create account",
+    createHint: "Need an account?",
+    entering: "Entering...",
+    failed: "Login failed."
+  };
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

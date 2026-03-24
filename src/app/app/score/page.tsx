@@ -3,6 +3,7 @@ import { CharacterAlert } from "@/components/character-alert";
 import { getManagerCue, getUserCue } from "@/lib/character-system";
 import { UserPageShell } from "@/components/user-page-shell";
 import { computeNextReward } from "@/lib/logic/scoring";
+import { localizeRuleLongText } from "@/lib/rules-copy";
 import { getViewerContext } from "@/lib/view-model";
 
 export default async function ScorePage() {
@@ -19,6 +20,7 @@ export default async function ScorePage() {
   const milestoneCue = getUserCue("milestone_jump", bundle.user.locale);
   const majorPenalty = bundle.score.total_points <= -10 || openEvents.some((event) => event.threshold <= -10);
   const majorPenaltyCue = getUserCue("major_penalty_sad", bundle.user.locale);
+  const localizedPenaltyDescription = localizeRuleLongText(bundle.rules.penalty_description, bundle.user.locale);
 
   return (
     <UserPageShell activeTab="score" labels={strings} subtitle="Game HUD" title="Score">
@@ -76,7 +78,7 @@ export default async function ScorePage() {
           {bundle.score.penalty_active ? "Penalty Active" : "Penalty inactive"}
         </p>
         <p className="text-sm text-slate-500">Negative balance: {bundle.score.negative_balance}</p>
-        <p className="mt-2 rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{bundle.rules.penalty_description}</p>
+        <p className="mt-2 rounded-xl bg-rose-50 p-3 text-sm text-rose-700">{localizedPenaltyDescription}</p>
         <p className="mt-2 text-sm text-emerald-700">You can recover by earning points.</p>
         {managerRewardUnlocked && (
           <p className="mt-2 rounded-xl bg-amber-50 p-3 text-sm font-semibold text-amber-700">

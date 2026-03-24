@@ -1,45 +1,29 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Sparkles, UserRound } from "lucide-react";
-import { Locale } from "@/lib/types";
 
 type Props = {
-  locale: Locale;
   loginId: string;
   suggestedName: string;
 };
 
-export function NicknameForm({ locale, loginId, suggestedName }: Props) {
+export function NicknameForm({ loginId, suggestedName }: Props) {
   const [nickname, setNickname] = useState(suggestedName);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
 
-  const copy = useMemo(
-    () =>
-      locale === "ko"
-        ? {
-            title: "이제 닉네임을 정해볼까요?",
-            subtitle: "앱 안에서 이렇게 불릴 거예요.",
-            nickname: "닉네임",
-            helper: `로그인 아이디: ${loginId}`,
-            save: "닉네임 저장하고 시작하기",
-            saving: "저장 중...",
-            failed: "닉네임 저장에 실패했어요."
-          }
-        : {
-            title: "Pick your nickname",
-            subtitle: "This is how Work Monster will call you.",
-            nickname: "Nickname",
-            helper: `Login ID: ${loginId}`,
-            save: "Save nickname and continue",
-            saving: "Saving...",
-            failed: "Nickname update failed."
-          },
-    [locale, loginId]
-  );
+  const copy = {
+    title: "Pick your nickname",
+    subtitle: "This is how Work Monster will call you.",
+    nickname: "Nickname",
+    helper: `Login ID: ${loginId}`,
+    save: "Save nickname and continue",
+    saving: "Saving...",
+    failed: "Nickname update failed."
+  };
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -86,7 +70,7 @@ export function NicknameForm({ locale, loginId, suggestedName }: Props) {
           autoComplete="nickname"
           className="input pl-10"
           onChange={(event) => setNickname(event.target.value)}
-          placeholder={locale === "ko" ? "예: 몬스터수집가" : "e.g. Focus Rider"}
+          placeholder="e.g. Focus Rider"
           type="text"
           value={nickname}
         />

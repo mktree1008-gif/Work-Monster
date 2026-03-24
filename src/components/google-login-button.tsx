@@ -72,7 +72,7 @@ export function GoogleLoginButton({ role, locale }: Props) {
     <div className="mt-4">
       <button className="btn btn-muted flex w-full items-center justify-center gap-2" onClick={onSignIn} type="button">
         <Chrome size={18} />
-        {pending ? (locale === "ko" ? "연결 중..." : "Connecting...") : locale === "ko" ? "Google로 시작" : "Continue with Google"}
+        {pending ? "Connecting..." : "Continue with Google"}
       </button>
       {error && <p className="mt-2 text-xs text-rose-600">{error}</p>}
     </div>
