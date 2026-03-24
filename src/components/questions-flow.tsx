@@ -6,28 +6,164 @@ import { getUserCue } from "@/lib/character-system";
 import { submitCheckInAction } from "@/lib/services/actions";
 import { Locale } from "@/lib/types";
 
-const moods = ["Focused", "Steady", "Tired", "Energized"];
-
 type Props = {
   locale: Locale;
   withGlasses: boolean;
 };
 
+type ChoiceKey = "A" | "B" | "C";
+
+type Option = {
+  key: ChoiceKey;
+  label: string;
+  emoji: string;
+  mood: string;
+  productive: boolean;
+};
+
+type StepDefinition = {
+  id: "q1" | "q2" | "q3";
+  title: string;
+  help: string;
+  options: [Option, Option, Option];
+};
+
+type StepState = {
+  choice: ChoiceKey | "CUSTOM" | "";
+  customText: string;
+};
+
+const stepDefinitions: StepDefinition[] = [
+  {
+    id: "q1",
+    title: "Q1. How do you feel right now?",
+    help: "Pick A/B/C quickly, or add your own answer.",
+    options: [
+      {
+        key: "A",
+        label: "Focused and ready to execute",
+        emoji: "😎",
+        mood: "Focused",
+        productive: true
+      },
+      {
+        key: "B",
+        label: "Steady but low energy",
+        emoji: "🙂",
+        mood: "Steady",
+        productive: true
+      },
+      {
+        key: "C",
+        label: "Overwhelmed and distracted",
+        emoji: "😵",
+        mood: "Tired",
+        productive: false
+      }
+    ]
+  },
+  {
+    id: "q2",
+    title: "Q2. How was your work progress?",
+    help: "Select your closest result for today.",
+    options: [
+      {
+        key: "A",
+        label: "Major progress with clear output",
+        emoji: "🚀",
+        mood: "Focused",
+        productive: true
+      },
+      {
+        key: "B",
+        label: "Some progress, still in progress",
+        emoji: "👍",
+        mood: "Steady",
+        productive: true
+      },
+      {
+        key: "C",
+        label: "Blocked and behind schedule",
+        emoji: "😓",
+        mood: "Tired",
+        productive: false
+      }
+    ]
+  },
+  {
+    id: "q3",
+    title: "Q3. What do you need next?",
+    help: "Choose your next move before submitting.",
+    options: [
+      {
+        key: "A",
+        label: "Deep focus sprint",
+        emoji: "🔥",
+        mood: "Focused",
+        productive: true
+      },
+      {
+        key: "B",
+        label: "Short reset and continue",
+        emoji: "🧘",
+        mood: "Steady",
+        productive: true
+      },
+      {
+        key: "C",
+        label: "Need feedback or help",
+        emoji: "🆘",
+        mood: "Tired",
+        productive: false
+      }
+    ]
+  }
+];
+
+function initialSteps(): StepState[] {
+  return stepDefinitions.map(() => ({ choice: "", customText: "" }));
+}
+
+function hasAnswer(state: StepState): boolean {
+  if (state.choice === "CUSTOM") {
+    return state.customText.trim().length > 0;
+  }
+  return state.choice !== "";
+}
+
+function selectedOption(stepIndex: number, state: StepState): Option | null {
+  if (state.choice === "CUSTOM" || state.choice === "") {
+    return null;
+  }
+  return stepDefinitions[stepIndex].options.find((item) => item.key === state.choice) ?? null;
+}
+
+function answerLabel(stepIndex: number, state: StepState): string {
+  if (state.choice === "CUSTOM") {
+    return state.customText.trim();
+  }
+  return selectedOption(stepIndex, state)?.label ?? "";
+}
+
 export function QuestionsFlow({ locale, withGlasses }: Props) {
   const [step, setStep] = useState(0);
-  const [mood, setMood] = useState(moods[0]);
-  const [focus, setFocus] = useState("");
-  const [blocker, setBlocker] = useState("");
-  const [win, setWin] = useState("");
-  const [calories, setCalories] = useState("500");
-  const [productive, setProductive] = useState(true);
+  const [answers, setAnswers] = useState<StepState[]>(initialSteps);
   const [taskList, setTaskList] = useState("");
   const [fileUrl, setFileUrl] = useState("");
   const [clientTimeZone, setClientTimeZone] = useState("UTC");
   const [clientLocalDate, setClientLocalDate] = useState("");
 
-  const progress = useMemo(() => Math.round(((step + 1) / 3) * 100), [step]);
+  const progress = useMemo(() => Math.round(((step + 1) / stepDefinitions.length) * 100), [step]);
   const determinedCue = getUserCue("questions_determined", locale);
+
+  const currentStepDef = stepDefinitions[step];
+  const currentState = answers[step];
+  const currentOption = selectedOption(step, currentState);
+  const reactionEmoji = currentOption?.emoji ?? (currentState.customText.trim() ? "✍️" : "🙂");
+  const reactionText = currentOption?.label ?? (currentState.customText.trim() || "Choose an option");
+
+  const stepCompleted = hasAnswer(currentState);
+  const allAnswered = answers.every((item) => hasAnswer(item));
 
   useEffect(() => {
     try {
@@ -50,6 +186,35 @@ export function QuestionsFlow({ locale, withGlasses }: Props) {
     }
   }, []);
 
+  function chooseOption(key: ChoiceKey) {
+    setAnswers((prev) =>
+      prev.map((item, index) => {
+        if (index !== step) return item;
+        return { choice: key, customText: "" };
+      })
+    );
+  }
+
+  function updateCustom(value: string) {
+    setAnswers((prev) =>
+      prev.map((item, index) => {
+        if (index !== step) return item;
+        if (value.trim().length === 0) {
+          return item.choice === "CUSTOM" ? { choice: "", customText: "" } : { ...item, customText: "" };
+        }
+        return { choice: "CUSTOM", customText: value };
+      })
+    );
+  }
+
+  const mood = selectedOption(0, answers[0])?.mood ?? (answerLabel(0, answers[0]) || "Steady");
+  const progressAnswer = answerLabel(1, answers[1]) || "";
+  const nextMoveAnswer = answerLabel(2, answers[2]) || "";
+  const productive =
+    (selectedOption(0, answers[0])?.productive ?? true) &&
+    (selectedOption(1, answers[1])?.productive ?? true) &&
+    (selectedOption(2, answers[2])?.productive ?? true);
+
   return (
     <div className="space-y-4">
       <CharacterAlert role="user" cue={determinedCue} glasses={withGlasses} compact />
@@ -57,7 +222,9 @@ export function QuestionsFlow({ locale, withGlasses }: Props) {
       <div className="soft-card p-3">
         <div className="mb-1 flex items-center justify-between text-xs text-slate-500">
           <span>Daily check-in flow</span>
-          <span>{step + 1}/3</span>
+          <span>
+            {step + 1}/{stepDefinitions.length}
+          </span>
         </div>
         <div className="h-2 overflow-hidden rounded-full bg-white">
           <div className="h-full rounded-full bg-indigo-600 transition-all" style={{ width: `${progress}%` }} />
@@ -67,101 +234,102 @@ export function QuestionsFlow({ locale, withGlasses }: Props) {
         </p>
       </div>
 
-      {step === 0 && (
-        <article className="card space-y-4 p-5">
-          <h2 className="text-xl font-bold text-indigo-900">How do you feel today?</h2>
-          <div className="grid grid-cols-2 gap-2">
-            {moods.map((option) => (
+      <article className="card space-y-4 p-5">
+        <div className="rounded-2xl bg-indigo-50 p-3">
+          <p className="text-sm font-semibold text-indigo-900">{currentStepDef.title}</p>
+          <p className="text-xs text-indigo-700">{currentStepDef.help}</p>
+        </div>
+
+        <div className="grid grid-cols-1 gap-2">
+          {currentStepDef.options.map((option) => {
+            const selected = currentState.choice === option.key;
+            return (
               <button
-                key={option}
-                className={`rounded-2xl px-3 py-3 text-sm font-semibold ${mood === option ? "bg-indigo-100 text-indigo-900" : "bg-slate-100 text-slate-600"}`}
-                onClick={() => setMood(option)}
+                key={option.key}
+                className={`rounded-2xl border px-3 py-3 text-left text-sm font-semibold transition ${
+                  selected
+                    ? "border-indigo-400 bg-indigo-100 text-indigo-900"
+                    : "border-slate-200 bg-slate-50 text-slate-700"
+                }`}
+                onClick={() => chooseOption(option.key)}
                 type="button"
               >
-                {option}
+                <span className="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white text-xs font-bold text-indigo-700">
+                  {option.key}
+                </span>
+                {option.emoji} {option.label}
               </button>
-            ))}
-          </div>
-          <label className="text-sm font-semibold text-slate-600">
-            What will you focus on?
-            <textarea className="input mt-2 h-24 resize-none" onChange={(e) => setFocus(e.target.value)} value={focus} />
-          </label>
-        </article>
-      )}
+            );
+          })}
+        </div>
 
-      {step === 1 && (
-        <article className="card space-y-4 p-5">
-          <h2 className="text-xl font-bold text-indigo-900">What happened in your work today?</h2>
-          <label className="text-sm font-semibold text-slate-600">
-            Biggest blocker
-            <textarea className="input mt-2 h-20 resize-none" onChange={(e) => setBlocker(e.target.value)} value={blocker} />
-          </label>
-          <label className="text-sm font-semibold text-slate-600">
-            Best win
-            <textarea className="input mt-2 h-20 resize-none" onChange={(e) => setWin(e.target.value)} value={win} />
-          </label>
-        </article>
-      )}
+        <label className="text-sm font-semibold text-slate-600">
+          Your answer
+          <textarea
+            className="input mt-2 h-20 resize-none"
+            onChange={(event) => updateCustom(event.target.value)}
+            placeholder="Type your own answer if A/B/C does not fit."
+            value={currentState.choice === "CUSTOM" ? currentState.customText : ""}
+          />
+        </label>
 
-      {step === 2 && (
-        <article className="card space-y-4 p-5">
-          <h2 className="text-xl font-bold text-indigo-900">Submit your daily record</h2>
+        <div className="rounded-2xl bg-amber-50 p-3 text-center">
+          <p className="text-3xl">{reactionEmoji}</p>
+          <p className="mt-1 text-sm font-semibold text-amber-800">{reactionText}</p>
+        </div>
+      </article>
+
+      {step === stepDefinitions.length - 1 && (
+        <article className="card space-y-3 p-5">
           <label className="text-sm font-semibold text-slate-600">
-            Calories
-            <input className="input mt-2" onChange={(e) => setCalories(e.target.value)} type="number" value={calories} />
-          </label>
-          <label className="text-sm font-semibold text-slate-600">
-            Task list (one task per line)
-            <textarea className="input mt-2 h-24 resize-none" onChange={(e) => setTaskList(e.target.value)} value={taskList} />
+            Task log (one task per line)
+            <textarea
+              className="input mt-2 h-24 resize-none"
+              onChange={(event) => setTaskList(event.target.value)}
+              placeholder="- Ship homepage\n- Review PR\n- Sync with manager"
+              value={taskList}
+            />
           </label>
           <label className="text-sm font-semibold text-slate-600">
             File link (optional)
-            <input className="input mt-2" onChange={(e) => setFileUrl(e.target.value)} value={fileUrl} />
+            <input className="input mt-2" onChange={(event) => setFileUrl(event.target.value)} value={fileUrl} />
           </label>
-          <div className="rounded-2xl bg-slate-100 p-3">
-            <p className="mb-2 text-sm font-semibold">Was this day productive?</p>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                className={`rounded-xl px-3 py-2 text-sm font-semibold ${productive ? "bg-emerald-200 text-emerald-900" : "bg-white text-slate-500"}`}
-                onClick={() => setProductive(true)}
-                type="button"
-              >
-                Yes
-              </button>
-              <button
-                className={`rounded-xl px-3 py-2 text-sm font-semibold ${productive ? "bg-white text-slate-500" : "bg-amber-200 text-amber-900"}`}
-                onClick={() => setProductive(false)}
-                type="button"
-              >
-                No
-              </button>
-            </div>
-          </div>
         </article>
       )}
 
       <div className="flex items-center justify-between gap-2">
-        <button className="btn btn-muted w-full" disabled={step === 0} onClick={() => setStep((s) => Math.max(0, s - 1))} type="button">
+        <button
+          className="btn btn-muted w-full"
+          disabled={step === 0}
+          onClick={() => setStep((value) => Math.max(0, value - 1))}
+          type="button"
+        >
           Back
         </button>
-        {step < 2 ? (
-          <button className="btn btn-primary w-full" onClick={() => setStep((s) => Math.min(2, s + 1))} type="button">
+
+        {step < stepDefinitions.length - 1 ? (
+          <button
+            className="btn btn-primary w-full"
+            disabled={!stepCompleted}
+            onClick={() => setStep((value) => Math.min(stepDefinitions.length - 1, value + 1))}
+            type="button"
+          >
             Next
           </button>
         ) : (
           <form action={submitCheckInAction} className="w-full">
             <input name="mood" type="hidden" value={mood} />
             <input name="feeling" type="hidden" value={mood} />
-            <input name="focus" type="hidden" value={focus} />
-            <input name="blocker" type="hidden" value={blocker} />
-            <input name="win" type="hidden" value={win} />
-            <input name="calories" type="hidden" value={calories} />
+            <input name="focus" type="hidden" value={answerLabel(0, answers[0])} />
+            <input name="blocker" type="hidden" value={progressAnswer} />
+            <input name="win" type="hidden" value={nextMoveAnswer} />
+            <input name="calories" type="hidden" value="0" />
             <input name="productive" type="hidden" value={productive ? "true" : "false"} />
             <input name="task_list" type="hidden" value={taskList} />
             <input name="file_url" type="hidden" value={fileUrl} />
             <input name="client_time_zone" type="hidden" value={clientTimeZone} />
             <input name="client_local_date" type="hidden" value={clientLocalDate} />
-            <button className="btn btn-primary w-full" type="submit">
+            <button className="btn btn-primary w-full" disabled={!allAnswered} type="submit">
               Save check-in
             </button>
           </form>

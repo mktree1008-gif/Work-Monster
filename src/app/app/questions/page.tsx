@@ -1,10 +1,9 @@
+import Link from "next/link";
 import { Sparkles } from "lucide-react";
 import { CharacterAlert } from "@/components/character-alert";
 import { getManagerCue, getUserCue } from "@/lib/character-system";
-import { QuestionsFlow } from "@/components/questions-flow";
 import { UserPageShell } from "@/components/user-page-shell";
 import { computeNextReward } from "@/lib/logic/scoring";
-import { toISODate } from "@/lib/utils";
 import { getViewerContext } from "@/lib/view-model";
 
 export default async function QuestionsPage() {
@@ -12,7 +11,6 @@ export default async function QuestionsPage() {
   const nextReward = computeNextReward(bundle.score.total_points, bundle.rewards);
   const latestSubmission = bundle.submissions[0];
   const displayName = (bundle.user.name ?? "").trim() || bundle.user.login_id;
-  const isTodaySubmission = latestSubmission?.date === toISODate();
   const pendingSubmission = latestSubmission?.status === "pending";
   const pendingCue = getManagerCue("upload_saved_pending", bundle.user.locale);
   const successCue = getManagerCue("submission_success", bundle.user.locale);
@@ -50,25 +48,39 @@ export default async function QuestionsPage() {
         </div>
       </section>
 
+      <section className="card mb-4 p-5">
+        <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Start today</p>
+        <h2 className="mt-1 text-2xl font-black text-indigo-900">Begin Daily Check-in</h2>
+        <p className="mt-1 text-sm text-slate-600">
+          Move to the full-screen quest to answer A/B/C + custom input with live emoji reactions.
+        </p>
+        <Link className="btn btn-primary mt-4 w-full" href="/app/questions/check-in">
+          Begin Daily Check-in
+        </Link>
+      </section>
+
       {milestoneUnlocked && (
         <section className="mt-4">
           <CharacterAlert role="user" cue={milestoneCue} glasses={bundle.user.character_glasses ?? true} tone="success" />
         </section>
       )}
 
-      <QuestionsFlow locale={bundle.user.locale} withGlasses={bundle.user.character_glasses ?? true} />
-
       {latestSubmission && (
         <section className="card mt-4 p-5">
           <p className="text-sm font-semibold text-slate-500">Latest submission</p>
           <p className="mt-1 font-bold text-indigo-900">{latestSubmission.status.toUpperCase()}</p>
+          <p className="text-xs text-slate-500">Date: {latestSubmission.date}</p>
           <p className="text-sm text-slate-600">
             {latestSubmission.status === "pending"
               ? `${bundle.rules.success_message} Waiting for manager review. Points update only after manager approval.`
               : latestSubmission.manager_note ?? "No manager note yet."}
           </p>
           {pendingSubmission && <div className="mt-3"><CharacterAlert role="manager" cue={pendingCue} compact tone="warning" /></div>}
-          {isTodaySubmission && <div className="mt-3"><CharacterAlert role="manager" cue={{ ...successCue, message: bundle.rules.success_message }} compact tone="success" /></div>}
+          {!pendingSubmission && (
+            <div className="mt-3">
+              <CharacterAlert role="manager" cue={{ ...successCue, message: bundle.rules.success_message }} compact tone="success" />
+            </div>
+          )}
         </section>
       )}
     </UserPageShell>
