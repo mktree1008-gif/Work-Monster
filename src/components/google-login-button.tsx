@@ -19,6 +19,7 @@ export function GoogleLoginButton({ role, locale, onSuccessRedirect, onError }: 
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
+  const canonicalHost = process.env.NEXT_PUBLIC_APP_CANONICAL_HOST?.trim().toLowerCase() ?? "workmonster.vercel.app";
 
   async function completeGoogleLogin(idToken: string, email: string, name: string) {
     const response = await fetch("/api/auth/google", {
@@ -86,6 +87,18 @@ export function GoogleLoginButton({ role, locale, onSuccessRedirect, onError }: 
     setError(null);
 
     try {
+      if (typeof window !== "undefined") {
+        const currentHost = window.location.hostname.toLowerCase();
+        const isLocalHost = currentHost === "localhost" || currentHost === "127.0.0.1";
+        if (!isLocalHost && currentHost !== canonicalHost) {
+          const target = new URL(window.location.href);
+          target.protocol = "https:";
+          target.hostname = canonicalHost;
+          window.location.href = target.toString();
+          return;
+        }
+      }
+
       let idToken = "";
       let email = "";
       let name = "";
