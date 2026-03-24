@@ -64,6 +64,7 @@ export interface GameRepository {
   saveScore(score: ScoreState): Promise<ScoreState>;
   listRewards(): Promise<Reward[]>;
   saveReward(reward: Reward): Promise<Reward>;
+  deleteReward(rewardId: string): Promise<void>;
   listRewardClaims(userId: string): Promise<RewardClaim[]>;
   saveRewardClaim(claim: RewardClaim): Promise<RewardClaim>;
   listSubmissionsByUser(userId: string): Promise<Submission[]>;
@@ -339,6 +340,15 @@ class MemoryGameRepository implements GameRepository {
   async saveReward(reward: Reward): Promise<Reward> {
     this.db.rewards.set(reward.id, reward);
     return reward;
+  }
+
+  async deleteReward(rewardId: string): Promise<void> {
+    this.db.rewards.delete(rewardId);
+    for (const [claimId, claim] of this.db.rewardClaims.entries()) {
+      if (claim.reward_id === rewardId) {
+        this.db.rewardClaims.delete(claimId);
+      }
+    }
   }
 
   async listRewardClaims(userId: string): Promise<RewardClaim[]> {
@@ -624,6 +634,16 @@ class FirestoreGameRepository implements GameRepository {
   async saveReward(reward: Reward): Promise<Reward> {
     await this.db.collection("rewards").doc(reward.id).set(reward, { merge: true });
     return reward;
+  }
+
+  async deleteReward(rewardId: string): Promise<void> {
+    await this.db.collection("rewards").doc(rewardId).delete();
+    const claims = await this.db.collection("reward_claims").where("reward_id", "==", rewardId).get();
+    if (!claims.empty) {
+      const batch = this.db.batch();
+      claims.docs.forEach((doc) => batch.delete(doc.ref));
+      await batch.commit();
+    }
   }
 
   async listRewardClaims(userId: string): Promise<RewardClaim[]> {

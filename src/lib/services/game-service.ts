@@ -270,6 +270,50 @@ export async function createReward(
   return reward;
 }
 
+export async function updateReward(
+  managerId: string,
+  payload: Pick<Reward, "id" | "title" | "description" | "required_points">
+): Promise<Reward> {
+  const repo = getGameRepository();
+  const existing = (await repo.listRewards()).find((reward) => reward.id === payload.id);
+  if (!existing) {
+    throw new Error("Reward not found.");
+  }
+
+  const next: Reward = {
+    ...existing,
+    title: payload.title,
+    description: payload.description,
+    required_points: payload.required_points
+  };
+
+  await repo.saveReward(next);
+  await repo.saveAuditLog(
+    createAuditLog(managerId, "reward.updated", next.id, {
+      title: next.title,
+      description: next.description,
+      required_points: next.required_points
+    })
+  );
+  return next;
+}
+
+export async function deleteReward(managerId: string, rewardId: string): Promise<void> {
+  const repo = getGameRepository();
+  const existing = (await repo.listRewards()).find((reward) => reward.id === rewardId);
+  if (!existing) {
+    throw new Error("Reward not found.");
+  }
+
+  await repo.deleteReward(rewardId);
+  await repo.saveAuditLog(
+    createAuditLog(managerId, "reward.deleted", rewardId, {
+      title: existing.title,
+      required_points: existing.required_points
+    })
+  );
+}
+
 export async function acknowledgeRuleVersion(userId: string): Promise<UserProfile> {
   const repo = getGameRepository();
   const rules = await repo.getRules();

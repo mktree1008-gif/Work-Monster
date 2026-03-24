@@ -6,8 +6,10 @@ import { getSession } from "@/lib/session";
 import {
   claimPenaltyRewardAction,
   createRewardAction,
+  deleteRewardAction,
   logoutAction,
   reviewSubmissionAction,
+  updateRewardAction,
   updateRulesAction
 } from "@/lib/services/actions";
 import { getManagerOverview } from "@/lib/services/game-service";
@@ -166,15 +168,55 @@ export default async function ManagerPage() {
       </section>
 
       <section className="card mb-4 p-4">
-        <h2 className="text-xl font-black text-indigo-900">Create reward</h2>
-        <form action={createRewardAction} className="mt-3 space-y-2">
-          <input className="input" name="title" placeholder="Reward title" required />
-          <input className="input" name="description" placeholder="Reward description" required />
-          <input className="input" min={1} name="required_points" placeholder="Required points" type="number" />
-          <button className="btn btn-primary w-full" type="submit">
-            Add reward
-          </button>
-        </form>
+        <h2 className="text-xl font-black text-indigo-900">Reward management</h2>
+        <p className="mt-1 text-sm text-slate-600">Add, edit, and delete reward cards shown to users.</p>
+        <div className="mt-3 space-y-3">
+          {data.rewards.map((reward) => (
+            <article key={reward.id} className="rounded-2xl bg-slate-100 p-3">
+              <form action={updateRewardAction} className="space-y-2">
+                <input name="reward_id" type="hidden" value={reward.id} />
+                <input className="input" defaultValue={reward.title} name="title" placeholder="Reward title" required />
+                <input
+                  className="input"
+                  defaultValue={reward.description}
+                  name="description"
+                  placeholder="Reward description"
+                  required
+                />
+                <input
+                  className="input"
+                  defaultValue={reward.required_points}
+                  min={1}
+                  name="required_points"
+                  placeholder="Required points"
+                  type="number"
+                  required
+                />
+                <button className="btn btn-primary w-full" type="submit">
+                  Save reward changes
+                </button>
+              </form>
+              <form action={deleteRewardAction} className="mt-2">
+                <input name="reward_id" type="hidden" value={reward.id} />
+                <button className="btn btn-muted w-full text-rose-700" type="submit">
+                  Delete reward
+                </button>
+              </form>
+            </article>
+          ))}
+        </div>
+
+        <div className="mt-4 border-t border-slate-200 pt-4">
+          <h3 className="text-base font-bold text-indigo-900">Add new reward</h3>
+          <form action={createRewardAction} className="mt-2 space-y-2">
+            <input className="input" name="title" placeholder="Reward title" required />
+            <input className="input" name="description" placeholder="Reward description" required />
+            <input className="input" min={1} name="required_points" placeholder="Required points" type="number" required />
+            <button className="btn btn-primary w-full" type="submit">
+              Add reward
+            </button>
+          </form>
+        </div>
       </section>
 
       <section className="card p-4">

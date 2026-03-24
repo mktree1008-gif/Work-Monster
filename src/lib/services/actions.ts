@@ -10,8 +10,10 @@ import {
   claimPenaltyReward,
   claimReward,
   createReward,
+  deleteReward,
   getDashboard,
   submitDailyCheckIn,
+  updateReward,
   updateRules
 } from "@/lib/services/game-service";
 import { getGameRepository } from "@/lib/repositories/game-repository";
@@ -203,6 +205,38 @@ export async function createRewardAction(formData: FormData): Promise<void> {
 
   revalidatePath("/manager");
   revalidatePath("/app/rewards");
+}
+
+export async function updateRewardAction(formData: FormData): Promise<void> {
+  const session = await getSession();
+  if (!session || session.role !== "manager") redirect("/auth/login");
+
+  const rewardId = String(formData.get("reward_id") ?? "");
+  if (!rewardId) return;
+
+  await updateReward(session.uid, {
+    id: rewardId,
+    title: String(formData.get("title") ?? ""),
+    description: String(formData.get("description") ?? ""),
+    required_points: parseNumber(formData.get("required_points"), 0)
+  });
+
+  revalidatePath("/manager");
+  revalidatePath("/app/rewards");
+  revalidatePath("/app/score");
+}
+
+export async function deleteRewardAction(formData: FormData): Promise<void> {
+  const session = await getSession();
+  if (!session || session.role !== "manager") redirect("/auth/login");
+
+  const rewardId = String(formData.get("reward_id") ?? "");
+  if (!rewardId) return;
+
+  await deleteReward(session.uid, rewardId);
+  revalidatePath("/manager");
+  revalidatePath("/app/rewards");
+  revalidatePath("/app/score");
 }
 
 export async function claimPenaltyRewardAction(formData: FormData): Promise<void> {
