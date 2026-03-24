@@ -183,6 +183,18 @@ function createMemoryDB(): MemoryDB {
   };
 }
 
+function normalizeRuleVersionForLaunch<T extends RuleConfig>(rules: T): T {
+  if (rules.rule_version_pinned_at || rules.rule_version <= 1) {
+    return rules;
+  }
+
+  return {
+    ...rules,
+    rule_version: 1,
+    rule_version_pinned_at: nowISO()
+  };
+}
+
 class MemoryGameRepository implements GameRepository {
   private db: MemoryDB = createMemoryDB();
   private findByEmail(email: string): UserProfile | undefined {
@@ -338,7 +350,9 @@ class MemoryGameRepository implements GameRepository {
   }
 
   async getRules(): Promise<RuleConfig> {
-    return this.db.rules;
+    const normalized = normalizeRuleVersionForLaunch(this.db.rules);
+    this.db.rules = normalized;
+    return normalized;
   }
 
   async saveRules(nextRules: RuleConfig): Promise<RuleConfig> {
@@ -660,7 +674,15 @@ class FirestoreGameRepository implements GameRepository {
       await this.db.collection("rules").doc("current").set(DEFAULT_RULES);
       return DEFAULT_RULES;
     }
-    return snap.data() as RuleConfig;
+    const raw = snap.data() as RuleConfig;
+    const normalized = normalizeRuleVersionForLaunch(raw);
+    if (
+      normalized.rule_version !== raw.rule_version ||
+      normalized.rule_version_pinned_at !== raw.rule_version_pinned_at
+    ) {
+      await this.db.collection("rules").doc("current").set(normalized, { merge: true });
+    }
+    return normalized;
   }
 
   async saveRules(nextRules: RuleConfig): Promise<RuleConfig> {

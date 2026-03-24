@@ -314,7 +314,7 @@ export default async function ManagerPage({ searchParams }: Props) {
             <button className="btn btn-primary mt-3 w-full" type="submit">
               Save rules and bump version
             </button>
-            <button className="btn btn-muted mt-2 w-full" name="target_rule_version" type="submit" value="1">
+            <button className="btn btn-muted mt-2 w-full" name="reset_version_to_one" type="submit" value="1">
               Reset version label to 1 (keep content)
             </button>
           </article>

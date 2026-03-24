@@ -32,6 +32,7 @@ export interface RuleConfig {
   penalty_description: string;
   rewards_blurb: string;
   rule_version: number;
+  rule_version_pinned_at?: string;
   last_updated: string;
   changelog: RuleChangeLogItem[];
 }

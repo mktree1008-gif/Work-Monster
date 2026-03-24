@@ -330,7 +330,8 @@ export async function updateRulesAction(formData: FormData): Promise<void> {
     };
   });
 
-  const targetRuleVersionRaw = String(formData.get("target_rule_version") ?? "").trim();
+  const resetToVersionOne = String(formData.get("reset_version_to_one") ?? "") === "1";
+  const targetRuleVersionRaw = resetToVersionOne ? "1" : String(formData.get("target_rule_version") ?? "").trim();
   const targetRuleVersionParsed = Number(targetRuleVersionRaw);
   const targetRuleVersion =
     targetRuleVersionRaw.length > 0 && Number.isFinite(targetRuleVersionParsed) && targetRuleVersionParsed > 0

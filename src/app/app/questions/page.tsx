@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Rocket, Sparkles } from "lucide-react";
 import { CharacterAlert } from "@/components/character-alert";
 import { CharacterToast } from "@/components/character-toast";
+import { ChibiAvatar } from "@/components/chibi-avatar";
 import { QuestionsSaveCelebration } from "@/components/questions-save-celebration";
 import { getManagerCue, getUserCue } from "@/lib/character-system";
 import { UserPageShell } from "@/components/user-page-shell";
@@ -102,6 +103,28 @@ export default async function QuestionsPage({ searchParams }: Props) {
         )}
         <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-200">
           <div className="h-full rounded-full bg-indigo-600" style={{ width: `${nextReward.progressPercent}%` }} />
+        </div>
+      </section>
+
+      <section className="card mb-4 p-4">
+        <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">Live Character Motion</p>
+        <div className="mt-3 grid grid-cols-4 gap-2">
+          <div className="flex flex-col items-center gap-1">
+            <ChibiAvatar emotion="encouraging" role="manager" size={48} />
+            <p className="text-[10px] font-semibold text-slate-500">Manager</p>
+          </div>
+          <div className="flex flex-col items-center gap-1">
+            <ChibiAvatar emotion="alert" role="manager" size={48} />
+            <p className="text-[10px] font-semibold text-slate-500">Alert</p>
+          </div>
+          <div className="flex flex-col items-center gap-1">
+            <ChibiAvatar emotion="approval" role="user" size={48} />
+            <p className="text-[10px] font-semibold text-slate-500">User</p>
+          </div>
+          <div className="flex flex-col items-center gap-1">
+            <ChibiAvatar emotion="excited" role="user" size={48} />
+            <p className="text-[10px] font-semibold text-slate-500">Excited</p>
+          </div>
         </div>
       </section>
 
