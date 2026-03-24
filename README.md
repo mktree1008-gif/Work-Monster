@@ -8,6 +8,7 @@ Mobile-first motivation game web app (Next.js + Firebase) with user and manager 
 - Mobile-first UX with bottom tabs: Questions, Record, Rewards, Score, Rules
 - Google login support via Firebase Auth
 - ID/Password account creation and login (custom ID or email) + nickname setup step
+- User submissions do not self-score; points are updated only after manager review/approval
 - English + Korean language selection
 - Font setup:
   - Base UI: **Pretendard**

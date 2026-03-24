@@ -64,7 +64,7 @@ export default async function QuestionsPage() {
           <p className="mt-1 font-bold text-indigo-900">{latestSubmission.status.toUpperCase()}</p>
           <p className="text-sm text-slate-600">
             {latestSubmission.status === "pending"
-              ? `${bundle.rules.success_message} Waiting for manager review.`
+              ? `${bundle.rules.success_message} Waiting for manager review. Points update only after manager approval.`
               : latestSubmission.manager_note ?? "No manager note yet."}
           </p>
           {pendingSubmission && <div className="mt-3"><CharacterAlert role="manager" cue={pendingCue} compact tone="warning" /></div>}

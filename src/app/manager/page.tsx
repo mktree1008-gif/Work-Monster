@@ -53,11 +53,28 @@ export default async function ManagerPage() {
             <article key={submission.id} className="rounded-2xl bg-slate-100 p-3">
               <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{submission.user_id}</p>
               <p className="text-sm text-slate-700">Mood: {submission.mood}</p>
+              <p className="text-sm text-slate-700">Productive: {submission.productive ? "Yes" : "No"}</p>
               <p className="text-sm text-slate-700">Tasks: {submission.task_list.join(", ") || "-"}</p>
+              <p className="mt-1 text-xs text-slate-500">
+                Suggested by rules:{" "}
+                {submission.productive
+                  ? data.rules.submission_points + data.rules.productive_points
+                  : data.rules.non_productive_penalty}{" "}
+                pts
+              </p>
               <form action={reviewSubmissionAction} className="mt-3 grid grid-cols-2 gap-2">
                 <input name="submission_id" type="hidden" value={submission.id} />
                 <input className="input col-span-2" name="note" placeholder="Optional note" />
-                <input className="input" defaultValue={5} min={0} name="points" type="number" />
+                <input
+                  className="input"
+                  defaultValue={
+                    submission.productive
+                      ? data.rules.submission_points + data.rules.productive_points
+                      : data.rules.non_productive_penalty
+                  }
+                  name="points"
+                  type="number"
+                />
                 <div className="col-span-2 grid grid-cols-2 gap-2">
                   <button className="btn btn-primary w-full" name="approved" type="submit" value="true">
                     Give Points

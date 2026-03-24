@@ -34,17 +34,6 @@ export async function submitDailyCheckIn(userId: string, draft: Omit<SubmissionD
   const submission = makeSubmissionFromDraft({ ...draft, user_id: userId });
   await repo.saveSubmission(submission);
 
-  const [rules, score] = await Promise.all([repo.getRules(), repo.getScore(userId)]);
-  const baseDelta = rules.checkin_points + (draft.productive ? rules.productive_points : rules.non_productive_penalty);
-
-  await repo.saveScore({
-    ...score,
-    total_points: score.total_points + baseDelta,
-    lifetime_points: score.lifetime_points + Math.max(0, baseDelta),
-    updated_at: nowISO()
-  });
-  await recalculateScore(userId);
-
   return submission;
 }
 
