@@ -320,9 +320,6 @@ export async function updateRulesAction(formData: FormData): Promise<void> {
     .filter((value) => Number.isFinite(value) && value < 0);
 
   thresholds = [...new Set(thresholds)].sort((a, b) => b - a);
-  if (thresholds.length === 0) {
-    thresholds = [-1, -5, -10];
-  }
 
   const parsedRewards: RuleConfig["penalty_rewards"] = thresholds.map((threshold) => {
     const found = configuredRows.find((row) => Math.floor(Number(row.threshold)) === threshold);

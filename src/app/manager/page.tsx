@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { APP_NAME } from "@/lib/constants";
 import { isManagerOwnerEmail } from "@/lib/constants";
 import { ManagerClaimAlertsModal } from "@/components/manager-claim-alerts-modal";
+import { ManagerPenaltyEditor } from "@/components/manager-penalty-editor";
 import { ManagerRulesSavedPopup } from "@/components/manager-rules-saved-popup";
 import { ManagerReviewResultPopup } from "@/components/manager-review-result-popup";
 import { NotificationBell } from "@/components/notification-bell";
@@ -62,7 +63,7 @@ export default async function ManagerPage({ searchParams }: Props) {
   const rewardByThreshold = new Map(data.rules.penalty_rewards.map((reward) => [reward.threshold, reward]));
   const thresholds = [...new Set([...data.rules.penalty_thresholds, ...data.rules.penalty_rewards.map((reward) => reward.threshold)])]
     .sort((a, b) => b - a);
-  const penaltyRows = [...thresholds, NaN, NaN].map((threshold) => {
+  const penaltyRows = thresholds.map((threshold) => {
     const reward = Number.isFinite(threshold) ? rewardByThreshold.get(threshold) : undefined;
     return {
       threshold: Number.isFinite(threshold) ? String(threshold) : "",
@@ -283,45 +284,14 @@ export default async function ManagerPage({ searchParams }: Props) {
           <article className="rounded-2xl bg-slate-50 p-3">
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-slate-500">4) Penalty (Risk Zone)</p>
             <p className="mt-1 text-xs text-slate-500">
-              Add, edit, or remove rows freely. Empty rows are ignored automatically.
+              Add / edit / delete each penalty row individually.
             </p>
             <div className="mt-2 space-y-2">
               <label className="text-xs font-semibold text-slate-600">
                 Penalty description
                 <textarea className="input mt-1 h-20 resize-none" defaultValue={data.rules.penalty_description} name="penalty_description" />
               </label>
-              <div className="rounded-xl border border-slate-200 bg-white p-2">
-                <div className="grid grid-cols-12 gap-2 px-1 pb-1 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
-                  <p className="col-span-3">Threshold</p>
-                  <p className="col-span-5">Reward Label</p>
-                  <p className="col-span-4">Reward Value</p>
-                </div>
-                <div className="space-y-2">
-                  {penaltyRows.map((row, idx) => (
-                    <div key={`penalty-row-${idx}`} className="grid grid-cols-12 gap-2">
-                      <input
-                        className="input col-span-3"
-                        defaultValue={row.threshold}
-                        name={`penalty_item_threshold_${idx}`}
-                        placeholder="-5"
-                        type="number"
-                      />
-                      <input
-                        className="input col-span-5"
-                        defaultValue={row.label}
-                        name={`penalty_item_label_${idx}`}
-                        placeholder="Manager reward unlocked"
-                      />
-                      <input
-                        className="input col-span-4"
-                        defaultValue={row.value}
-                        name={`penalty_item_value_${idx}`}
-                        placeholder="$200 equivalent"
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <ManagerPenaltyEditor initialRows={penaltyRows} />
             </div>
           </article>
 
@@ -391,7 +361,9 @@ export default async function ManagerPage({ searchParams }: Props) {
           </div>
           <div className="rounded-xl bg-slate-100 p-3 text-sm">
             <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Penalty thresholds</p>
-            <p className="font-bold text-indigo-900">{data.rules.penalty_thresholds.join(", ")}</p>
+            <p className="font-bold text-indigo-900">
+              {data.rules.penalty_thresholds.length > 0 ? data.rules.penalty_thresholds.join(", ") : "None"}
+            </p>
           </div>
           <div className="rounded-xl bg-slate-100 p-3 text-sm">
             <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Rewards</p>
