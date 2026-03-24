@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Chrome } from "lucide-react";
+import { FirebaseError } from "firebase/app";
 import { GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { firebaseAuth, isFirebaseClientConfigured } from "@/lib/firebase/client";
 import { Locale, UserRole } from "@/lib/types";
@@ -68,7 +69,11 @@ export function GoogleLoginButton({ role, locale, onSuccessRedirect, onError }: 
         router.refresh();
       }
     } catch (caught) {
-      const message = caught instanceof Error ? caught.message : "Google sign-in failed.";
+      let message = caught instanceof Error ? caught.message : "Google sign-in failed.";
+      if (caught instanceof FirebaseError && caught.code === "auth/unauthorized-domain") {
+        const currentHost = typeof window !== "undefined" ? window.location.hostname : "unknown-host";
+        message = `Google login is blocked for this domain: ${currentHost}. Add this domain in Firebase Auth > Settings > Authorized domains, or open the canonical URL.`;
+      }
       setError(message);
       onError?.(message);
     } finally {
