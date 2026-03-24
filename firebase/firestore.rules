@@ -1,0 +1,57 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isManager() {
+      return signedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == "manager";
+    }
+
+    match /users/{uid} {
+      allow read: if signedIn() && (uid == request.auth.uid || isManager());
+      allow create: if signedIn() && uid == request.auth.uid;
+      allow update: if signedIn() && (uid == request.auth.uid || isManager());
+      allow delete: if false;
+    }
+
+    match /scores/{uid} {
+      allow read: if signedIn() && (uid == request.auth.uid || isManager());
+      allow write: if isManager();
+    }
+
+    match /submissions/{submissionId} {
+      allow create: if signedIn() && request.resource.data.user_id == request.auth.uid;
+      allow read: if signedIn() && (resource.data.user_id == request.auth.uid || isManager());
+      allow update: if isManager();
+      allow delete: if false;
+    }
+
+    match /rules/current {
+      allow read: if signedIn();
+      allow write: if isManager();
+    }
+
+    match /rewards/{rewardId} {
+      allow read: if signedIn();
+      allow write: if isManager();
+    }
+
+    match /reward_claims/{claimId} {
+      allow read: if signedIn() && (resource.data.user_id == request.auth.uid || isManager());
+      allow create: if signedIn() && request.resource.data.user_id == request.auth.uid;
+      allow update: if signedIn() && (resource.data.user_id == request.auth.uid || isManager());
+      allow delete: if false;
+    }
+
+    match /penalty_history/{eventId} {
+      allow read: if signedIn() && (resource.data.user_id == request.auth.uid || isManager());
+      allow write: if isManager();
+    }
+
+    match /audit_logs/{logId} {
+      allow read, write: if isManager();
+    }
+  }
+}

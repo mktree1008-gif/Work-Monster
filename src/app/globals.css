@@ -1,0 +1,105 @@
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css");
+@import url("https://fonts.googleapis.com/css2?family=Jua&display=swap");
+@import "tailwindcss";
+
+:root {
+  --bg: #f5f6fb;
+  --surface: #ffffff;
+  --surface-soft: #eef0f8;
+  --text: #1b1f33;
+  --muted: #7b86a3;
+  --brand: #1f34cc;
+  --brand-soft: #dee2ff;
+  --mint: #1cb5a3;
+  --warning: #f58b3c;
+  --danger: #d8455f;
+  --radius-xl: 1.75rem;
+  --radius-lg: 1.25rem;
+  --shadow-soft: 0 16px 40px rgba(22, 34, 95, 0.08);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: radial-gradient(circle at 15% -10%, #e6ebff 0%, var(--bg) 30%, var(--bg) 100%);
+  color: var(--text);
+  font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  min-height: 100dvh;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+h1,
+h2,
+h3,
+.display-cute {
+  font-family: "Jua", "Pretendard Variable", sans-serif;
+}
+
+.card {
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+}
+
+.soft-card {
+  border-radius: var(--radius-lg);
+  background: var(--surface-soft);
+}
+
+.glass {
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(16px);
+}
+
+.input {
+  width: 100%;
+  border: none;
+  border-radius: 1rem;
+  padding: 0.9rem 1rem;
+  font-size: 0.95rem;
+  background: #edf0f6;
+  color: var(--text);
+}
+
+.input:focus {
+  outline: 2px solid rgba(31, 52, 204, 0.25);
+}
+
+.btn {
+  border: none;
+  border-radius: 999px;
+  padding: 0.95rem 1.2rem;
+  font-weight: 700;
+}
+
+.btn-primary {
+  color: white;
+  background: linear-gradient(120deg, #1f34cc 0%, #2f49f5 100%);
+  box-shadow: 0 10px 28px rgba(31, 52, 204, 0.35);
+}
+
+.btn-muted {
+  color: var(--text);
+  background: #e9ecf5;
+}
+
+.container-mobile {
+  width: min(100%, 420px);
+  margin-inline: auto;
+  padding-inline: 1rem;
+}
+
+.page-padding {
+  padding-top: 5.5rem;
+  padding-bottom: calc(6.5rem + var(--safe-bottom));
+}
