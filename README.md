@@ -7,6 +7,7 @@ Mobile-first motivation game web app (Next.js + Firebase) with user and manager 
 - App name fixed as **Work Monster**
 - Mobile-first UX with bottom tabs: Questions, Record, Rewards, Score, Rules
 - Google login support via Firebase Auth
+- ID/Password account creation and login (custom login ID + nickname)
 - English + Korean language selection
 - Font setup:
   - Base UI: **Pretendard**

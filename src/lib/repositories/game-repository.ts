@@ -1,4 +1,5 @@
 import { DEFAULT_REWARDS, DEFAULT_RULES } from "@/lib/constants";
+import { hashPassword, verifyPassword } from "@/lib/auth/password";
 import { getAdminDb, isFirebaseServerConfigured } from "@/lib/firebase/admin";
 import {
   DashboardBundle,
@@ -30,8 +31,35 @@ export interface RuleUpdatePayload extends Partial<RuleConfig> {
   note?: string;
 }
 
+function normalizeLoginId(loginId: string): string {
+  return loginId.trim().toLowerCase();
+}
+
+function isValidLoginId(loginId: string): boolean {
+  return /^[a-z0-9._-]{3,32}$/.test(loginId);
+}
+
+function loginIdFromEmail(email: string): string {
+  const base = email.split("@")[0] ?? "player";
+  const cleaned = base.toLowerCase().replace(/[^a-z0-9._-]/g, "");
+  return cleaned.length >= 3 ? cleaned.slice(0, 32) : `user_${cleaned}`.slice(0, 32);
+}
+
 export interface GameRepository {
   signIn(email: string, role: UserRole, locale: Locale): Promise<UserProfile>;
+  createAccountWithPassword(
+    loginId: string,
+    password: string,
+    role: UserRole,
+    locale: Locale,
+    nickname?: string
+  ): Promise<UserProfile>;
+  signInWithPassword(
+    loginId: string,
+    password: string,
+    role: UserRole,
+    locale: Locale
+  ): Promise<UserProfile>;
   getUser(uid: string): Promise<UserProfile | null>;
   updateUser(uid: string, patch: Partial<UserProfile>): Promise<UserProfile>;
   getRules(): Promise<RuleConfig>;
@@ -86,15 +114,21 @@ type MemoryDB = {
 
 function createMemoryDB(): MemoryDB {
   const now = nowISO();
+  const userSeedCredential = hashPassword("ashton1234");
+  const managerSeedCredential = hashPassword("manager1234");
   const users = new Map<string, UserProfile>([
     [
       seedUserId,
       {
         id: seedUserId,
+        login_id: "ashton",
         email: "user@workmonster.app",
         role: "user",
         name: "Ashton",
         locale: "en",
+        auth_provider: "password",
+        password_hash: userSeedCredential.hash,
+        password_salt: userSeedCredential.salt,
         last_seen_rule_version: 0,
         created_at: now
       }
@@ -103,10 +137,14 @@ function createMemoryDB(): MemoryDB {
       seedManagerId,
       {
         id: seedManagerId,
+        login_id: "manager",
         email: "manager@workmonster.app",
         role: "manager",
         name: "Manager",
         locale: "en",
+        auth_provider: "password",
+        password_hash: managerSeedCredential.hash,
+        password_salt: managerSeedCredential.salt,
         last_seen_rule_version: DEFAULT_RULES.rule_version,
         created_at: now
       }
@@ -132,24 +170,52 @@ function createMemoryDB(): MemoryDB {
 
 class MemoryGameRepository implements GameRepository {
   private db: MemoryDB = createMemoryDB();
+  private findByEmail(email: string): UserProfile | undefined {
+    return [...this.db.users.values()].find((user) => user.email === email);
+  }
+
+  private findByLoginId(loginId: string): UserProfile | undefined {
+    return [...this.db.users.values()].find((user) => user.login_id === loginId);
+  }
+
+  private uniqueLoginId(baseLoginId: string): string {
+    let candidate = baseLoginId;
+    let suffix = 1;
+    while (this.findByLoginId(candidate)) {
+      candidate = `${baseLoginId}${suffix}`;
+      suffix += 1;
+    }
+    return candidate.slice(0, 32);
+  }
 
   async signIn(email: string, role: UserRole, locale: Locale): Promise<UserProfile> {
     const normalized = email.trim().toLowerCase();
-    const existing = [...this.db.users.values()].find((user) => user.email === normalized);
+    const existing = this.findByEmail(normalized);
 
     if (existing) {
-      const updated: UserProfile = { ...existing, role, locale };
+      const fallbackLoginId = this.uniqueLoginId(loginIdFromEmail(normalized));
+      const updated: UserProfile = {
+        ...existing,
+        login_id: existing.login_id || fallbackLoginId,
+        role,
+        locale,
+        auth_provider: existing.auth_provider ?? "google"
+      };
       this.db.users.set(updated.id, updated);
       return updated;
     }
 
+    const rawLoginId = loginIdFromEmail(normalized);
+    const loginId = this.uniqueLoginId(rawLoginId);
     const id = createId("user");
     const user: UserProfile = {
       id,
+      login_id: loginId,
       email: normalized,
       role,
       locale,
       name: normalized.split("@")[0] ?? "Player",
+      auth_provider: "google",
       last_seen_rule_version: 0,
       created_at: nowISO()
     };
@@ -157,6 +223,73 @@ class MemoryGameRepository implements GameRepository {
     this.db.users.set(id, user);
     this.db.scores.set(id, defaultScore(id));
     return user;
+  }
+
+  async createAccountWithPassword(
+    loginIdInput: string,
+    password: string,
+    role: UserRole,
+    locale: Locale,
+    nicknameInput?: string
+  ): Promise<UserProfile> {
+    const loginId = normalizeLoginId(loginIdInput);
+    if (!isValidLoginId(loginId)) {
+      throw new Error("ID must be 3-32 chars and can include lowercase letters, numbers, ., _, -");
+    }
+
+    if (password.length < 6) {
+      throw new Error("Security code must be at least 6 characters.");
+    }
+
+    if (this.findByLoginId(loginId)) {
+      throw new Error("This ID is already taken.");
+    }
+
+    const { hash, salt } = hashPassword(password);
+    const id = createId("user");
+    const nickname = nicknameInput?.trim() || loginId;
+    const user: UserProfile = {
+      id,
+      login_id: loginId,
+      role,
+      locale,
+      name: nickname,
+      auth_provider: "password",
+      password_hash: hash,
+      password_salt: salt,
+      last_seen_rule_version: 0,
+      created_at: nowISO()
+    };
+
+    this.db.users.set(id, user);
+    this.db.scores.set(id, defaultScore(id));
+    return user;
+  }
+
+  async signInWithPassword(
+    loginIdInput: string,
+    password: string,
+    role: UserRole,
+    locale: Locale
+  ): Promise<UserProfile> {
+    const loginId = normalizeLoginId(loginIdInput);
+    const found = this.findByLoginId(loginId);
+    if (!found) {
+      throw new Error("Account not found. Please create an account first.");
+    }
+
+    if (!found.password_hash || !found.password_salt) {
+      throw new Error("This account uses Google sign-in.");
+    }
+
+    const valid = verifyPassword(password, found.password_salt, found.password_hash);
+    if (!valid) {
+      throw new Error("Incorrect ID or security code.");
+    }
+
+    const updated: UserProfile = { ...found, role, locale };
+    this.db.users.set(updated.id, updated);
+    return updated;
   }
 
   async getUser(uid: string): Promise<UserProfile | null> {
@@ -295,19 +428,46 @@ class MemoryGameRepository implements GameRepository {
 
 class FirestoreGameRepository implements GameRepository {
   private db = getAdminDb();
+  private async findUserByEmail(email: string): Promise<{ id: string; user: UserProfile } | null> {
+    const query = await this.db.collection("users").where("email", "==", email).limit(1).get();
+    if (query.empty) return null;
+    const doc = query.docs[0];
+    return { id: doc.id, user: doc.data() as UserProfile };
+  }
+
+  private async findUserByLoginId(loginId: string): Promise<{ id: string; user: UserProfile } | null> {
+    const query = await this.db.collection("users").where("login_id", "==", loginId).limit(1).get();
+    if (query.empty) return null;
+    const doc = query.docs[0];
+    return { id: doc.id, user: doc.data() as UserProfile };
+  }
+
+  private async uniqueLoginId(baseLoginId: string): Promise<string> {
+    let candidate = baseLoginId;
+    let suffix = 1;
+    while (await this.findUserByLoginId(candidate)) {
+      candidate = `${baseLoginId}${suffix}`;
+      suffix += 1;
+    }
+    return candidate.slice(0, 32);
+  }
 
   async signIn(email: string, role: UserRole, locale: Locale): Promise<UserProfile> {
     const normalized = email.trim().toLowerCase();
-    const query = await this.db.collection("users").where("email", "==", normalized).limit(1).get();
+    const found = await this.findUserByEmail(normalized);
 
-    if (query.empty) {
+    if (!found) {
+      const rawLoginId = loginIdFromEmail(normalized);
+      const loginId = await this.uniqueLoginId(rawLoginId);
       const id = createId("user");
       const user: UserProfile = {
         id,
+        login_id: loginId,
         email: normalized,
         role,
         locale,
         name: normalized.split("@")[0] ?? "Player",
+        auth_provider: "google",
         last_seen_rule_version: 0,
         created_at: nowISO()
       };
@@ -317,10 +477,80 @@ class FirestoreGameRepository implements GameRepository {
       return user;
     }
 
-    const doc = query.docs[0];
-    const user = doc.data() as UserProfile;
+    const fallbackLoginId = await this.uniqueLoginId(loginIdFromEmail(normalized));
+    const next = {
+      ...found.user,
+      login_id: found.user.login_id || fallbackLoginId,
+      role,
+      locale,
+      auth_provider: found.user.auth_provider ?? "google"
+    };
+    await this.db.collection("users").doc(found.id).set(next, { merge: true });
+    return next;
+  }
+
+  async createAccountWithPassword(
+    loginIdInput: string,
+    password: string,
+    role: UserRole,
+    locale: Locale,
+    nicknameInput?: string
+  ): Promise<UserProfile> {
+    const loginId = normalizeLoginId(loginIdInput);
+    if (!isValidLoginId(loginId)) {
+      throw new Error("ID must be 3-32 chars and can include lowercase letters, numbers, ., _, -");
+    }
+    if (password.length < 6) {
+      throw new Error("Security code must be at least 6 characters.");
+    }
+    if (await this.findUserByLoginId(loginId)) {
+      throw new Error("This ID is already taken.");
+    }
+
+    const credential = hashPassword(password);
+    const id = createId("user");
+    const user: UserProfile = {
+      id,
+      login_id: loginId,
+      role,
+      locale,
+      name: nicknameInput?.trim() || loginId,
+      auth_provider: "password",
+      password_hash: credential.hash,
+      password_salt: credential.salt,
+      last_seen_rule_version: 0,
+      created_at: nowISO()
+    };
+
+    await this.db.collection("users").doc(id).set(user);
+    await this.db.collection("scores").doc(id).set(defaultScore(id));
+    return user;
+  }
+
+  async signInWithPassword(
+    loginIdInput: string,
+    password: string,
+    role: UserRole,
+    locale: Locale
+  ): Promise<UserProfile> {
+    const loginId = normalizeLoginId(loginIdInput);
+    const found = await this.findUserByLoginId(loginId);
+    if (!found) {
+      throw new Error("Account not found. Please create an account first.");
+    }
+
+    const user = found.user;
+    if (!user.password_hash || !user.password_salt) {
+      throw new Error("This account uses Google sign-in.");
+    }
+
+    const valid = verifyPassword(password, user.password_salt, user.password_hash);
+    if (!valid) {
+      throw new Error("Incorrect ID or security code.");
+    }
+
     const next = { ...user, role, locale };
-    await this.db.collection("users").doc(doc.id).set(next, { merge: true });
+    await this.db.collection("users").doc(found.id).set(next, { merge: true });
     return next;
   }
 

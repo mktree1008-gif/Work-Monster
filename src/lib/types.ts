@@ -38,10 +38,14 @@ export interface RuleConfig {
 
 export interface UserProfile {
   id: string;
-  email: string;
+  login_id: string;
+  email?: string;
   role: UserRole;
   name: string;
   locale: Locale;
+  auth_provider?: "password" | "google";
+  password_hash?: string;
+  password_salt?: string;
   last_seen_rule_version: number;
   created_at: string;
 }
