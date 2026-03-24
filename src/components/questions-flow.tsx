@@ -10,6 +10,7 @@ import { Locale } from "@/lib/types";
 type Props = {
   locale: Locale;
   glasses?: boolean;
+  readOnly?: boolean;
 };
 
 type ChoiceKey = "A" | "B" | "C";
@@ -146,7 +147,7 @@ function answerLabel(stepIndex: number, state: StepState): string {
   return selectedOption(stepIndex, state)?.label ?? "";
 }
 
-export function QuestionsFlow({ locale, glasses = false }: Props) {
+export function QuestionsFlow({ locale, glasses = false, readOnly = false }: Props) {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<StepState[]>(initialSteps);
@@ -200,6 +201,7 @@ export function QuestionsFlow({ locale, glasses = false }: Props) {
   }, []);
 
   function chooseOption(key: ChoiceKey) {
+    if (readOnly) return;
     setSubmitError("");
     setShowConfusedHint(false);
     setAnswers((prev) =>
@@ -211,6 +213,7 @@ export function QuestionsFlow({ locale, glasses = false }: Props) {
   }
 
   function updateCustom(value: string) {
+    if (readOnly) return;
     setSubmitError("");
     setShowConfusedHint(false);
     setAnswers((prev) =>
@@ -233,6 +236,10 @@ export function QuestionsFlow({ locale, glasses = false }: Props) {
     (selectedOption(2, answers[2])?.productive ?? true);
 
   async function onSubmitCheckIn() {
+    if (readOnly) {
+      setSubmitError("Manager preview mode: check-in save is disabled.");
+      return;
+    }
     if (saving) return;
     if (!allAnswered) {
       setShowConfusedHint(true);
@@ -312,6 +319,7 @@ export function QuestionsFlow({ locale, glasses = false }: Props) {
                     ? "border-indigo-400 bg-indigo-100 text-indigo-900"
                     : "border-slate-200 bg-slate-50 text-slate-700"
                 }`}
+                disabled={readOnly}
                 onClick={() => chooseOption(option.key)}
                 type="button"
               >
@@ -328,6 +336,7 @@ export function QuestionsFlow({ locale, glasses = false }: Props) {
           Your answer
           <textarea
             className="input mt-2 h-20 resize-none"
+            disabled={readOnly}
             onChange={(event) => updateCustom(event.target.value)}
             placeholder="Type your own answer if A/B/C does not fit."
             value={currentState.choice === "CUSTOM" ? currentState.customText : ""}
@@ -356,6 +365,7 @@ export function QuestionsFlow({ locale, glasses = false }: Props) {
             Task log (one task per line)
             <textarea
               className="input mt-2 h-24 resize-none"
+              disabled={readOnly}
               onChange={(event) => setTaskList(event.target.value)}
               placeholder="- Ship homepage\n- Review PR\n- Sync with manager"
               value={taskList}
@@ -363,7 +373,12 @@ export function QuestionsFlow({ locale, glasses = false }: Props) {
           </label>
           <label className="text-sm font-semibold text-slate-600">
             File link (optional)
-            <input className="input mt-2" onChange={(event) => setFileUrl(event.target.value)} value={fileUrl} />
+            <input
+              className="input mt-2"
+              disabled={readOnly}
+              onChange={(event) => setFileUrl(event.target.value)}
+              value={fileUrl}
+            />
           </label>
           {(fileUrl.trim().length > 0 || allAnswered) && (
             <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-2">
@@ -376,7 +391,7 @@ export function QuestionsFlow({ locale, glasses = false }: Props) {
       <div className="flex items-center justify-between gap-2">
         <button
           className="btn btn-muted w-full"
-          disabled={step === 0}
+          disabled={step === 0 || readOnly}
           onClick={() => setStep((value) => Math.max(0, value - 1))}
           type="button"
         >
@@ -386,6 +401,7 @@ export function QuestionsFlow({ locale, glasses = false }: Props) {
         {step < stepDefinitions.length - 1 ? (
           <button
             className="btn btn-primary w-full"
+            disabled={readOnly}
             onClick={() => {
               if (!stepCompleted) {
                 setShowConfusedHint(true);
@@ -402,7 +418,7 @@ export function QuestionsFlow({ locale, glasses = false }: Props) {
           <button className="btn btn-primary w-full" disabled={saving} onClick={onSubmitCheckIn} type="button">
             <span className="inline-flex items-center gap-2">
               <ChibiAvatar emotion={allAnswered ? "approval" : "encouraging"} role="manager" size={24} />
-              {saving ? "Saving..." : "Save check-in"}
+              {readOnly ? "Preview only" : saving ? "Saving..." : "Save check-in"}
               <ChibiAvatar emotion={allAnswered ? "excited" : "neutral"} glasses={glasses} role="user" size={24} />
             </span>
           </button>

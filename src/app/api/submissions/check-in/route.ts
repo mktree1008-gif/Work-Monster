@@ -22,6 +22,9 @@ export async function POST(request: NextRequest) {
     if (!session) {
       return NextResponse.json({ error: "Session expired. Please login again." }, { status: 401 });
     }
+    if (session.role === "manager") {
+      return NextResponse.json({ error: "Manager preview mode cannot submit check-ins." }, { status: 403 });
+    }
 
     const body = (await request.json()) as CheckInBody;
     const taskList = String(body.task_list ?? "")

@@ -16,6 +16,7 @@ export default async function QuestionsPage({ searchParams }: Props) {
   const { bundle, strings } = await getViewerContext();
   const params = (searchParams ? await searchParams : {}) as Record<string, string | string[] | undefined>;
   const saved = params.saved === "1";
+  const managerPreview = bundle.user.role === "manager";
   const nextReward = computeNextReward(bundle.score.total_points, bundle.rewards);
   const firstReward = bundle.rewards[0] ?? null;
   const firstRewardRemaining = firstReward ? Math.max(0, firstReward.required_points - bundle.score.total_points) : 0;
@@ -110,10 +111,21 @@ export default async function QuestionsPage({ searchParams }: Props) {
         <p className="mt-1 text-sm text-slate-600">
           Move to the full-screen quest to answer A/B/C + custom input with live emoji reactions.
         </p>
-        <Link className="btn btn-energetic mt-4 flex w-full items-center justify-center gap-2" href="/app/questions/check-in">
-          <Sparkles size={17} />
-          Begin Daily Check-in
-        </Link>
+        {managerPreview ? (
+          <button
+            className="btn btn-muted mt-4 flex w-full cursor-not-allowed items-center justify-center gap-2 opacity-70"
+            disabled
+            type="button"
+          >
+            <Sparkles size={17} />
+            Manager preview: check-in disabled
+          </button>
+        ) : (
+          <Link className="btn btn-energetic mt-4 flex w-full items-center justify-center gap-2" href="/app/questions/check-in">
+            <Sparkles size={17} />
+            Begin Daily Check-in
+          </Link>
+        )}
       </section>
 
       {milestoneUnlocked && (

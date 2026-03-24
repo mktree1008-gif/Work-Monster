@@ -149,6 +149,9 @@ export async function updateProfileAvatarAction(formData: FormData): Promise<voi
 export async function submitCheckInAction(formData: FormData): Promise<void> {
   const session = await getSession();
   if (!session) redirect("/auth/login");
+  if (session.role === "manager") {
+    throw new Error("Manager preview mode cannot submit check-ins.");
+  }
 
   await submitDailyCheckIn(session.uid, {
     mood: String(formData.get("mood") ?? "Neutral"),
@@ -205,6 +208,9 @@ export async function acknowledgeNotificationsAction(_formData: FormData): Promi
 export async function claimRewardAction(formData: FormData): Promise<void> {
   const session = await getSession();
   if (!session) redirect("/auth/login");
+  if (session.role === "manager") {
+    throw new Error("Manager preview mode cannot claim rewards.");
+  }
 
   const rewardId = String(formData.get("reward_id") ?? "");
   if (!rewardId) return;

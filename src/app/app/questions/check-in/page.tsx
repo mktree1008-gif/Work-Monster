@@ -8,6 +8,7 @@ import { getViewerContext } from "@/lib/view-model";
 
 export default async function CheckInPage() {
   const { bundle, strings } = await getViewerContext();
+  const managerPreview = bundle.user.role === "manager";
   const determinedCue = getUserCue("questions_determined", bundle.user.locale);
 
   return (
@@ -29,7 +30,12 @@ export default async function CheckInPage() {
             </div>
           </div>
         </article>
-        <QuestionsFlow locale={bundle.user.locale} />
+        {managerPreview && (
+          <div className="mb-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800">
+            Manager preview mode: submission save is disabled.
+          </div>
+        )}
+        <QuestionsFlow locale={bundle.user.locale} readOnly={managerPreview} />
       </section>
     </UserPageShell>
   );

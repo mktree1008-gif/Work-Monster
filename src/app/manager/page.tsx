@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { APP_NAME } from "@/lib/constants";
 import { isManagerOwnerEmail } from "@/lib/constants";
@@ -91,6 +92,9 @@ export default async function ManagerPage({ searchParams }: Props) {
             role="manager"
             unreadCount={data.unreadNotificationCount}
           />
+          <Link className="btn btn-muted text-sm" href="/app/welcome">
+            Open User Preview
+          </Link>
           <form action={logoutAction}>
             <button className="btn btn-primary text-sm" type="submit">
               Sign out

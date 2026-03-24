@@ -14,6 +14,7 @@ export default async function RewardsPage({ searchParams }: Props) {
   const params = (searchParams ? await searchParams : {}) as Record<string, string | string[] | undefined>;
   const claims = new Map(bundle.rewardClaims.map((claim) => [claim.reward_id, claim]));
   const hasAvailable = bundle.rewards.some((reward) => bundle.score.total_points >= reward.required_points);
+  const managerPreview = bundle.user.role === "manager";
   const milestoneCue = getUserCue("milestone_jump", bundle.user.locale);
   const claimedOnLoad = params.claimed === "1";
   const claimedTitle = typeof params.reward === "string" ? params.reward : "";
@@ -29,6 +30,11 @@ export default async function RewardsPage({ searchParams }: Props) {
       {hasAvailable && (
         <section className="mb-4">
           <CharacterAlert role="user" cue={milestoneCue} tone="success" />
+        </section>
+      )}
+      {managerPreview && (
+        <section className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800">
+          Manager preview mode: reward claim is disabled in user-view preview.
         </section>
       )}
 
@@ -59,13 +65,18 @@ export default async function RewardsPage({ searchParams }: Props) {
               </div>
               <p className="mt-3 text-sm font-semibold text-slate-600">Required points: {reward.required_points}</p>
 
-              {status === "Available" && (
+              {status === "Available" && !managerPreview && (
                 <form action={claimRewardAction} className="mt-3">
                   <input name="reward_id" type="hidden" value={reward.id} />
                   <button className="btn btn-primary w-full" type="submit">
                     Claim now
                   </button>
                 </form>
+              )}
+              {status === "Available" && managerPreview && (
+                <button className="btn btn-muted mt-3 w-full cursor-not-allowed opacity-70" disabled type="button">
+                  Manager preview: claim disabled
+                </button>
               )}
             </article>
           );
