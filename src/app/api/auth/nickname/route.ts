@@ -3,7 +3,7 @@ import { getGameRepository } from "@/lib/repositories/game-repository";
 import { UID_COOKIE } from "@/lib/session";
 
 function destinationByRole(role: "user" | "manager") {
-  return role === "manager" ? "/manager" : "/app/questions";
+  return role === "manager" ? "/manager" : "/app/welcome";
 }
 
 export async function POST(request: NextRequest) {

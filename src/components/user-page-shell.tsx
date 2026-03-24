@@ -3,8 +3,8 @@ import { BottomTabs } from "@/components/bottom-tabs";
 
 type Props = {
   activeTab: "questions" | "record" | "rewards" | "score" | "rules";
-  title: string;
-  subtitle?: string;
+  title: ReactNode;
+  subtitle?: ReactNode;
   children: ReactNode;
   labels: {
     questions: string;

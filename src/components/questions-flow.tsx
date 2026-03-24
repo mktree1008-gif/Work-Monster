@@ -274,7 +274,7 @@ export function QuestionsFlow({ locale, withGlasses }: Props) {
         </label>
 
         <div className="rounded-2xl bg-amber-50 p-3 text-center">
-          <p className="text-3xl">{reactionEmoji}</p>
+          <p className="anim-pop text-3xl">{reactionEmoji}</p>
           <p className="mt-1 text-sm font-semibold text-amber-800">{reactionText}</p>
         </div>
       </article>

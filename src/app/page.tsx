@@ -12,5 +12,5 @@ export default async function HomePage() {
     redirect("/manager");
   }
 
-  redirect("/app/questions");
+  redirect("/app/welcome");
 }

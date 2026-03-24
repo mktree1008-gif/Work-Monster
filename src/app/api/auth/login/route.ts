@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
 
     const response = NextResponse.json({
       ok: true,
-      redirectTo: nicknameMissing ? "/auth/nickname" : user.role === "manager" ? "/manager" : "/app/questions"
+      redirectTo: nicknameMissing ? "/auth/nickname" : user.role === "manager" ? "/manager" : "/app/welcome"
     });
 
     response.cookies.set(UID_COOKIE, user.id, { httpOnly: true, sameSite: "lax", path: "/" });

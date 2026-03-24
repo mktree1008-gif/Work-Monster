@@ -7,7 +7,7 @@ export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   if ((pathname.startsWith("/auth/login") || pathname.startsWith("/auth/register")) && uid) {
-    const destination = role === "manager" ? "/manager" : "/app/questions";
+    const destination = role === "manager" ? "/manager" : "/app/welcome";
     return NextResponse.redirect(new URL(destination, request.url));
   }
 

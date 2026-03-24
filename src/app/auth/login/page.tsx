@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { Compass, CalendarDays, Star, Target, TrendingUp } from "lucide-react";
+import { Compass, CalendarDays, Sparkles, Star, Target, TrendingUp } from "lucide-react";
 import { LoginForm } from "@/components/login-form";
 
 export default function LoginPage() {
@@ -41,6 +41,14 @@ export default function LoginPage() {
           </header>
 
           <LoginForm />
+        </section>
+
+        <section className="card mt-4 p-4">
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Next step preview</p>
+          <button className="btn btn-energetic mt-3 flex w-full items-center justify-center gap-2" type="button">
+            <Sparkles size={16} />
+            Welcome Work Monster!
+          </button>
         </section>
 
         <p className="mt-6 text-center text-sm text-slate-500">New here? Create an account and set your nickname right after sign-up.</p>
