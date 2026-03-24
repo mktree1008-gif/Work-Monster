@@ -1,3 +1,5 @@
+import { CharacterAlert } from "@/components/character-alert";
+import { getManagerCue } from "@/lib/character-system";
 import { UserPageShell } from "@/components/user-page-shell";
 import { formatDateLabel } from "@/lib/utils";
 import { getViewerContext } from "@/lib/view-model";
@@ -8,16 +10,17 @@ export default async function RecordPage() {
   const approved = recent.filter((item) => item.status === "approved");
   const avgCalories =
     recent.length > 0 ? Math.round(recent.reduce((sum, item) => sum + item.calories, 0) / recent.length) : 0;
+  const managerCue = getManagerCue("record_approval", bundle.user.locale);
 
   return (
     <UserPageShell activeTab="record" labels={strings} subtitle="Your momentum map" title="Record">
       <section className="grid grid-cols-2 gap-3">
         <article className="card p-4">
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Avg calories</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">💰 Avg calories</p>
           <p className="mt-2 text-3xl font-black text-indigo-900">{avgCalories}</p>
         </article>
         <article className="card p-4">
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Approved this week</p>
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">🔥 Approved this week</p>
           <p className="mt-2 text-3xl font-black text-indigo-900">{approved.length}</p>
         </article>
       </section>
@@ -42,11 +45,18 @@ export default async function RecordPage() {
         <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Submission history</p>
         <ul className="mt-3 space-y-2">
           {bundle.submissions.slice(0, 10).map((item) => (
-            <li key={item.id} className="flex items-center justify-between rounded-xl bg-slate-100 px-3 py-2 text-sm">
-              <span>{formatDateLabel(item.date)}</span>
-              <span className="font-semibold">
-                {item.status === "approved" ? `+${item.points_awarded} pts` : item.status}
-              </span>
+            <li key={item.id} className="rounded-xl bg-slate-100 px-3 py-2 text-sm">
+              <div className="flex items-center justify-between">
+                <span>{formatDateLabel(item.date)}</span>
+                <span className="font-semibold">
+                  {item.status === "approved" ? `+${item.points_awarded} pts` : item.status}
+                </span>
+              </div>
+              {item.status === "approved" && (
+                <div className="mt-2">
+                  <CharacterAlert role="manager" cue={managerCue} compact />
+                </div>
+              )}
             </li>
           ))}
           {bundle.submissions.length === 0 && <li className="text-sm text-slate-500">No submissions yet.</li>}

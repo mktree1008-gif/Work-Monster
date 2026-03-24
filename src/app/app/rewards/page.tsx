@@ -1,3 +1,5 @@
+import { CharacterAlert } from "@/components/character-alert";
+import { getUserCue } from "@/lib/character-system";
 import { claimRewardAction } from "@/lib/services/actions";
 import { UserPageShell } from "@/components/user-page-shell";
 import { getViewerContext } from "@/lib/view-model";
@@ -5,9 +7,17 @@ import { getViewerContext } from "@/lib/view-model";
 export default async function RewardsPage() {
   const { bundle, strings } = await getViewerContext();
   const claims = new Map(bundle.rewardClaims.map((claim) => [claim.reward_id, claim]));
+  const hasAvailable = bundle.rewards.some((reward) => bundle.score.total_points >= reward.required_points);
+  const milestoneCue = getUserCue("milestone_jump", bundle.user.locale);
 
   return (
     <UserPageShell activeTab="rewards" labels={strings} subtitle="Collect and claim" title="Rewards">
+      {hasAvailable && (
+        <section className="mb-4">
+          <CharacterAlert role="user" cue={milestoneCue} glasses={bundle.user.character_glasses ?? true} tone="success" />
+        </section>
+      )}
+
       <section className="space-y-3">
         {bundle.rewards.map((reward) => {
           const claim = claims.get(reward.id);
@@ -18,7 +28,7 @@ export default async function RewardsPage() {
             <article key={reward.id} className="card p-4">
               <div className="flex items-start justify-between">
                 <div>
-                  <h2 className="text-xl font-black text-indigo-900">{reward.title}</h2>
+                  <h2 className="text-xl font-black text-indigo-900">🎁 {reward.title}</h2>
                   <p className="text-sm text-slate-500">{reward.description}</p>
                 </div>
                 <span

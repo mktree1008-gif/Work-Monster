@@ -24,6 +24,7 @@ export default async function UserLayout({
         changelog={bundle.rules.changelog}
         lastSeenVersion={bundle.user.last_seen_rule_version}
         lastUpdated={bundle.rules.last_updated}
+        locale={bundle.user.locale}
         openOnLoad={showOnboarding}
         ruleVersion={bundle.rules.rule_version}
       />

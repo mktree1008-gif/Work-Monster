@@ -1,12 +1,19 @@
+import { CharacterAlert } from "@/components/character-alert";
+import { getManagerCue } from "@/lib/character-system";
 import { UserPageShell } from "@/components/user-page-shell";
 import { getViewerContext } from "@/lib/view-model";
 
 export default async function RulesPage() {
   const { bundle, strings } = await getViewerContext();
   const rules = bundle.rules;
+  const managerCue = getManagerCue("rules_encouraging", bundle.user.locale);
 
   return (
     <UserPageShell activeTab="rules" labels={strings} subtitle="Know the game mechanics" title="Rules">
+      <section className="mb-4">
+        <CharacterAlert role="manager" cue={managerCue} />
+      </section>
+
       <section className="card p-4">
         <p className="text-xs uppercase tracking-[0.2em] text-slate-500">rule_version</p>
         <p className="mt-1 text-3xl font-black text-indigo-900">v{rules.rule_version}</p>
@@ -15,7 +22,7 @@ export default async function RulesPage() {
 
       <section className="mt-4 space-y-3">
         <article className="card p-4">
-          <h2 className="font-black text-indigo-900">Points system</h2>
+          <h2 className="font-black text-indigo-900">💰 Points system</h2>
           <p className="text-sm text-slate-600">Check-in: +{rules.checkin_points}</p>
           <p className="text-sm text-slate-600">Submission approved: +{rules.submission_points}</p>
           <p className="text-sm text-slate-600">Productive bonus: +{rules.productive_points}</p>
@@ -23,21 +30,21 @@ export default async function RulesPage() {
         </article>
 
         <article className="card p-4">
-          <h2 className="font-black text-indigo-900">Streak system</h2>
+          <h2 className="font-black text-indigo-900">🔥 Streak system</h2>
           <p className="text-sm text-slate-600">
             Consecutive approvals build your streak. Current threshold target: {rules.streak_days} days.
           </p>
         </article>
 
         <article className="card p-4">
-          <h2 className="font-black text-indigo-900">Multiplier rules</h2>
+          <h2 className="font-black text-indigo-900">⭐ Multiplier rules</h2>
           <p className="text-sm text-slate-600">
             Multiplier activates at {rules.multiplier_trigger_days} days, then applies x{rules.multiplier_value}.
           </p>
         </article>
 
         <article className="card p-4">
-          <h2 className="font-black text-indigo-900">Rewards</h2>
+          <h2 className="font-black text-indigo-900">🎁 Rewards</h2>
           <p className="text-sm text-slate-600">{rules.rewards_blurb}</p>
         </article>
 

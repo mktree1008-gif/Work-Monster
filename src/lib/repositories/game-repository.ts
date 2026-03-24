@@ -122,6 +122,7 @@ function createMemoryDB(): MemoryDB {
         role: "user",
         name: "Ashton",
         locale: "en",
+        character_glasses: true,
         auth_provider: "password",
         password_hash: userSeedCredential.hash,
         password_salt: userSeedCredential.salt,
@@ -138,6 +139,7 @@ function createMemoryDB(): MemoryDB {
         role: "manager",
         name: "Manager",
         locale: "en",
+        character_glasses: false,
         auth_provider: "password",
         password_hash: managerSeedCredential.hash,
         password_salt: managerSeedCredential.salt,
@@ -195,6 +197,7 @@ class MemoryGameRepository implements GameRepository {
         login_id: existing.login_id || fallbackLoginId,
         role,
         locale,
+        character_glasses: existing.character_glasses ?? true,
         auth_provider: existing.auth_provider ?? "google"
       };
       this.db.users.set(updated.id, updated);
@@ -211,6 +214,7 @@ class MemoryGameRepository implements GameRepository {
       role,
       locale,
       name: normalized.split("@")[0] ?? "Player",
+      character_glasses: true,
       auth_provider: "google",
       last_seen_rule_version: 0,
       created_at: nowISO()
@@ -252,6 +256,7 @@ class MemoryGameRepository implements GameRepository {
       role,
       locale,
       name: "",
+      character_glasses: true,
       auth_provider: "password",
       password_hash: hash,
       password_salt: salt,
@@ -465,6 +470,7 @@ class FirestoreGameRepository implements GameRepository {
         role,
         locale,
         name: normalized.split("@")[0] ?? "Player",
+        character_glasses: true,
         auth_provider: "google",
         last_seen_rule_version: 0,
         created_at: nowISO()
@@ -481,6 +487,7 @@ class FirestoreGameRepository implements GameRepository {
       login_id: found.user.login_id || fallbackLoginId,
       role,
       locale,
+      character_glasses: found.user.character_glasses ?? true,
       auth_provider: found.user.auth_provider ?? "google"
     };
     await this.db.collection("users").doc(found.id).set(next, { merge: true });
@@ -516,6 +523,7 @@ class FirestoreGameRepository implements GameRepository {
       role,
       locale,
       name: "",
+      character_glasses: true,
       auth_provider: "password",
       password_hash: credential.hash,
       password_salt: credential.salt,

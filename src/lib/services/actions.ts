@@ -68,6 +68,20 @@ export async function setLocaleAction(formData: FormData): Promise<void> {
   revalidatePath("/manager");
 }
 
+export async function setCharacterStyleAction(formData: FormData): Promise<void> {
+  const session = await getSession();
+  if (!session) redirect("/auth/login");
+
+  const withGlasses = String(formData.get("character_glasses") ?? "true") !== "false";
+  const repo = getGameRepository();
+  await repo.updateUser(session.uid, { character_glasses: withGlasses });
+
+  revalidatePath("/account");
+  revalidatePath("/app/questions");
+  revalidatePath("/app/score");
+  revalidatePath("/app/record");
+}
+
 export async function submitCheckInAction(formData: FormData): Promise<void> {
   const session = await getSession();
   if (!session) redirect("/auth/login");

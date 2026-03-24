@@ -43,6 +43,7 @@ export interface UserProfile {
   role: UserRole;
   name: string;
   locale: Locale;
+  character_glasses?: boolean;
   auth_provider?: "password" | "google";
   password_hash?: string;
   password_salt?: string;

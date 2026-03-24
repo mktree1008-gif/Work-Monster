@@ -1,11 +1,19 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { CharacterAlert } from "@/components/character-alert";
+import { getUserCue } from "@/lib/character-system";
 import { submitCheckInAction } from "@/lib/services/actions";
+import { Locale } from "@/lib/types";
 
 const moods = ["Focused", "Steady", "Tired", "Energized"];
 
-export function QuestionsFlow() {
+type Props = {
+  locale: Locale;
+  withGlasses: boolean;
+};
+
+export function QuestionsFlow({ locale, withGlasses }: Props) {
   const [step, setStep] = useState(0);
   const [mood, setMood] = useState(moods[0]);
   const [focus, setFocus] = useState("");
@@ -17,9 +25,12 @@ export function QuestionsFlow() {
   const [fileUrl, setFileUrl] = useState("");
 
   const progress = useMemo(() => Math.round(((step + 1) / 3) * 100), [step]);
+  const determinedCue = getUserCue("questions_determined", locale);
 
   return (
     <div className="space-y-4">
+      <CharacterAlert role="user" cue={determinedCue} glasses={withGlasses} compact />
+
       <div className="soft-card p-3">
         <div className="mb-1 flex items-center justify-between text-xs text-slate-500">
           <span>Daily check-in flow</span>

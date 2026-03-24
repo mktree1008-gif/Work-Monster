@@ -1,7 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { RuleChangeLogItem } from "@/lib/types";
+import { CharacterAlert } from "@/components/character-alert";
+import { getManagerCue } from "@/lib/character-system";
+import { Locale, RuleChangeLogItem } from "@/lib/types";
 import { acknowledgeRulesAction } from "@/lib/services/actions";
 
 type Props = {
@@ -10,6 +12,7 @@ type Props = {
   lastUpdated: string;
   changelog: RuleChangeLogItem[];
   lastSeenVersion: number;
+  locale: Locale;
 };
 
 export function RulesOnboardingModal({
@@ -17,13 +20,15 @@ export function RulesOnboardingModal({
   ruleVersion,
   lastUpdated,
   changelog,
-  lastSeenVersion
+  lastSeenVersion,
+  locale
 }: Props) {
   const [open, setOpen] = useState(openOnLoad);
   const updatedItems = useMemo(
     () => changelog.filter((item) => item.version > lastSeenVersion),
     [changelog, lastSeenVersion]
   );
+  const managerCue = getManagerCue("rules_encouraging", locale);
 
   if (!open) {
     return null;
@@ -35,6 +40,9 @@ export function RulesOnboardingModal({
         <p className="text-xs uppercase tracking-[0.2em] text-indigo-500">Rule Update</p>
         <h2 className="display-cute mt-2 text-3xl text-indigo-900">Version {ruleVersion}</h2>
         <p className="mt-2 text-sm text-slate-500">Last updated {new Date(lastUpdated).toLocaleString()}</p>
+        <div className="mt-3">
+          <CharacterAlert role="manager" cue={managerCue} compact />
+        </div>
 
         <div className="mt-4 space-y-3">
           {updatedItems.map((item) => (
