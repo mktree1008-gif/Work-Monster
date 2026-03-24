@@ -22,7 +22,7 @@ export default async function WelcomePage() {
         </>
       }
     >
-      <section className="card mb-4 overflow-hidden bg-gradient-to-br from-cyan-400 via-blue-500 to-indigo-600 p-5 text-white">
+      <section className="card anim-pop mb-4 overflow-hidden bg-gradient-to-br from-cyan-400 via-blue-500 to-indigo-600 p-5 text-white">
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-white/90">Next step</p>
         <h2 className="mt-2 text-3xl font-black leading-tight">Welcome Work Monster!</h2>
         <p className="mt-2 text-sm text-white/90">Tap once and jump into your energy-packed check-in flow.</p>
@@ -32,7 +32,7 @@ export default async function WelcomePage() {
         </Link>
       </section>
 
-      <section className="mb-4">
+      <section className="anim-pop mb-4">
         <CharacterAlert role="manager" cue={managerCue} tone="success" />
       </section>
 

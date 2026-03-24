@@ -2,14 +2,16 @@
 
 import Link from "next/link";
 import { FormEvent, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { LockKeyhole, MailPlus } from "lucide-react";
 import { Locale, UserRole } from "@/lib/types";
 
-export function RegisterForm() {
-  const searchParams = useSearchParams();
-  const initialRole = searchParams.get("role") === "manager" ? "manager" : "user";
-  const initialLocale = searchParams.get("locale") === "ko" ? "ko" : "en";
+type Props = {
+  initialRole?: UserRole;
+  initialLocale?: Locale;
+};
+
+export function RegisterForm({ initialRole = "user", initialLocale = "en" }: Props) {
   const [role, setRole] = useState<UserRole>(initialRole);
   const [locale, setLocale] = useState<Locale>(initialLocale);
   const [loginId, setLoginId] = useState("");

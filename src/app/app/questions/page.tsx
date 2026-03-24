@@ -34,7 +34,7 @@ export default async function QuestionsPage() {
         </>
       }
     >
-      <section className="card mb-4 overflow-hidden bg-gradient-to-br from-blue-700 via-indigo-700 to-indigo-900 p-5 text-white">
+      <section className="card anim-pop mb-4 overflow-hidden bg-gradient-to-br from-blue-700 via-indigo-700 to-indigo-900 p-5 text-white">
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-100/90">Current Momentum</p>
         <div className="mt-2 flex items-end gap-2">
           <p className="text-5xl font-black leading-none">{bundle.score.total_points.toLocaleString()}</p>
@@ -60,7 +60,7 @@ export default async function QuestionsPage() {
         </p>
       </section>
 
-      <section className="card mb-4 p-5">
+      <section className="card anim-pop anim-delayed mb-4 p-5">
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">Next reward</p>
         <p className="mt-1 text-lg font-bold text-indigo-900">
           {nextReward.reward ? `${nextReward.reward.title} in ${nextReward.pointsRemaining} pts` : "All rewards unlocked"}
@@ -75,7 +75,7 @@ export default async function QuestionsPage() {
         </div>
       </section>
 
-      <section className="card mb-4 p-5">
+      <section className="card anim-pop mb-4 p-5">
         <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Start today</p>
         <h2 className="mt-1 text-2xl font-black text-indigo-900">Begin Daily Check-in</h2>
         <p className="mt-1 text-sm text-slate-600">

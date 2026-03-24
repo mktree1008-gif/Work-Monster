@@ -2,15 +2,17 @@
 
 import Link from "next/link";
 import { FormEvent, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { LockKeyhole, Mail } from "lucide-react";
 import { GoogleLoginButton } from "@/components/google-login-button";
 import { Locale, UserRole } from "@/lib/types";
 
-export function LoginForm() {
-  const searchParams = useSearchParams();
-  const initialRole = searchParams.get("role") === "manager" ? "manager" : "user";
-  const initialLocale = searchParams.get("locale") === "ko" ? "ko" : "en";
+type Props = {
+  initialRole?: UserRole;
+  initialLocale?: Locale;
+};
+
+export function LoginForm({ initialRole = "user", initialLocale = "en" }: Props) {
   const [role, setRole] = useState<UserRole>(initialRole);
   const [locale, setLocale] = useState<Locale>(initialLocale);
   const [loginId, setLoginId] = useState("");

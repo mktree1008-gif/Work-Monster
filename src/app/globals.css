@@ -49,6 +49,7 @@ h3,
   border-radius: var(--radius-xl);
   background: var(--surface);
   box-shadow: var(--shadow-soft);
+  transition: transform 180ms ease, box-shadow 220ms ease;
 }
 
 .soft-card {
@@ -80,6 +81,15 @@ h3,
   border-radius: 999px;
   padding: 0.95rem 1.2rem;
   font-weight: 700;
+  transition: transform 160ms ease, box-shadow 220ms ease, filter 200ms ease;
+}
+
+.btn:hover {
+  filter: brightness(1.03);
+}
+
+.btn:active {
+  transform: scale(0.98);
 }
 
 .btn-primary {
@@ -156,6 +166,10 @@ h3,
 
 .anim-pulse-soft {
   animation: pulse-soft 1.9s ease-in-out infinite;
+}
+
+.anim-delayed {
+  animation-delay: 140ms;
 }
 
 .btn-energetic {

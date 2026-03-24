@@ -52,10 +52,10 @@ export default function LoginPage() {
           </Suspense>
         </section>
 
-        <section className="card mt-4 p-4">
+        <section className="card anim-pop mt-4 p-4">
           <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Next step preview</p>
           <button className="btn btn-energetic mt-3 flex w-full items-center justify-center gap-2" type="button">
-            <Sparkles size={16} />
+            <Sparkles className="anim-pulse-soft" size={16} />
             Welcome Work Monster!
           </button>
         </section>
