@@ -5,7 +5,6 @@ import { Locale, UserRole } from "@/lib/types";
 
 type RegisterBody = {
   loginId?: string;
-  nickname?: string;
   password?: string;
   role?: UserRole;
   locale?: Locale;
@@ -15,7 +14,6 @@ export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as RegisterBody;
     const loginId = body.loginId?.trim().toLowerCase() ?? "";
-    const nickname = body.nickname?.trim() ?? "";
     const password = body.password ?? "";
     const role = body.role === "manager" ? "manager" : "user";
     const locale = body.locale === "ko" ? "ko" : "en";
@@ -23,19 +21,16 @@ export async function POST(request: NextRequest) {
     if (!loginId) {
       return NextResponse.json({ error: "ID is required." }, { status: 400 });
     }
-    if (!nickname) {
-      return NextResponse.json({ error: "Nickname is required." }, { status: 400 });
-    }
     if (!password) {
       return NextResponse.json({ error: "Security code is required." }, { status: 400 });
     }
 
     const repo = getGameRepository();
-    const user = await repo.createAccountWithPassword(loginId, password, role, locale, nickname);
+    const user = await repo.createAccountWithPassword(loginId, password, role, locale);
 
     const response = NextResponse.json({
       ok: true,
-      redirectTo: user.role === "manager" ? "/manager" : "/app/questions"
+      redirectTo: "/auth/nickname"
     });
 
     response.cookies.set(UID_COOKIE, user.id, { httpOnly: true, sameSite: "lax", path: "/" });

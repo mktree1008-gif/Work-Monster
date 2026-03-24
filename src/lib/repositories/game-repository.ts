@@ -36,7 +36,9 @@ function normalizeLoginId(loginId: string): string {
 }
 
 function isValidLoginId(loginId: string): boolean {
-  return /^[a-z0-9._-]{3,32}$/.test(loginId);
+  const customIdPattern = /^[a-z0-9._-]{3,32}$/;
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return customIdPattern.test(loginId) || emailPattern.test(loginId);
 }
 
 function loginIdFromEmail(email: string): string {
@@ -47,13 +49,7 @@ function loginIdFromEmail(email: string): string {
 
 export interface GameRepository {
   signIn(email: string, role: UserRole, locale: Locale): Promise<UserProfile>;
-  createAccountWithPassword(
-    loginId: string,
-    password: string,
-    role: UserRole,
-    locale: Locale,
-    nickname?: string
-  ): Promise<UserProfile>;
+  createAccountWithPassword(loginId: string, password: string, role: UserRole, locale: Locale): Promise<UserProfile>;
   signInWithPassword(
     loginId: string,
     password: string,
@@ -229,12 +225,11 @@ class MemoryGameRepository implements GameRepository {
     loginIdInput: string,
     password: string,
     role: UserRole,
-    locale: Locale,
-    nicknameInput?: string
+    locale: Locale
   ): Promise<UserProfile> {
     const loginId = normalizeLoginId(loginIdInput);
     if (!isValidLoginId(loginId)) {
-      throw new Error("ID must be 3-32 chars and can include lowercase letters, numbers, ., _, -");
+      throw new Error("Use a valid email or an ID with 3-32 lowercase letters, numbers, ., _, -");
     }
 
     if (password.length < 6) {
@@ -244,16 +239,19 @@ class MemoryGameRepository implements GameRepository {
     if (this.findByLoginId(loginId)) {
       throw new Error("This ID is already taken.");
     }
+    if (loginId.includes("@") && this.findByEmail(loginId)) {
+      throw new Error("This email is already in use.");
+    }
 
     const { hash, salt } = hashPassword(password);
     const id = createId("user");
-    const nickname = nicknameInput?.trim() || loginId;
     const user: UserProfile = {
       id,
       login_id: loginId,
+      email: loginId.includes("@") ? loginId : undefined,
       role,
       locale,
-      name: nickname,
+      name: "",
       auth_provider: "password",
       password_hash: hash,
       password_salt: salt,
@@ -493,12 +491,11 @@ class FirestoreGameRepository implements GameRepository {
     loginIdInput: string,
     password: string,
     role: UserRole,
-    locale: Locale,
-    nicknameInput?: string
+    locale: Locale
   ): Promise<UserProfile> {
     const loginId = normalizeLoginId(loginIdInput);
     if (!isValidLoginId(loginId)) {
-      throw new Error("ID must be 3-32 chars and can include lowercase letters, numbers, ., _, -");
+      throw new Error("Use a valid email or an ID with 3-32 lowercase letters, numbers, ., _, -");
     }
     if (password.length < 6) {
       throw new Error("Security code must be at least 6 characters.");
@@ -506,15 +503,19 @@ class FirestoreGameRepository implements GameRepository {
     if (await this.findUserByLoginId(loginId)) {
       throw new Error("This ID is already taken.");
     }
+    if (loginId.includes("@") && (await this.findUserByEmail(loginId))) {
+      throw new Error("This email is already in use.");
+    }
 
     const credential = hashPassword(password);
     const id = createId("user");
     const user: UserProfile = {
       id,
       login_id: loginId,
+      email: loginId.includes("@") ? loginId : undefined,
       role,
       locale,
-      name: nicknameInput?.trim() || loginId,
+      name: "",
       auth_provider: "password",
       password_hash: credential.hash,
       password_salt: credential.salt,

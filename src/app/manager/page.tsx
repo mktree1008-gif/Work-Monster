@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { APP_NAME } from "@/lib/constants";
+import { getGameRepository } from "@/lib/repositories/game-repository";
 import { getSession } from "@/lib/session";
 import {
   claimPenaltyRewardAction,
@@ -15,6 +16,15 @@ export default async function ManagerPage() {
   const session = await getSession();
   if (!session || session.role !== "manager") {
     redirect("/auth/login");
+  }
+
+  const repo = getGameRepository();
+  const user = await repo.getUser(session.uid);
+  if (!user) {
+    redirect("/auth/login");
+  }
+  if ((user.name ?? "").trim().length === 0) {
+    redirect("/auth/nickname");
   }
 
   const data = await getManagerOverview();

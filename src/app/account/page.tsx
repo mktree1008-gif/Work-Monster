@@ -10,12 +10,13 @@ export default async function AccountPage() {
   const repo = getGameRepository();
   const user = await repo.getUser(session.uid);
   if (!user) redirect("/auth/login");
+  const displayName = (user.name ?? "").trim() || user.login_id;
 
   return (
     <main className="container-mobile page-padding">
       <section className="card p-5">
         <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Account</p>
-        <h1 className="display-cute mt-2 text-4xl text-indigo-900">{user.name}</h1>
+        <h1 className="display-cute mt-2 text-4xl text-indigo-900">{displayName}</h1>
         <p className="text-sm text-slate-600">ID: {user.login_id}</p>
         {user.email && <p className="text-sm text-slate-600">Email: {user.email}</p>}
         <p className="mt-2 rounded-xl bg-slate-100 px-3 py-2 text-sm">Role: {user.role}</p>

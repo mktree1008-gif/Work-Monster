@@ -10,6 +10,9 @@ export async function getViewerContext() {
   }
 
   const bundle = await getDashboard(session.uid);
+  if ((bundle.user.name ?? "").trim().length === 0) {
+    redirect("/auth/nickname");
+  }
   const strings = dictionary[bundle.user.locale] ?? dictionary.en;
 
   return {

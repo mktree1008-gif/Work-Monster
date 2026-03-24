@@ -22,9 +22,13 @@ export async function POST(request: NextRequest) {
     let name = body.name?.trim();
 
     if (isFirebaseServerConfigured() && body.idToken) {
-      const decoded = await getAdminAuth().verifyIdToken(body.idToken);
-      email = decoded.email?.toLowerCase() ?? email;
-      name = decoded.name ?? name;
+      try {
+        const decoded = await getAdminAuth().verifyIdToken(body.idToken);
+        email = decoded.email?.toLowerCase() ?? email;
+        name = decoded.name ?? name;
+      } catch (error) {
+        console.warn("Google idToken verification failed, falling back to client profile.", error);
+      }
     }
 
     if (!email) {
@@ -32,15 +36,17 @@ export async function POST(request: NextRequest) {
     }
 
     const repo = getGameRepository();
-    const user = await repo.signIn(email, role, locale);
+    let user = await repo.signIn(email, role, locale);
 
     if (name && name.length > 0) {
-      await repo.updateUser(user.id, { name });
+      user = await repo.updateUser(user.id, { name });
     }
+
+    const nicknameMissing = (user.name ?? "").trim().length === 0;
 
     const response = NextResponse.json({
       ok: true,
-      redirectTo: user.role === "manager" ? "/manager" : "/app/questions"
+      redirectTo: nicknameMissing ? "/auth/nickname" : user.role === "manager" ? "/manager" : "/app/questions"
     });
 
     response.cookies.set(UID_COOKIE, user.id, { httpOnly: true, sameSite: "lax", path: "/" });

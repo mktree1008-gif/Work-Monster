@@ -6,9 +6,13 @@ export function middleware(request: NextRequest) {
   const role = request.cookies.get("wm_role")?.value;
   const { pathname } = request.nextUrl;
 
-  if (pathname.startsWith("/auth/login") && uid) {
+  if ((pathname.startsWith("/auth/login") || pathname.startsWith("/auth/register")) && uid) {
     const destination = role === "manager" ? "/manager" : "/app/questions";
     return NextResponse.redirect(new URL(destination, request.url));
+  }
+
+  if (pathname.startsWith("/auth/nickname") && !uid) {
+    return NextResponse.redirect(new URL("/auth/login", request.url));
   }
 
   if (pathname.startsWith("/app") && !uid) {
@@ -27,5 +31,5 @@ export function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/auth/login", "/app/:path*", "/manager/:path*", "/account/:path*"]
+  matcher: ["/auth/login", "/auth/register", "/auth/nickname", "/app/:path*", "/manager/:path*", "/account/:path*"]
 };

@@ -8,13 +8,14 @@ export default async function QuestionsPage() {
   const { bundle, strings } = await getViewerContext();
   const nextReward = computeNextReward(bundle.score.total_points, bundle.rewards);
   const latestSubmission = bundle.submissions[0];
+  const displayName = (bundle.user.name ?? "").trim() || bundle.user.login_id;
 
   return (
     <UserPageShell
       activeTab="questions"
       labels={strings}
       subtitle="How was your day?"
-      title={`${bundle.rules.greeting_message} ${bundle.user.name}!`}
+      title={`${bundle.rules.greeting_message} ${displayName}!`}
     >
       <section className="card mb-4 flex items-center justify-between gap-3 p-5">
         <div>

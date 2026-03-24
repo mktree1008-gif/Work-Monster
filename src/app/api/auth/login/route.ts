@@ -27,10 +27,11 @@ export async function POST(request: NextRequest) {
 
     const repo = getGameRepository();
     const user = await repo.signInWithPassword(loginId, password, role, locale);
+    const nicknameMissing = (user.name ?? "").trim().length === 0;
 
     const response = NextResponse.json({
       ok: true,
-      redirectTo: user.role === "manager" ? "/manager" : "/app/questions"
+      redirectTo: nicknameMissing ? "/auth/nickname" : user.role === "manager" ? "/manager" : "/app/questions"
     });
 
     response.cookies.set(UID_COOKIE, user.id, { httpOnly: true, sameSite: "lax", path: "/" });
