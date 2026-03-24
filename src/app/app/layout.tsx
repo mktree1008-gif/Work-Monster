@@ -14,8 +14,15 @@ export default async function UserLayout({
   return (
     <>
       <TopAppBar
-        accountLabel={strings.account}
         appName={APP_NAME}
+        labels={{
+          questions: strings.questions,
+          record: strings.record,
+          rewards: strings.rewards,
+          score: strings.score,
+          rules: strings.rules,
+          account: strings.account
+        }}
         locale={bundle.user.locale}
         role={bundle.user.role}
       />
