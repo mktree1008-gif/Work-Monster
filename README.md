@@ -11,7 +11,6 @@ Mobile-first motivation game web app (Next.js + Firebase) with user and manager 
 - English + Korean language selection
 - Font setup:
   - Base UI: **Pretendard**
-  - Cute display accent: **Jua**
 - Rule versioning with onboarding modal + change highlights
 - Recoverable penalty flow in **Score tab** (Risk Zone)
 - Manager panel for submission review, rules, rewards, and penalty reward claims

@@ -1,5 +1,4 @@
 @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css");
-@import url("https://fonts.googleapis.com/css2?family=Jua&display=swap");
 @import "tailwindcss";
 
 :root {
@@ -42,7 +41,8 @@ h1,
 h2,
 h3,
 .display-cute {
-  font-family: "Jua", "Pretendard Variable", sans-serif;
+  font-family: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  letter-spacing: -0.01em;
 }
 
 .card {
