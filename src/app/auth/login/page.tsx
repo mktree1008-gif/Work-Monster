@@ -5,7 +5,7 @@ import { LoginForm } from "@/components/login-form";
 
 export default function LoginPage() {
   return (
-    <main className="relative min-h-dvh overflow-hidden">
+    <main className="relative min-h-dvh overflow-hidden bg-[#f3f4fb]">
       <div className="absolute -right-16 top-12 text-slate-300/40">
         <CalendarDays size={44} />
       </div>
@@ -20,21 +20,23 @@ export default function LoginPage() {
       </div>
 
       <div className="container-mobile pb-10 pt-8">
-        <section className="card overflow-hidden border border-white/70">
-          <div className="relative h-44 w-full bg-indigo-100">
+        <section className="card overflow-hidden border border-white/70 bg-white">
+          <div className="relative h-52 w-full overflow-hidden rounded-b-3xl bg-gradient-to-b from-indigo-100 via-indigo-50 to-white">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_18%,rgba(255,255,255,0.75),transparent_45%),radial-gradient(circle_at_84%_16%,rgba(255,255,255,0.55),transparent_40%)]" />
             <Image
               alt="Work Monster team character illustration"
-              className="object-cover"
+              className="anim-float object-contain px-3 pt-2"
               fill
               priority
               sizes="(max-width: 480px) 100vw, 420px"
               src="/images/login-hero.svg"
+              style={{ objectPosition: "center 36%" }}
             />
-            <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-white via-white/80 to-transparent" />
+            <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white via-white/92 to-transparent" />
           </div>
 
-          <header className="-mt-4 px-6 pb-2 text-center">
-            <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-700 text-white shadow-xl">
+          <header className="-mt-2 px-6 pb-2 text-center">
+            <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-700 text-white shadow-xl shadow-indigo-300/40">
               <Compass size={20} />
             </div>
             <h1 className="display-cute text-5xl font-black tracking-tight text-indigo-900">Work Monster</h1>
