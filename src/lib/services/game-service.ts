@@ -478,7 +478,13 @@ export async function getDashboard(uid: string): Promise<DashboardBundle> {
     message: item.message,
     created_at: item.created_at,
     is_new: item.created_at > notificationsThreshold,
-    source_id: item.id
+    source_id: item.id,
+    deep_link:
+      item.kind === "rule_update"
+        ? "/app/rules"
+        : item.kind === "reward_update"
+          ? "/app/rewards"
+          : "/app/record"
   }));
 
   const announcementNotifications: AppNotification[] = announcements.map((item) => ({
@@ -545,7 +551,8 @@ export async function getManagerOverview(managerId: string) {
       message: `${displayName} submitted ${submission.date}`,
       created_at: submission.created_at,
       is_new: notificationsThreshold ? submission.created_at > notificationsThreshold : true,
-      source_id: submission.id
+      source_id: submission.id,
+      deep_link: `/manager?manager_tab=review&focus_submission=${submission.id}#submission-${submission.id}`
     };
   });
 
@@ -558,7 +565,8 @@ export async function getManagerOverview(managerId: string) {
     is_new: notificationsThreshold
       ? (item.claim.claimed_at ?? item.claim.created_at) > notificationsThreshold
       : true,
-    source_id: item.claim.id
+    source_id: item.claim.id,
+    deep_link: "/manager?manager_tab=inbox#reward-claim-inbox"
   }));
 
   const announcementNotifications: AppNotification[] = announcements.map((item) => ({

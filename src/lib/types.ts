@@ -144,6 +144,7 @@ export interface AppNotification {
   is_new: boolean;
   image_url?: string;
   source_id?: string;
+  deep_link?: string;
 }
 
 export interface PenaltyEvent {

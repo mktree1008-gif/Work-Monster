@@ -59,6 +59,10 @@ export function NotificationBell({ notifications, unreadCount, action, role }: P
                     <button
                       className="w-full rounded-xl bg-slate-100 p-3 text-left transition hover:bg-indigo-50"
                       onClick={() => {
+                        if (item.deep_link) {
+                          window.location.href = item.deep_link;
+                          return;
+                        }
                         if (item.kind === "announcement") {
                           setSelected(item);
                         }

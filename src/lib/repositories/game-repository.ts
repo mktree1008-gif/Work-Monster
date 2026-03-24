@@ -58,6 +58,7 @@ export interface GameRepository {
     role: UserRole,
     locale: Locale
   ): Promise<UserProfile>;
+  listUsers(): Promise<UserProfile[]>;
   getUser(uid: string): Promise<UserProfile | null>;
   updateUser(uid: string, patch: Partial<UserProfile>): Promise<UserProfile>;
   getRules(): Promise<RuleConfig>;
@@ -333,6 +334,10 @@ class MemoryGameRepository implements GameRepository {
     const updated: UserProfile = { ...found, role, locale };
     this.db.users.set(updated.id, updated);
     return updated;
+  }
+
+  async listUsers(): Promise<UserProfile[]> {
+    return [...this.db.users.values()].sort((a, b) => (a.created_at > b.created_at ? 1 : -1));
   }
 
   async getUser(uid: string): Promise<UserProfile | null> {
@@ -652,6 +657,11 @@ class FirestoreGameRepository implements GameRepository {
     const next = { ...user, role, locale };
     await this.db.collection("users").doc(found.id).set(next, { merge: true });
     return next;
+  }
+
+  async listUsers(): Promise<UserProfile[]> {
+    const snap = await this.db.collection("users").orderBy("created_at", "asc").get();
+    return snap.docs.map((doc) => doc.data() as UserProfile);
   }
 
   async getUser(uid: string): Promise<UserProfile | null> {
