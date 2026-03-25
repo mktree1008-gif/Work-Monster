@@ -83,6 +83,8 @@ export default async function ManagerPage({ searchParams }: Props) {
   const reviewed = params.reviewed === "1";
   const approved = params.approved === "1";
   const reviewedPoints = Number(params.points ?? 0);
+  const reviewedBonus = Number(params.bonus ?? 0);
+  const reviewedBonusMessage = typeof params.bonus_message === "string" ? params.bonus_message : "";
   const reviewedNote = typeof params.note === "string" ? params.note : "";
   const rulesSaved = params.rules_saved === "1";
   const rulesVersion = Number(params.version ?? data.rules.rule_version);
@@ -139,6 +141,8 @@ export default async function ManagerPage({ searchParams }: Props) {
       <ManagerRulesSavedPopup openOnMount={rulesSaved} version={safeRulesVersion} />
       <ManagerReviewResultPopup
         approved={approved}
+        bonusMessage={reviewedBonusMessage}
+        bonusPoints={Number.isFinite(reviewedBonus) ? reviewedBonus : 0}
         note={reviewedNote}
         openOnMount={reviewed}
         points={Number.isFinite(reviewedPoints) ? reviewedPoints : 0}

@@ -944,6 +944,9 @@ export function makeSubmissionFromDraft(draft: SubmissionDraft, submissionDate?:
     file_url: draft.file_url,
     status: "pending",
     points_awarded: 0,
+    base_points_awarded: 0,
+    bonus_points_awarded: 0,
+    bonus_message: "",
     created_at: nowISO()
   };
 }

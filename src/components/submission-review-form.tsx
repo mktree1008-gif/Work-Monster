@@ -19,10 +19,14 @@ export function SubmissionReviewForm({ submissionId, defaultPoints, mood, produc
   const formRef = useRef<HTMLFormElement>(null);
   const [decision, setDecision] = useState<Decision>("true");
   const [pointsInput, setPointsInput] = useState(String(defaultPoints));
+  const [bonusInput, setBonusInput] = useState("0");
+  const [bonusMessageInput, setBonusMessageInput] = useState("");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const parsedPoints = Number(pointsInput);
   const safePoints = Number.isFinite(parsedPoints) ? Math.round(parsedPoints) : 0;
+  const parsedBonus = Number(bonusInput);
+  const safeBonus = Number.isFinite(parsedBonus) ? Math.max(0, Math.round(parsedBonus)) : 0;
   const rejectPathPoints = Math.min(0, safePoints);
 
   function openConfirm(nextDecision: Decision) {
@@ -50,7 +54,7 @@ export function SubmissionReviewForm({ submissionId, defaultPoints, mood, produc
       <form action={reviewSubmissionAction} className="mt-3 grid grid-cols-2 gap-2" ref={formRef}>
         <input name="submission_id" type="hidden" value={submissionId} />
         <input name="approved" type="hidden" value={decision} />
-        <input className="input col-span-2" disabled={submitting} name="note" placeholder="Optional note" />
+        <input className="input col-span-2" disabled={submitting} name="note" placeholder="Reason / short comment" />
         <input
           className="input"
           disabled={submitting}
@@ -58,6 +62,26 @@ export function SubmissionReviewForm({ submissionId, defaultPoints, mood, produc
           onChange={(event) => setPointsInput(event.target.value)}
           type="number"
           value={pointsInput}
+        />
+        <input
+          className="input"
+          disabled={submitting}
+          min={0}
+          name="bonus_points"
+          onChange={(event) => setBonusInput(event.target.value)}
+          placeholder="Bonus points"
+          type="number"
+          value={bonusInput}
+        />
+        <input
+          className="input col-span-2"
+          disabled={submitting}
+          maxLength={180}
+          name="bonus_message"
+          onChange={(event) => setBonusMessageInput(event.target.value)}
+          placeholder="Bonus message (only when bonus > 0)"
+          type="text"
+          value={bonusMessageInput}
         />
         <div className="col-span-2 grid grid-cols-2 gap-2">
           <button
@@ -75,6 +99,22 @@ export function SubmissionReviewForm({ submissionId, defaultPoints, mood, produc
             type="button"
           >
             {submitting ? "Processing..." : "No / Penalty"}
+          </button>
+        </div>
+        <div className="col-span-2 flex items-center justify-between rounded-xl bg-slate-100 px-3 py-2 text-xs text-slate-600">
+          <span>
+            Rule suggestion:{" "}
+            <strong className="text-indigo-800">
+              {defaultPoints > 0 ? `+${defaultPoints}` : defaultPoints} pts
+            </strong>
+          </span>
+          <button
+            className="rounded-full bg-white px-3 py-1 font-semibold text-indigo-700 ring-1 ring-indigo-100"
+            disabled={submitting}
+            onClick={() => setPointsInput(String(defaultPoints))}
+            type="button"
+          >
+            Use suggestion
           </button>
         </div>
         {submitting && <p className="col-span-2 text-xs text-indigo-700">Review is being submitted. Please wait...</p>}
@@ -104,11 +144,16 @@ export function SubmissionReviewForm({ submissionId, defaultPoints, mood, produc
             <p className="mt-2 inline-flex items-center gap-1 rounded-full bg-indigo-100 px-3 py-1 text-sm font-semibold text-indigo-800">
               <Sparkles size={14} />
               {decision === "true"
-                ? `Score input: ${safePoints > 0 ? `+${safePoints}` : safePoints} pts`
+                ? `Score input: ${safePoints > 0 ? `+${safePoints}` : safePoints} pts${safeBonus > 0 ? ` + bonus ${safeBonus}` : ""}`
                 : rejectPathPoints < 0
                   ? `Penalty ${rejectPathPoints} pts will be applied`
                   : "Submission will be marked as no points"}
             </p>
+            {decision === "true" && safeBonus > 0 && (
+              <p className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-700">
+                🎁 Bonus surprise enabled. User will get a gift-style popup.
+              </p>
+            )}
 
             <div className="mt-4 grid grid-cols-2 gap-2">
               <button className="btn btn-muted w-full" disabled={submitting} onClick={closeConfirm} type="button">

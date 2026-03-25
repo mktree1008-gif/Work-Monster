@@ -5,6 +5,10 @@ import { UserPageShell } from "@/components/user-page-shell";
 import { formatDateLabel, toISODate } from "@/lib/utils";
 import { getViewerContext } from "@/lib/view-model";
 
+type Props = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
 function shiftISODate(baseISO: string, offsetDays: number): string {
   const date = new Date(`${baseISO}T00:00:00.000Z`);
   date.setUTCDate(date.getUTCDate() + offsetDays);
@@ -19,8 +23,10 @@ function calendarCellClass(delta: number): string {
   return "bg-slate-100 text-slate-500";
 }
 
-export default async function RecordPage() {
+export default async function RecordPage({ searchParams }: Props) {
   const { bundle, strings } = await getViewerContext();
+  const params = (searchParams ? await searchParams : {}) as Record<string, string | string[] | undefined>;
+  const focusSubmissionId = typeof params.focus === "string" ? params.focus : "";
   const recent = bundle.submissions.slice(0, 7);
   const approved = recent.filter((item) => item.status === "approved");
   const avgCalories =
@@ -31,7 +37,7 @@ export default async function RecordPage() {
   const calendarEndDate = latestSubmissionDate > todayISO ? latestSubmissionDate : todayISO;
   const calendarDays = Array.from({ length: 28 }, (_, index) => shiftISODate(calendarEndDate, index - 27));
   const pointsByDate = bundle.submissions.reduce<Record<string, number>>((acc, submission) => {
-    const delta = submission.status === "approved" ? submission.points_awarded : 0;
+    const delta = submission.status === "pending" ? 0 : submission.points_awarded;
     acc[submission.date] = (acc[submission.date] ?? 0) + delta;
     return acc;
   }, {});
@@ -93,7 +99,11 @@ export default async function RecordPage() {
         <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Submission history</p>
         <ul className="mt-3 space-y-2">
           {bundle.submissions.slice(0, 10).map((item) => (
-            <li key={item.id} className="rounded-xl bg-slate-100 px-3 py-2 text-sm">
+            <li
+              className={`rounded-xl bg-slate-100 px-3 py-2 text-sm ${focusSubmissionId === item.id ? "ring-2 ring-indigo-400" : ""}`}
+              id={`submission-${item.id}`}
+              key={item.id}
+            >
               <div className="flex items-center justify-between">
                 <span>{formatDateLabel(item.date)}</span>
                 <span className="font-semibold">
@@ -107,6 +117,11 @@ export default async function RecordPage() {
               {item.status !== "pending" && (
                 <div className="mt-2">
                   <CharacterAlert role="manager" cue={managerCue} compact tone={item.points_awarded < 0 ? "warning" : "success"} />
+                  {(item.bonus_points_awarded ?? 0) > 0 && (
+                    <p className="mt-1 rounded-lg bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">
+                      🎁 Bonus +{item.bonus_points_awarded} {item.bonus_message?.trim() ? `• ${item.bonus_message}` : ""}
+                    </p>
+                  )}
                 </div>
               )}
             </li>

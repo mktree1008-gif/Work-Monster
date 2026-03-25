@@ -45,6 +45,11 @@ export function UserManagerUpdatesModal({ updates, action, locale }: Props) {
                 {iconByKind(item.kind)} {item.title}
               </p>
               <p className="text-indigo-700">{item.message}</p>
+              {(item.bonus_points ?? 0) > 0 && (
+                <p className="mt-1 inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-700">
+                  🎁 Bonus +{item.bonus_points}
+                </p>
+              )}
               <p className="text-xs text-indigo-500">{new Date(item.created_at).toLocaleString()}</p>
             </li>
           ))}

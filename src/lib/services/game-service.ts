@@ -80,26 +80,31 @@ export async function approveSubmission(
 
   const rawPoints = Number.isFinite(input.points) ? Math.round(input.points) : 0;
   const normalizedPoints = input.approved ? rawPoints : Math.min(0, rawPoints);
+  const bonusRaw = Number.isFinite(input.bonus_points) ? Math.round(input.bonus_points ?? 0) : 0;
+  const normalizedBonus = input.approved ? Math.max(0, bonusRaw) : 0;
+  const normalizedBonusMessage = normalizedBonus > 0 ? String(input.bonus_message ?? "").trim().slice(0, 180) : "";
   const now = nowISO();
   const score = await repo.getScore(submission.user_id);
 
   let appliedPoints = 0;
+  let baseAppliedPoints = 0;
   let nextScore: ScoreState | null = null;
 
   if (input.approved) {
     const rules = await repo.getRules();
     const streak = computeStreak(score.current_streak, score.last_approved_at, submission.date);
     const multiplierState = computeMultiplier(streak, rules.multiplier_trigger_days, rules.multiplier_value);
-    const scoredPoints =
+    const scoredBasePoints =
       normalizedPoints > 0
         ? Math.round(normalizedPoints * multiplierState.multiplier_value)
         : normalizedPoints;
-    appliedPoints = scoredPoints;
+    baseAppliedPoints = scoredBasePoints;
+    appliedPoints = scoredBasePoints + normalizedBonus;
 
     nextScore = {
       ...score,
-      total_points: score.total_points + scoredPoints,
-      lifetime_points: score.lifetime_points + Math.max(0, scoredPoints),
+      total_points: score.total_points + appliedPoints,
+      lifetime_points: score.lifetime_points + Math.max(0, appliedPoints),
       current_streak: streak,
       longest_streak: Math.max(score.longest_streak, streak),
       multiplier_active: multiplierState.multiplier_active,
@@ -108,6 +113,7 @@ export async function approveSubmission(
       last_approved_at: submission.date
     };
   } else if (normalizedPoints !== 0) {
+    baseAppliedPoints = normalizedPoints;
     appliedPoints = normalizedPoints;
     nextScore = {
       ...score,
@@ -122,6 +128,9 @@ export async function approveSubmission(
     status: input.approved ? "approved" : "rejected",
     manager_note: input.note,
     points_awarded: appliedPoints,
+    base_points_awarded: baseAppliedPoints,
+    bonus_points_awarded: normalizedBonus,
+    bonus_message: normalizedBonusMessage,
     reviewed_at: now
   };
 
@@ -136,6 +145,9 @@ export async function approveSubmission(
     createAuditLog(managerId, "submission.reviewed", reviewed.id, {
       approved: input.approved,
       points: reviewed.points_awarded,
+      base_points: reviewed.base_points_awarded ?? 0,
+      bonus_points: reviewed.bonus_points_awarded ?? 0,
+      bonus_message: reviewed.bonus_message ?? "",
       note: reviewed.manager_note ?? ""
     })
   );
@@ -435,8 +447,10 @@ export async function getDashboard(uid: string): Promise<DashboardBundle> {
   const ruleUpdateItem: ManagerUpdateNotification = {
     id: `rule-${bundle.rules.rule_version}`,
     kind: "rule_update",
-    title: `Rules updated to v${bundle.rules.rule_version}`,
-    message: "Manager updated game rules. Open Rules tab to check details.",
+    title: isKo ? `룰 v${bundle.rules.rule_version} 업데이트` : `Rules updated to v${bundle.rules.rule_version}`,
+    message: isKo
+      ? "매니저가 게임 규칙을 업데이트했어요. Rules 탭에서 변경 내용을 확인하세요."
+      : "Manager updated game rules. Open Rules tab to check details.",
     created_at: bundle.rules.last_updated
   };
 
@@ -450,19 +464,39 @@ export async function getDashboard(uid: string): Promise<DashboardBundle> {
     if (log.action === "submission.reviewed" && submissionIds.has(log.target_id)) {
       const approved = Boolean(log.details.approved);
       const points = Number(log.details.points ?? 0);
+      const bonusPoints = Number(log.details.bonus_points ?? 0);
+      const bonusMessage = String(log.details.bonus_message ?? "").trim();
       const note = String(log.details.note ?? "").trim();
-      let title = approved ? "Manager reviewed your check-in" : "Manager left a no-points review";
-      let fallbackMessage = approved ? `+${points} pts reflected in your score.` : "Check manager comment in Questions/Record.";
+      let title = approved
+        ? isKo
+          ? "매니저가 체크인을 검토했어요"
+          : "Manager reviewed your check-in"
+        : isKo
+          ? "매니저가 무점수 검토를 남겼어요"
+          : "Manager left a no-points review";
+      let fallbackMessage = approved
+        ? isKo
+          ? `${points > 0 ? `+${points}` : points} pts가 점수에 반영됐어요.`
+          : `+${points} pts reflected in your score.`
+        : isKo
+          ? "Questions/Record에서 매니저 코멘트를 확인하세요."
+          : "Check manager comment in Questions/Record.";
 
       if (points < 0) {
-        title = "Manager applied a point deduction";
-        fallbackMessage = `${points} pts reflected in your score.`;
+        title = isKo ? "매니저가 감점 점수를 반영했어요" : "Manager applied a point deduction";
+        fallbackMessage = isKo ? `${points} pts가 점수에 반영됐어요.` : `${points} pts reflected in your score.`;
       } else if (points === 0 && approved) {
-        title = "Manager reviewed your check-in";
-        fallbackMessage = "0 pts reviewed for this entry.";
+        title = isKo ? "매니저가 체크인을 검토했어요" : "Manager reviewed your check-in";
+        fallbackMessage = isKo ? "이번 기록은 0 pts로 검토되었어요." : "0 pts reviewed for this entry.";
       } else if (points > 0 && !approved) {
-        title = "Manager updated your score";
-        fallbackMessage = `+${points} pts reflected in your score.`;
+        title = isKo ? "매니저가 점수를 업데이트했어요" : "Manager updated your score";
+        fallbackMessage = isKo ? `+${points} pts가 점수에 반영됐어요.` : `+${points} pts reflected in your score.`;
+      }
+      if (bonusPoints > 0) {
+        title = isKo ? "보너스 포인트 도착!" : "Bonus points surprise!";
+        fallbackMessage = isKo
+          ? `깜짝 선물 +${bonusPoints} 보너스 포인트가 지급됐어요.`
+          : `Gift unlocked: +${bonusPoints} bonus pts.`;
       }
 
       const updateItem: ManagerUpdateNotification = {
@@ -470,7 +504,11 @@ export async function getDashboard(uid: string): Promise<DashboardBundle> {
         kind: "submission_review",
         title,
         message: note.length > 0 ? note : fallbackMessage,
-        created_at: log.created_at
+        created_at: log.created_at,
+        review_points: points,
+        bonus_points: bonusPoints > 0 ? bonusPoints : 0,
+        bonus_message: bonusMessage,
+        deep_link: `/app/record?focus=${log.target_id}#submission-${log.target_id}`
       };
       managerUpdateFeed.push(updateItem);
       if (log.created_at > threshold) {
@@ -482,8 +520,8 @@ export async function getDashboard(uid: string): Promise<DashboardBundle> {
       const updateItem: ManagerUpdateNotification = {
         id: log.id,
         kind: "reward_update",
-        title: "Reward catalog updated",
-        message: "Manager changed reward settings. Check Rewards tab.",
+        title: isKo ? "리워드 목록이 변경됐어요" : "Reward catalog updated",
+        message: isKo ? "매니저가 리워드 설정을 수정했어요. Rewards 탭에서 확인하세요." : "Manager changed reward settings. Check Rewards tab.",
         created_at: log.created_at
       };
       managerUpdateFeed.push(updateItem);
@@ -508,12 +546,15 @@ export async function getDashboard(uid: string): Promise<DashboardBundle> {
     created_at: item.created_at,
     is_new: item.created_at > notificationsThreshold,
     source_id: item.id,
+    review_points: item.review_points,
+    bonus_points: item.bonus_points,
+    bonus_message: item.bonus_message,
     deep_link:
       item.kind === "rule_update"
         ? "/app/rules"
         : item.kind === "reward_update"
           ? "/app/rewards"
-          : "/app/record"
+          : item.deep_link ?? "/app/record"
   }));
 
   const announcementNotifications: AppNotification[] = announcements.map((item) => ({

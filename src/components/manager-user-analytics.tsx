@@ -103,7 +103,7 @@ export function ManagerUserAnalytics({
     .map((submission) => ({
       id: submission.id,
       date: submission.date,
-      points: submission.status === "approved" ? submission.points_awarded : 0,
+      points: submission.points_awarded,
       mood: submission.mood,
       productive: submission.productive,
       focus: submission.custom_answers.focus ?? "",
@@ -339,9 +339,12 @@ export function ManagerUserAnalytics({
                     <p>Blocker: {submission.custom_answers.blocker || "-"}</p>
                     <p>Win: {submission.custom_answers.win || "-"}</p>
                     <p className="mt-1 font-semibold text-indigo-800">
-                      Points: {submission.status === "approved" ? (submission.points_awarded > 0 ? `+${submission.points_awarded}` : submission.points_awarded) : 0}
+                      Points: {submission.points_awarded > 0 ? `+${submission.points_awarded}` : submission.points_awarded}
                     </p>
                     <p className="text-slate-500">Manager note: {submission.manager_note?.trim() || "-"}</p>
+                    {(submission.bonus_points_awarded ?? 0) > 0 && (
+                      <p className="text-amber-700">Bonus: +{submission.bonus_points_awarded} ({submission.bonus_message?.trim() || "surprise"})</p>
+                    )}
                   </div>
                 ))
               ) : (

@@ -73,6 +73,9 @@ export interface Submission {
   status: SubmissionStatus;
   manager_note?: string;
   points_awarded: number;
+  base_points_awarded?: number;
+  bonus_points_awarded?: number;
+  bonus_message?: string;
   created_at: string;
   reviewed_at?: string;
 }
@@ -118,6 +121,10 @@ export interface ManagerUpdateNotification {
   title: string;
   message: string;
   created_at: string;
+  review_points?: number;
+  bonus_points?: number;
+  bonus_message?: string;
+  deep_link?: string;
 }
 
 export interface Announcement {
@@ -145,6 +152,9 @@ export interface AppNotification {
   image_url?: string;
   source_id?: string;
   deep_link?: string;
+  review_points?: number;
+  bonus_points?: number;
+  bonus_message?: string;
 }
 
 export interface PenaltyEvent {
@@ -175,6 +185,8 @@ export interface ManagerReviewInput {
   approved: boolean;
   note?: string;
   points: number;
+  bonus_points?: number;
+  bonus_message?: string;
 }
 
 export interface NextRewardState {

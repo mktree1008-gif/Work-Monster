@@ -238,13 +238,17 @@ export async function reviewSubmissionAction(formData: FormData): Promise<void> 
   const approved = parseBoolean(formData.get("approved"));
   const note = String(formData.get("note") ?? "");
   const points = parseNumber(formData.get("points"), 0);
+  const bonusPoints = parseNumber(formData.get("bonus_points"), 0);
+  const bonusMessage = String(formData.get("bonus_message") ?? "").trim();
 
   const reviewed = await approveSubmission(
     {
       submissionId: String(formData.get("submission_id") ?? ""),
       approved,
       note,
-      points
+      points,
+      bonus_points: bonusPoints,
+      bonus_message: bonusMessage
     },
     session.uid
   );
@@ -258,6 +262,10 @@ export async function reviewSubmissionAction(formData: FormData): Promise<void> 
   params.set("reviewed", "1");
   params.set("approved", reviewed.status === "approved" ? "1" : "0");
   params.set("points", String(reviewed.points_awarded));
+  params.set("bonus", String(reviewed.bonus_points_awarded ?? 0));
+  if ((reviewed.bonus_message ?? "").trim().length > 0) {
+    params.set("bonus_message", (reviewed.bonus_message ?? "").trim().slice(0, 180));
+  }
   if (note.trim().length > 0) {
     params.set("note", note.slice(0, 120));
   }
