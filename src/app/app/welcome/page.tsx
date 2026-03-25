@@ -3,14 +3,43 @@ import Image from "next/image";
 import { Flame, Gift, Zap } from "lucide-react";
 import { UserPageShell } from "@/components/user-page-shell";
 import { CharacterAlert } from "@/components/character-alert";
-import { getManagerCue } from "@/lib/character-system";
+import { CharacterCue, getManagerCue } from "@/lib/character-system";
 import { computeNextReward } from "@/lib/logic/scoring";
 import { getViewerContext } from "@/lib/view-model";
 
 export default async function WelcomePage() {
   const { bundle, strings } = await getViewerContext();
   const displayName = (bundle.user.name ?? "").trim() || bundle.user.login_id;
-  const managerCue = getManagerCue("submission_success", bundle.user.locale);
+  const latestReviewed = bundle.submissions
+    .filter((item) => item.status === "approved" || item.status === "rejected")
+    .sort((a, b) => {
+      const left = a.reviewed_at ?? a.created_at;
+      const right = b.reviewed_at ?? b.created_at;
+      return left > right ? -1 : 1;
+    })[0];
+  const latestPoints = latestReviewed?.status === "approved" ? latestReviewed.points_awarded : 0;
+  const isNegativeReview = latestPoints < 0;
+
+  const managerCue: CharacterCue = isNegativeReview
+    ? {
+        title: bundle.user.locale === "ko" ? "천천히 회복해봐요" : "You can bounce back",
+        message:
+          bundle.user.locale === "ko"
+            ? `이번 리뷰는 ${latestPoints} pts예요. 내일 승인으로 다시 올릴 수 있어요.`
+            : `This review is ${latestPoints} pts. You can recover with your next approved check-in.`,
+        expression: "nods",
+        emoji: "💙",
+        spriteName: "manager_encouraging"
+      }
+    : latestReviewed
+      ? {
+          ...getManagerCue("submission_success", bundle.user.locale),
+          message:
+            bundle.user.locale === "ko"
+              ? `이번 리뷰 ${latestPoints > 0 ? `+${latestPoints}` : latestPoints} pts 반영 완료!`
+              : `${latestPoints > 0 ? `+${latestPoints}` : latestPoints} pts confirmed by manager.`
+        }
+      : getManagerCue("submission_success", bundle.user.locale);
   const nextReward = computeNextReward(bundle.score.total_points, bundle.rewards);
   const currentPoints = bundle.score.total_points;
   const currentStreak = bundle.score.current_streak;
@@ -55,23 +84,25 @@ export default async function WelcomePage() {
           </div>
 
           <div className="relative mt-3 grid grid-cols-3 gap-2">
-            <div className="rounded-xl bg-white/80 p-2 text-indigo-900">
-              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-indigo-500">Points</p>
-              <p className="mt-1 text-sm font-black">{currentPoints} pts</p>
+            <div className="rounded-xl bg-white/80 px-2 py-2.5 text-center text-indigo-900">
+              <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-indigo-500">Points</p>
+              <p className="mt-1 text-[1.48rem] font-black leading-none">{currentPoints}</p>
+              <p className="mt-0.5 text-[11px] font-semibold text-indigo-700/80">pts</p>
             </div>
-            <div className="rounded-xl bg-white/80 p-2 text-indigo-900">
-              <p className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.16em] text-indigo-500">
-                <Flame size={12} />
+            <div className="rounded-xl bg-white/80 px-2 py-2.5 text-center text-indigo-900">
+              <p className="flex items-center justify-center gap-1 text-[11px] font-bold uppercase tracking-[0.14em] text-indigo-500">
+                <Flame size={12.5} />
                 Streak
               </p>
-              <p className="mt-1 text-sm font-black">{currentStreak} days</p>
+              <p className="mt-1 text-[1.35rem] font-black leading-none">{currentStreak}</p>
+              <p className="mt-0.5 text-[11px] font-semibold text-indigo-700/80">days</p>
             </div>
-            <div className="rounded-xl bg-white/80 p-2 text-indigo-900">
-              <p className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-[0.16em] text-indigo-500">
-                <Gift size={12} />
+            <div className="rounded-xl bg-white/80 px-2 py-2.5 text-center text-indigo-900">
+              <p className="flex items-center justify-center gap-1 text-[11px] font-bold uppercase tracking-[0.14em] text-indigo-500">
+                <Gift size={12.5} />
                 Reward
               </p>
-              <p className="mt-1 text-sm font-black">
+              <p className="mt-1 text-[1.2rem] font-black leading-none">
                 {nextReward.reward ? `${nextReward.pointsRemaining} left` : "Unlocked"}
               </p>
             </div>
@@ -94,7 +125,17 @@ export default async function WelcomePage() {
       </section>
 
       <section className="anim-pop mb-4">
-        <CharacterAlert role="manager" cue={managerCue} tone="success" />
+        <Link
+          className="block transition-transform duration-150 active:scale-[0.99]"
+          href={latestReviewed ? `/app/record?focus=${latestReviewed.id}` : "/app/record"}
+        >
+          <CharacterAlert role="manager" cue={managerCue} tone={isNegativeReview ? "warning" : "success"} />
+          <p className={`mt-1 text-center text-xs font-semibold ${isNegativeReview ? "text-amber-700" : "text-emerald-700"}`}>
+            {bundle.user.locale === "ko"
+              ? "눌러서 점수/리뷰 내역 확인하기"
+              : "Tap to open your score review history"}
+          </p>
+        </Link>
       </section>
     </UserPageShell>
   );
