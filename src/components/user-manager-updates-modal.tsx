@@ -2,11 +2,12 @@
 
 import { useState } from "react";
 import { ChibiAvatar } from "@/components/chibi-avatar";
-import { ManagerUpdateNotification } from "@/lib/types";
+import { Locale, ManagerUpdateNotification } from "@/lib/types";
 
 type Props = {
   updates: ManagerUpdateNotification[];
   action: (formData: FormData) => Promise<void>;
+  locale: Locale;
 };
 
 function iconByKind(kind: ManagerUpdateNotification["kind"]): string {
@@ -15,8 +16,9 @@ function iconByKind(kind: ManagerUpdateNotification["kind"]): string {
   return "✅";
 }
 
-export function UserManagerUpdatesModal({ updates, action }: Props) {
+export function UserManagerUpdatesModal({ updates, action, locale }: Props) {
   const [open, setOpen] = useState(updates.length > 0);
+  const isKo = locale === "ko";
 
   if (!open || updates.length === 0) return null;
 
@@ -29,8 +31,12 @@ export function UserManagerUpdatesModal({ updates, action }: Props) {
           <ChibiAvatar className="anim-bounce-soft" emotion="excited" role="user" size={56} />
         </div>
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-indigo-600">Manager Updates</p>
-        <h3 className="mt-1 text-2xl font-black text-indigo-900">새로운 변경사항이 있어요</h3>
-        <p className="mt-1 text-sm text-slate-600">매니저가 점수/룰/리워드를 업데이트했습니다.</p>
+        <h3 className="mt-1 text-2xl font-black text-indigo-900">
+          {isKo ? "새로운 변경사항이 있어요" : "There are new updates"}
+        </h3>
+        <p className="mt-1 text-sm text-slate-600">
+          {isKo ? "매니저가 점수/룰/리워드를 업데이트했습니다." : "Manager updated points, rules, or rewards."}
+        </p>
 
         <ul className="mt-3 max-h-52 space-y-2 overflow-y-auto">
           {updates.map((item) => (
@@ -46,11 +52,11 @@ export function UserManagerUpdatesModal({ updates, action }: Props) {
 
         <form action={action} className="mt-4">
           <button className="btn btn-primary w-full" type="submit">
-            확인하고 시작하기
+            {isKo ? "확인하고 시작하기" : "Acknowledge and continue"}
           </button>
         </form>
         <button className="btn btn-muted mt-2 w-full" onClick={() => setOpen(false)} type="button">
-          잠시 후 보기
+          {isKo ? "잠시 후 보기" : "View later"}
         </button>
       </div>
     </div>

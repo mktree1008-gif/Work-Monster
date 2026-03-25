@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Bell, X } from "lucide-react";
-import { AppNotification } from "@/lib/types";
+import { AppNotification, Locale } from "@/lib/types";
 import { ChibiAvatar } from "@/components/chibi-avatar";
 
 type Props = {
@@ -10,16 +10,25 @@ type Props = {
   unreadCount: number;
   action: (formData: FormData) => Promise<void>;
   role: "user" | "manager";
+  locale: Locale;
 };
 
-export function NotificationBell({ notifications, unreadCount, action, role }: Props) {
+export function NotificationBell({ notifications, unreadCount, action, role, locale }: Props) {
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<AppNotification | null>(null);
   const hasNew = unreadCount > 0;
+  const isKo = locale === "ko";
 
   const emptyLabel = useMemo(
-    () => (role === "manager" ? "새로운 매니저 알림이 없습니다." : "새로운 유저 알림이 없습니다."),
-    [role]
+    () =>
+      role === "manager"
+        ? isKo
+          ? "새로운 매니저 알림이 없습니다."
+          : "No new manager notifications."
+        : isKo
+          ? "새로운 유저 알림이 없습니다."
+          : "No new user notifications.",
+    [isKo, role]
   );
 
   return (
@@ -69,8 +78,8 @@ export function NotificationBell({ notifications, unreadCount, action, role }: P
                       }}
                       type="button"
                     >
-                      <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
-                        {item.kind === "announcement" ? "Announcement" : "Recent update"}
+                        <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
+                        {item.kind === "announcement" ? (isKo ? "공지" : "Announcement") : isKo ? "최근 업데이트" : "Recent update"}
                         {item.is_new ? " • NEW" : ""}
                       </p>
                       <p className="mt-1 text-sm font-bold text-indigo-900">{item.title}</p>
@@ -86,7 +95,7 @@ export function NotificationBell({ notifications, unreadCount, action, role }: P
 
             <form action={action} className="mt-3">
               <button className="btn btn-primary w-full" type="submit">
-                Mark all as read
+                {isKo ? "모두 읽음 처리" : "Mark all as read"}
               </button>
             </form>
           </div>
@@ -112,7 +121,7 @@ export function NotificationBell({ notifications, unreadCount, action, role }: P
               />
             )}
             <button className="btn btn-primary mt-4 w-full" onClick={() => setSelected(null)} type="button">
-              확인
+              {isKo ? "확인" : "Close"}
             </button>
           </div>
         </div>

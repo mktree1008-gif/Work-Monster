@@ -93,6 +93,7 @@ export function TopAppBar({
           <div className="flex items-center gap-2">
             <NotificationBell
               action={notificationAction}
+              locale={locale}
               notifications={notifications}
               role={role}
               unreadCount={unreadNotificationCount}

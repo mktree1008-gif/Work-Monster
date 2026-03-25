@@ -31,7 +31,7 @@ export function LoginForm({ initialRole = "user", initialLocale = "en" }: Props)
     language: "Language",
     id: "ID or Email",
     password: "Security Key",
-    enter: "Enter Sanctuary",
+    enter: "Log In",
     create: "Create account",
     createHint: "Need an account?",
     entering: "Entering...",
@@ -114,10 +114,10 @@ export function LoginForm({ initialRole = "user", initialLocale = "en" }: Props)
 
         <label className="mb-2 block text-xs font-bold uppercase tracking-[0.2em] text-slate-500">{copy.id}</label>
         <div className="relative">
-          <Mail className="absolute left-3 top-3.5 text-slate-400" size={18} />
+          <Mail className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
           <input
             autoComplete="username"
-            className="input mb-4 pl-10"
+            className="input mb-4 pl-12"
             onChange={(event) => setLoginId(event.target.value)}
             placeholder="monster_id or alex@work.com"
             type="text"
@@ -127,10 +127,10 @@ export function LoginForm({ initialRole = "user", initialLocale = "en" }: Props)
 
         <label className="mb-2 block text-xs font-bold uppercase tracking-[0.2em] text-slate-500">{copy.password}</label>
         <div className="relative">
-          <LockKeyhole className="absolute left-3 top-3.5 text-slate-400" size={18} />
+          <LockKeyhole className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
           <input
             autoComplete="current-password"
-            className="input pl-10"
+            className="input pl-12"
             onChange={(event) => setPassword(event.target.value)}
             placeholder="••••••••"
             type="password"

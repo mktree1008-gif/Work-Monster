@@ -43,7 +43,11 @@ export default async function UserLayout({
           </div>
         </div>
       )}
-      <UserManagerUpdatesModal action={acknowledgeManagerUpdatesAction} updates={showOnboarding ? [] : bundle.managerUpdates} />
+      <UserManagerUpdatesModal
+        action={acknowledgeManagerUpdatesAction}
+        locale={bundle.user.locale}
+        updates={showOnboarding ? [] : bundle.managerUpdates}
+      />
       <RulesOnboardingModal
         changelog={bundle.rules.changelog}
         lastSeenVersion={bundle.user.last_seen_rule_version}

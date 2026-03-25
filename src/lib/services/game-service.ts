@@ -410,6 +410,7 @@ export async function acknowledgeRuleVersion(userId: string): Promise<UserProfil
 export async function getDashboard(uid: string): Promise<DashboardBundle> {
   const repo = getGameRepository();
   const bundle = await repo.getDashboardBundle(uid);
+  const isKo = bundle.user.locale === "ko";
   const threshold = bundle.user.last_seen_manager_update_at ?? bundle.user.created_at;
   const notificationsThreshold = bundle.user.last_seen_notification_at ?? bundle.user.created_at;
   const submissionIds = new Set(bundle.submissions.map((submission) => submission.id));
@@ -490,7 +491,7 @@ export async function getDashboard(uid: string): Promise<DashboardBundle> {
   const announcementNotifications: AppNotification[] = announcements.map((item) => ({
     id: `announce-${item.id}`,
     kind: "announcement",
-    title: "Manager로부터 메시지가 도착했습니다",
+    title: isKo ? "Manager로부터 메시지가 도착했습니다" : "A message arrived from Manager",
     message: item.message,
     created_at: item.created_at,
     is_new: item.created_at > notificationsThreshold,
@@ -522,6 +523,7 @@ export async function getManagerOverview(managerId: string) {
     repo.listPendingRewardClaimAlerts(20),
     repo.listAnnouncements(12)
   ]);
+  const isKo = managerUser?.locale === "ko";
   const userIds = [...new Set(pendingSubmissions.map((submission) => submission.user_id))];
   const userPairs = await Promise.all(userIds.map(async (id) => [id, await repo.getUser(id)] as const));
   const userMap = new Map(userPairs);
@@ -547,7 +549,7 @@ export async function getManagerOverview(managerId: string) {
     return {
       id: `checkin-${submission.id}`,
       kind: "checkin_arrived",
-      title: "새로운 Daily Check-in이 도착했습니다",
+      title: isKo ? "새로운 Daily Check-in이 도착했습니다" : "A new daily check-in has arrived",
       message: `${displayName} submitted ${submission.date}`,
       created_at: submission.created_at,
       is_new: notificationsThreshold ? submission.created_at > notificationsThreshold : true,
@@ -559,7 +561,7 @@ export async function getManagerOverview(managerId: string) {
   const rewardClaimNotifications: AppNotification[] = claimAlerts.map((item) => ({
     id: `claim-${item.claim.id}`,
     kind: "reward_claim_request",
-    title: "보상 Claim 요청이 도착했습니다",
+    title: isKo ? "보상 Claim 요청이 도착했습니다" : "A reward claim request has arrived",
     message: `${item.userDisplay} · ${item.rewardTitle} (${item.rewardPoints} pts)`,
     created_at: item.claim.claimed_at ?? item.claim.created_at,
     is_new: notificationsThreshold
@@ -572,7 +574,7 @@ export async function getManagerOverview(managerId: string) {
   const announcementNotifications: AppNotification[] = announcements.map((item) => ({
     id: `announce-self-${item.id}`,
     kind: "announcement",
-    title: "최근 공지",
+    title: isKo ? "최근 공지" : "Recent announcement",
     message: item.message,
     created_at: item.created_at,
     is_new: notificationsThreshold ? item.created_at > notificationsThreshold : false,
