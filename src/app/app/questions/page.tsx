@@ -18,6 +18,8 @@ export default async function QuestionsPage({ searchParams }: Props) {
   const params = (searchParams ? await searchParams : {}) as Record<string, string | string[] | undefined>;
   const saved = params.saved === "1";
   const updated = params.updated === "1";
+  const submissionPointsRaw = typeof params.submission_points === "string" ? Number(params.submission_points) : 0;
+  const submissionPointsAwarded = Number.isFinite(submissionPointsRaw) ? submissionPointsRaw : 0;
   const managerPreview = bundle.user.role === "manager";
   const nextReward = computeNextReward(bundle.score.total_points, bundle.rewards);
   const firstReward = bundle.rewards[0] ?? null;
@@ -46,7 +48,11 @@ export default async function QuestionsPage({ searchParams }: Props) {
         </>
       }
     >
-      <QuestionsSaveCelebration openOnMount={saved} updatedMode={updated} />
+      <QuestionsSaveCelebration
+        openOnMount={saved}
+        pointsAwarded={submissionPointsAwarded}
+        updatedMode={updated}
+      />
       <CharacterToast cue={pendingCue} openOnMount={saved || pendingSubmission} role="manager" />
       <CharacterToast cue={tiredCue} openOnMount={saved && !latestSubmission?.productive} role="user" tone="warning" />
 

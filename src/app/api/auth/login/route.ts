@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isManagerOwnerEmail } from "@/lib/constants";
 import { getGameRepository } from "@/lib/repositories/game-repository";
+import { awardDailyLoginPoints } from "@/lib/services/game-service";
 import { LOCALE_COOKIE, ROLE_COOKIE, UID_COOKIE } from "@/lib/session";
 import { Locale, UserRole } from "@/lib/types";
 
@@ -47,11 +48,16 @@ export async function POST(request: NextRequest) {
     if (!requestedManager && user.role !== "user") {
       user = await repo.updateUser(user.id, { role: "user" });
     }
+    const loginAward = !requestedManager
+      ? await awardDailyLoginPoints(user.id)
+      : { awarded: false, points: 0, date: "" };
     const nicknameMissing = (user.name ?? "").trim().length === 0;
 
     const response = NextResponse.json({
       ok: true,
-      redirectTo: nicknameMissing ? "/auth/nickname" : user.role === "manager" ? "/manager" : "/app/welcome"
+      redirectTo: nicknameMissing ? "/auth/nickname" : user.role === "manager" ? "/manager" : "/app/welcome",
+      loginPointsAwarded: loginAward.awarded,
+      loginPoints: loginAward.points
     });
 
     response.cookies.set(UID_COOKIE, user.id, { httpOnly: true, sameSite: "lax", path: "/" });

@@ -267,13 +267,16 @@ export default async function ManagerPage({ searchParams }: Props) {
           <p className="mt-1 text-sm text-slate-600">
             Clicked from notification? The targeted submission appears first with highlight.
           </p>
+          <p className="mt-2 rounded-xl bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700">
+            Submission base points are auto-added when user saves check-in. Review score here is manager-only adjustment.
+          </p>
           <div className="mt-3 space-y-3">
             {orderedPendingSubmissions.map((submission) => {
               const pendingUser = userMap.get(submission.user_id);
               const displayName = (pendingUser?.name ?? "").trim() || pendingUser?.login_id || submission.user_id;
               const isFocused = focusedSubmissionId.length > 0 && submission.id === focusedSubmissionId;
               const suggestedPoints = submission.productive
-                ? data.rules.submission_points + data.rules.productive_points
+                ? data.rules.productive_points
                 : data.rules.non_productive_penalty;
               const taskCount = submission.task_list.length;
               return (

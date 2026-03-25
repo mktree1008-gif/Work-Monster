@@ -77,6 +77,8 @@ export default async function WelcomePage({ searchParams }: Props) {
   const saved = params.saved === "1";
   const updated = params.updated === "1";
   const already = params.already === "1";
+  const submissionPointsRaw = typeof params.submission_points === "string" ? Number(params.submission_points) : 0;
+  const submissionPointsAwarded = Number.isFinite(submissionPointsRaw) ? submissionPointsRaw : 0;
 
   const locale = bundle.user.locale;
   const isKo = locale === "ko";
@@ -146,7 +148,11 @@ export default async function WelcomePage({ searchParams }: Props) {
         </>
       }
     >
-      <QuestionsSaveCelebration openOnMount={saved} updatedMode={updated} />
+      <QuestionsSaveCelebration
+        openOnMount={saved}
+        pointsAwarded={submissionPointsAwarded}
+        updatedMode={updated}
+      />
 
       {already && (
         <section className="mb-4">

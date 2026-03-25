@@ -7,9 +7,10 @@ import { AnimatedCelebrationPopup } from "@/components/animated-celebration-popu
 type Props = {
   openOnMount: boolean;
   updatedMode?: boolean;
+  pointsAwarded?: number;
 };
 
-export function QuestionsSaveCelebration({ openOnMount, updatedMode = false }: Props) {
+export function QuestionsSaveCelebration({ openOnMount, updatedMode = false, pointsAwarded = 0 }: Props) {
   const [open, setOpen] = useState(openOnMount);
   const router = useRouter();
   const pathname = usePathname();
@@ -30,7 +31,13 @@ export function QuestionsSaveCelebration({ openOnMount, updatedMode = false }: P
       }
       onClose={closePopup}
       open={open}
-      pointsLabel={updatedMode ? "Pending Submission Updated" : "Submission Complete"}
+      pointsLabel={
+        updatedMode
+          ? "Pending Submission Updated"
+          : pointsAwarded > 0
+            ? `💃 +${pointsAwarded} points! Submission bonus added`
+            : "Submission Complete"
+      }
       progressCaption="Check-in"
       progressTarget={100}
       title={updatedMode ? "Update Complete!" : "Great Work Today!"}

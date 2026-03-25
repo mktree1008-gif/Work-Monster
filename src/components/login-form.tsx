@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LockKeyhole, Mail, Sparkles, Zap } from "lucide-react";
+import { LockKeyhole, Mail } from "lucide-react";
+import { AnimatedCelebrationPopup } from "@/components/animated-celebration-popup";
 import { GoogleLoginButton } from "@/components/google-login-button";
 import { ChibiAvatar } from "@/components/chibi-avatar";
 import { Locale, UserRole } from "@/lib/types";
@@ -21,6 +22,8 @@ export function LoginForm({ initialRole = "user", initialLocale = "en" }: Props)
   const [pending, setPending] = useState(false);
   const [redirectTo, setRedirectTo] = useState<string | null>(null);
   const [showWelcome, setShowWelcome] = useState(false);
+  const [loginBonusPoints, setLoginBonusPoints] = useState(0);
+  const [loginBonusAwarded, setLoginBonusAwarded] = useState(false);
   const [accessDeniedMessage, setAccessDeniedMessage] = useState("");
   const [error, setError] = useState("");
   const router = useRouter();
@@ -55,8 +58,18 @@ export function LoginForm({ initialRole = "user", initialLocale = "en" }: Props)
         throw new Error(payload.error ?? copy.failed);
       }
 
-      const payload = (await response.json()) as { redirectTo: string };
+      const payload = (await response.json()) as {
+        redirectTo: string;
+        loginPointsAwarded?: boolean;
+        loginPoints?: number;
+      };
+      const loginPoints =
+        typeof payload.loginPoints === "number" && Number.isFinite(payload.loginPoints)
+          ? payload.loginPoints
+          : 0;
       setRedirectTo(payload.redirectTo);
+      setLoginBonusAwarded(Boolean(payload.loginPointsAwarded));
+      setLoginBonusPoints(loginPoints);
       setShowWelcome(true);
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : copy.failed;
@@ -75,8 +88,14 @@ export function LoginForm({ initialRole = "user", initialLocale = "en" }: Props)
     router.refresh();
   }
 
-  function onAuthSuccess(nextPath: string) {
-    setRedirectTo(nextPath);
+  function onAuthSuccess(result: { redirectTo: string; loginPointsAwarded?: boolean; loginPoints?: number }) {
+    const loginPoints =
+      typeof result.loginPoints === "number" && Number.isFinite(result.loginPoints)
+        ? result.loginPoints
+        : 0;
+    setRedirectTo(result.redirectTo);
+    setLoginBonusAwarded(Boolean(result.loginPointsAwarded));
+    setLoginBonusPoints(loginPoints);
     setShowWelcome(true);
   }
 
@@ -156,36 +175,23 @@ export function LoginForm({ initialRole = "user", initialLocale = "en" }: Props)
         {error && <p className="mt-2 text-sm text-rose-600">{error}</p>}
       </form>
 
-      {showWelcome && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4">
-          <div className="container-mobile card anim-pop relative overflow-hidden p-5 text-center">
-            <div className="pointer-events-none absolute inset-0">
-              <span className="anim-bounce-soft absolute left-[12%] top-6 text-xl">✨</span>
-              <span className="anim-float absolute left-[78%] top-8 text-lg">⭐</span>
-              <span className="anim-pulse-soft absolute left-[24%] top-16 text-lg">🎉</span>
-              <span className="anim-float absolute left-[68%] top-16 text-lg">🚀</span>
-            </div>
-
-            <div className="relative flex items-center justify-center gap-3">
-              <ChibiAvatar className="anim-float" emotion="excited" role="manager" size={62} />
-              <ChibiAvatar className="anim-bounce-soft" emotion="approval" role="user" size={62} />
-            </div>
-            <p className="relative mt-4 text-xs font-bold uppercase tracking-[0.2em] text-indigo-600">Login success</p>
-            <h3 className="relative mt-1 text-3xl font-black text-indigo-900">Welcome Work Monster!</h3>
-            <p className="relative mt-1 text-sm text-slate-600">Your quest is ready. Let&apos;s build momentum.</p>
-
-            <button
-              className="btn btn-energetic relative mt-4 flex w-full items-center justify-center gap-2"
-              onClick={continueToApp}
-              type="button"
-            >
-              <Zap size={16} />
-              <Sparkles className="anim-pulse-soft" size={16} />
-              Continue
-            </button>
-          </div>
-        </div>
-      )}
+      <AnimatedCelebrationPopup
+        characterMode="both"
+        closeLabel="Continue"
+        managerEmotion="encouraging"
+        message={
+          loginBonusAwarded
+            ? "Dance time! Your daily login bonus is now reflected in Score."
+            : "Your quest is ready. Let’s build momentum."
+        }
+        onClose={continueToApp}
+        open={showWelcome}
+        pointsLabel={loginBonusAwarded ? `💃 +${loginBonusPoints} points! Daily login bonus` : "Login Complete"}
+        progressCaption="Login Bonus"
+        progressTarget={loginBonusAwarded ? 100 : 82}
+        title={loginBonusAwarded ? "Welcome Back, Bonus Added!" : "Welcome Work Monster!"}
+        userEmotion="excited"
+      />
 
       {accessDeniedMessage && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/45 p-4">

@@ -11,15 +11,22 @@ import { Locale, UserRole } from "@/lib/types";
 type Props = {
   role: UserRole;
   locale: Locale;
-  onSuccessRedirect?: (redirectTo: string) => void;
+  onSuccessRedirect?: (result: { redirectTo: string; loginPointsAwarded?: boolean; loginPoints?: number }) => void;
   onError?: (message: string) => void;
 };
+
+function normalizeHost(value?: string): string {
+  if (!value) return "";
+  const trimmed = value.trim().toLowerCase();
+  const noProtocol = trimmed.replace(/^https?:\/\//, "");
+  return noProtocol.split("/")[0]?.split(":")[0] ?? "";
+}
 
 export function GoogleLoginButton({ role, locale, onSuccessRedirect, onError }: Props) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
-  const canonicalHost = process.env.NEXT_PUBLIC_APP_CANONICAL_HOST?.trim().toLowerCase() ?? "workmonster.vercel.app";
+  const canonicalHost = normalizeHost(process.env.NEXT_PUBLIC_APP_CANONICAL_HOST) || "workmonster.vercel.app";
 
   async function completeGoogleLogin(idToken: string, email: string, name: string) {
     const response = await fetch("/api/auth/google", {
@@ -39,9 +46,13 @@ export function GoogleLoginButton({ role, locale, onSuccessRedirect, onError }: 
       throw new Error(payload.error ?? "Google sign-in failed.");
     }
 
-    const payload = (await response.json()) as { redirectTo: string };
+    const payload = (await response.json()) as {
+      redirectTo: string;
+      loginPointsAwarded?: boolean;
+      loginPoints?: number;
+    };
     if (onSuccessRedirect) {
-      onSuccessRedirect(payload.redirectTo);
+      onSuccessRedirect(payload);
     } else {
       router.push(payload.redirectTo);
       router.refresh();
@@ -88,7 +99,7 @@ export function GoogleLoginButton({ role, locale, onSuccessRedirect, onError }: 
 
     try {
       if (typeof window !== "undefined") {
-        const currentHost = window.location.hostname.toLowerCase();
+        const currentHost = normalizeHost(window.location.hostname);
         const isLocalHost = currentHost === "localhost" || currentHost === "127.0.0.1";
         if (!isLocalHost && currentHost !== canonicalHost) {
           const target = new URL(window.location.href);

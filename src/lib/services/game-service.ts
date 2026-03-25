@@ -37,6 +37,18 @@ type CheckInClientMeta = {
   clientTimeZone?: string;
 };
 
+type DailyLoginAwardResult = {
+  awarded: boolean;
+  points: number;
+  date: string;
+};
+
+type SubmitDailyCheckInResult = {
+  submission: Submission;
+  mode: "created" | "updated";
+  submissionPointsAwarded: number;
+};
+
 export class DailyCheckInAlreadySubmittedError extends Error {
   readonly code = "already_submitted" as const;
   readonly submissionId?: string;
@@ -70,7 +82,7 @@ export async function submitDailyCheckIn(
   userId: string,
   draft: Omit<SubmissionDraft, "user_id">,
   meta?: CheckInClientMeta
-) {
+): Promise<SubmitDailyCheckInResult> {
   const repo = getGameRepository();
   const targetDate = resolveSubmissionDate(meta);
   const submissions = await repo.listSubmissionsByUser(userId);
@@ -103,12 +115,74 @@ export async function submitDailyCheckIn(
       file_url: draft.file_url ?? ""
     };
     await repo.saveSubmission(updatedPending);
-    return { submission: updatedPending, mode: "updated" as const };
+    return { submission: updatedPending, mode: "updated" as const, submissionPointsAwarded: 0 };
   }
 
   const submission = makeSubmissionFromDraft({ ...draft, user_id: userId }, targetDate);
   await repo.saveSubmission(submission);
-  return { submission, mode: "created" as const };
+
+  const [rules, score] = await Promise.all([repo.getRules(), repo.getScore(userId)]);
+  const submissionPointsAwarded = Math.round(rules.submission_points ?? 0);
+
+  if (submissionPointsAwarded !== 0) {
+    await repo.saveScore({
+      ...score,
+      total_points: score.total_points + submissionPointsAwarded,
+      lifetime_points: score.lifetime_points + Math.max(0, submissionPointsAwarded),
+      updated_at: nowISO()
+    });
+    await recalculateScore(userId);
+    await repo.saveAuditLog(
+      createAuditLog(userId, "submission.base_points_awarded", submission.id, {
+        points: submissionPointsAwarded
+      })
+    );
+  }
+
+  return { submission, mode: "created" as const, submissionPointsAwarded };
+}
+
+export async function awardDailyLoginPoints(userId: string): Promise<DailyLoginAwardResult> {
+  const repo = getGameRepository();
+  const [user, rules, score] = await Promise.all([
+    repo.getUser(userId),
+    repo.getRules(),
+    repo.getScore(userId)
+  ]);
+
+  if (!user) {
+    throw new Error("User not found.");
+  }
+  if (user.role === "manager") {
+    return { awarded: false, points: 0, date: toISODate() };
+  }
+
+  const loginDate = toISODate();
+  if (user.last_login_point_date === loginDate) {
+    return { awarded: false, points: 0, date: loginDate };
+  }
+
+  const loginPoints = Math.round(rules.checkin_points ?? 0);
+  const celebrateAward = loginPoints > 0;
+
+  if (loginPoints !== 0) {
+    await repo.saveScore({
+      ...score,
+      total_points: score.total_points + loginPoints,
+      lifetime_points: score.lifetime_points + Math.max(0, loginPoints),
+      updated_at: nowISO()
+    });
+    await recalculateScore(userId);
+    await repo.saveAuditLog(
+      createAuditLog(userId, "login.base_points_awarded", `users/${userId}`, {
+        points: loginPoints,
+        date: loginDate
+      })
+    );
+  }
+
+  await repo.updateUser(userId, { last_login_point_date: loginDate });
+  return { awarded: celebrateAward, points: loginPoints, date: loginDate };
 }
 
 export async function approveSubmission(

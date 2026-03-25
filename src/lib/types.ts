@@ -51,6 +51,7 @@ export interface UserProfile {
   auth_provider?: "password" | "google";
   password_hash?: string;
   password_salt?: string;
+  last_login_point_date?: string;
   last_seen_rule_version: number;
   last_seen_manager_update_at?: string;
   last_seen_notification_at?: string;

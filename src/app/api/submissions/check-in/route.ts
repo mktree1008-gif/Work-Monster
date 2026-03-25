@@ -56,7 +56,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       ok: true,
       updated: result.mode === "updated",
-      redirectTo: result.mode === "updated" ? "/app/welcome?saved=1&updated=1" : "/app/welcome?saved=1"
+      submissionPointsAwarded: result.submissionPointsAwarded,
+      redirectTo:
+        result.mode === "updated"
+          ? "/app/welcome?saved=1&updated=1"
+          : `/app/welcome?saved=1&submission_points=${encodeURIComponent(String(result.submissionPointsAwarded))}`
     });
   } catch (error) {
     if (error instanceof DailyCheckInAlreadySubmittedError) {

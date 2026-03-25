@@ -176,6 +176,7 @@ export async function submitCheckInAction(formData: FormData): Promise<void> {
   }
 
   let mode: "created" | "updated" = "created";
+  let submissionPointsAwarded = 0;
   try {
     const result = await submitDailyCheckIn(session.uid, {
       mood: String(formData.get("mood") ?? "Neutral"),
@@ -197,6 +198,7 @@ export async function submitCheckInAction(formData: FormData): Promise<void> {
       clientTimeZone: String(formData.get("client_time_zone") ?? "")
     });
     mode = result.mode;
+    submissionPointsAwarded = result.submissionPointsAwarded;
   } catch (error) {
     if (error instanceof DailyCheckInAlreadySubmittedError) {
       redirect("/app/welcome?already=1");
@@ -206,7 +208,11 @@ export async function submitCheckInAction(formData: FormData): Promise<void> {
 
   revalidatePath("/app/welcome");
   revalidatePath("/app/record");
-  redirect(mode === "updated" ? "/app/welcome?saved=1&updated=1" : "/app/welcome?saved=1");
+  redirect(
+    mode === "updated"
+      ? "/app/welcome?saved=1&updated=1"
+      : `/app/welcome?saved=1&submission_points=${encodeURIComponent(String(submissionPointsAwarded))}`
+  );
 }
 
 export async function acknowledgeRulesAction(): Promise<void> {
