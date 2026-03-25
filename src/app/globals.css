@@ -239,3 +239,12 @@ h3,
   box-shadow: 0 12px 26px rgba(79, 117, 255, 0.35);
   animation: gradient-shift 4s linear infinite alternate;
 }
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

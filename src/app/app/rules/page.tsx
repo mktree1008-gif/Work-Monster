@@ -1,5 +1,6 @@
 import { CharacterAlert } from "@/components/character-alert";
 import { CharacterToast } from "@/components/character-toast";
+import { AppTutorialLauncher } from "@/components/app-tutorial-launcher";
 import { getManagerCue } from "@/lib/character-system";
 import { getLocalizedRuleLine, localizeRuleChangelogItem, localizeRuleLongText } from "@/lib/rules-copy";
 import { UserPageShell } from "@/components/user-page-shell";
@@ -17,7 +18,30 @@ export default async function RulesPage() {
   const localizedChangelog = rules.changelog.map((item) => localizeRuleChangelogItem(item, locale));
 
   return (
-    <UserPageShell activeTab="rules" labels={strings} subtitle="Know the game mechanics" title="Rules">
+    <UserPageShell
+      activeTab="rules"
+      labels={strings}
+      subtitle={
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <span>Know the game mechanics</span>
+          <AppTutorialLauncher
+            checkinPoints={rules.checkin_points}
+            latestChange={localizedChangelog[0] ?? null}
+            locale={locale}
+            multiplierTriggerDays={rules.multiplier_trigger_days}
+            multiplierValue={rules.multiplier_value}
+            nonProductivePenalty={rules.non_productive_penalty}
+            penaltyDescription={localizedPenaltyDescription}
+            productivePoints={rules.productive_points}
+            rewardHint={localizedRewardsBlurb}
+            ruleVersion={rules.rule_version}
+            streakDays={rules.streak_days}
+            submissionPoints={rules.submission_points}
+          />
+        </div>
+      }
+      title="Rules"
+    >
       <CharacterToast cue={managerCue} durationMs={2000} openOnMount role="manager" tone="success" />
       <section className="mb-4">
         <CharacterAlert role="manager" cue={managerCue} />

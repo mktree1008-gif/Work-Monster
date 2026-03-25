@@ -20,7 +20,7 @@ export function UserPageShell({ activeTab, title, subtitle, children, labels }: 
     <>
       <section className="mb-5">
         <h1 className="display-cute text-4xl font-extrabold tracking-tight text-indigo-900">{title}</h1>
-        {subtitle && <p className="mt-1 text-lg text-slate-500">{subtitle}</p>}
+        {subtitle && <div className="mt-1 text-lg text-slate-500">{subtitle}</div>}
       </section>
       {children}
       <BottomTabs active={activeTab} labels={labels} />
