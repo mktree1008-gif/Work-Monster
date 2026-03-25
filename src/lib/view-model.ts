@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { dictionary } from "@/lib/i18n";
-import { clearSession, getSession } from "@/lib/session";
+import { getSession } from "@/lib/session";
 import { getDashboard } from "@/lib/services/game-service";
 import { DashboardBundle } from "@/lib/types";
 
@@ -14,11 +14,9 @@ export async function getViewerContext() {
   try {
     bundle = await getDashboard(session.uid);
   } catch (_error) {
-    await clearSession();
     redirect("/auth/login");
   }
   if (!bundle) {
-    await clearSession();
     redirect("/auth/login");
   }
   if ((bundle.user.name ?? "").trim().length === 0) {

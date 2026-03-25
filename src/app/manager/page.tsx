@@ -10,7 +10,7 @@ import { ManagerUserAnalytics } from "@/components/manager-user-analytics";
 import { NotificationBell } from "@/components/notification-bell";
 import { SubmissionReviewForm } from "@/components/submission-review-form";
 import { getGameRepository } from "@/lib/repositories/game-repository";
-import { clearSession, getSession } from "@/lib/session";
+import { getSession } from "@/lib/session";
 import {
   acknowledgeManagerRewardAlertsAction,
   acknowledgeNotificationsAction,
@@ -59,7 +59,6 @@ export default async function ManagerPage({ searchParams }: Props) {
   const repo = getGameRepository();
   const user = await repo.getUser(session.uid);
   if (!user) {
-    await clearSession();
     redirect("/auth/login");
   }
   if (!isManagerOwnerEmail(user.email)) {
