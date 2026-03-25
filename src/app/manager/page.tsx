@@ -272,41 +272,98 @@ export default async function ManagerPage({ searchParams }: Props) {
               const pendingUser = userMap.get(submission.user_id);
               const displayName = (pendingUser?.name ?? "").trim() || pendingUser?.login_id || submission.user_id;
               const isFocused = focusedSubmissionId.length > 0 && submission.id === focusedSubmissionId;
+              const suggestedPoints = submission.productive
+                ? data.rules.submission_points + data.rules.productive_points
+                : data.rules.non_productive_penalty;
+              const taskCount = submission.task_list.length;
               return (
                 <article
-                  className={`rounded-2xl bg-slate-100 p-3 ${isFocused ? "ring-2 ring-indigo-400" : ""}`}
+                  className={`rounded-3xl border border-slate-200 bg-white p-4 shadow-sm ${isFocused ? "ring-2 ring-indigo-400" : ""}`}
                   id={`submission-${submission.id}`}
                   key={submission.id}
                 >
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-500">{displayName}</p>
-                  <p className="text-xs text-slate-500">ID: {submission.user_id}</p>
-                  <p className="mt-1 text-sm text-slate-700">Date: {submission.date}</p>
-                  <p className="text-sm text-slate-700">Mood: {submission.mood}</p>
-                  <p className="text-sm text-slate-700">Feeling: {submission.feeling || "-"}</p>
-                  <p className="text-sm text-slate-700">Productive: {submission.productive ? "Yes" : "No"}</p>
-                  <p className="text-sm text-slate-700">Calories: {submission.calories}</p>
-                  <p className="text-sm text-slate-700">Tasks: {submission.task_list.join(", ") || "-"}</p>
-                  <p className="text-sm text-slate-700">Focus: {submission.custom_answers.focus || "-"}</p>
-                  <p className="text-sm text-slate-700">Blocker: {submission.custom_answers.blocker || "-"}</p>
-                  <p className="text-sm text-slate-700">Win: {submission.custom_answers.win || "-"}</p>
-                  {submission.file_url && (
-                    <p className="text-sm text-indigo-700">
-                      File: <a className="underline" href={submission.file_url} rel="noreferrer" target="_blank">Open attachment</a>
-                    </p>
-                  )}
-                  <p className="mt-1 text-xs text-slate-500">
-                    Suggested by rules:{" "}
-                    {submission.productive
-                      ? data.rules.submission_points + data.rules.productive_points
-                      : data.rules.non_productive_penalty}{" "}
-                    pts
-                  </p>
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Pending review</p>
+                      <p className="mt-1 text-lg font-black text-indigo-900">{displayName}</p>
+                      <p className="text-xs text-slate-500">ID: {submission.user_id}</p>
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                      {isFocused && (
+                        <span className="rounded-full bg-indigo-100 px-2 py-1 text-[11px] font-bold text-indigo-700">
+                          From notification
+                        </span>
+                      )}
+                      <span className="rounded-full bg-amber-100 px-2 py-1 text-[11px] font-bold text-amber-700">
+                        Pending
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <div className="rounded-xl bg-slate-50 p-2">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">Date</p>
+                      <p className="text-sm font-semibold text-slate-800">{submission.date}</p>
+                    </div>
+                    <div className="rounded-xl bg-slate-50 p-2">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">Suggested score</p>
+                      <p className={`text-sm font-semibold ${suggestedPoints < 0 ? "text-rose-700" : "text-indigo-900"}`}>
+                        {suggestedPoints > 0 ? `+${suggestedPoints}` : suggestedPoints} pts
+                      </p>
+                    </div>
+                    <div className="rounded-xl bg-slate-50 p-2">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">Mood / Feeling</p>
+                      <p className="text-sm font-semibold text-slate-800">
+                        {submission.mood} / {submission.feeling || "-"}
+                      </p>
+                    </div>
+                    <div className="rounded-xl bg-slate-50 p-2">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">Productive / Calories</p>
+                      <p className="text-sm font-semibold text-slate-800">
+                        {submission.productive ? "Yes" : "No"} / {submission.calories}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 space-y-2">
+                    <div className="rounded-xl bg-slate-50 p-3">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">Check-in answers</p>
+                      <div className="mt-1 grid gap-1 text-sm text-slate-700">
+                        <p><span className="font-semibold text-slate-900">Focus:</span> {submission.custom_answers.focus || "-"}</p>
+                        <p><span className="font-semibold text-slate-900">Blocker:</span> {submission.custom_answers.blocker || "-"}</p>
+                        <p><span className="font-semibold text-slate-900">Win:</span> {submission.custom_answers.win || "-"}</p>
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl bg-slate-50 p-3">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">Task list ({taskCount})</p>
+                      {taskCount > 0 ? (
+                        <ul className="mt-1 flex flex-wrap gap-1">
+                          {submission.task_list.map((task, idx) => (
+                            <li className="rounded-full bg-white px-2 py-1 text-xs text-slate-700 ring-1 ring-slate-200" key={`${submission.id}-${idx}`}>
+                              {task}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="mt-1 text-sm text-slate-600">No task summary submitted.</p>
+                      )}
+                    </div>
+
+                    <div className="rounded-xl bg-slate-50 p-3">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">Attachment</p>
+                      {submission.file_url ? (
+                        <a className="mt-1 inline-flex rounded-lg bg-indigo-100 px-2 py-1 text-sm font-semibold text-indigo-700" href={submission.file_url} rel="noreferrer" target="_blank">
+                          Open attachment
+                        </a>
+                      ) : (
+                        <p className="mt-1 text-sm text-slate-600">No attachment uploaded.</p>
+                      )}
+                    </div>
+                  </div>
+
                   <SubmissionReviewForm
-                    defaultPoints={
-                      submission.productive
-                        ? data.rules.submission_points + data.rules.productive_points
-                        : data.rules.non_productive_penalty
-                    }
+                    defaultPoints={suggestedPoints}
                     mood={submission.mood}
                     productive={submission.productive}
                     submissionId={submission.id}
