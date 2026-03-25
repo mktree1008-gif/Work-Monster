@@ -1,10 +1,11 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
-import { logoutAction, setLocaleAction, updateProfileAvatarAction } from "@/lib/services/actions";
+import { logoutAction, setLocaleAction } from "@/lib/services/actions";
 import { getGameRepository } from "@/lib/repositories/game-repository";
 import { CharacterAlert } from "@/components/character-alert";
 import { ProfileAvatar } from "@/components/profile-avatar";
 import { getUserCue } from "@/lib/character-system";
+import { ProfileAvatarEditor } from "@/components/profile-avatar-editor";
 
 export default async function AccountPage() {
   const session = await getSession();
@@ -53,49 +54,12 @@ export default async function AccountPage() {
           </button>
         </form>
 
-        <details className="mt-3 rounded-2xl bg-slate-50 p-3">
-          <summary className="cursor-pointer list-none text-sm font-bold text-indigo-700">Edit profile image</summary>
-          <form action={updateProfileAvatarAction} className="mt-3 space-y-3" encType="multipart/form-data">
-            <label className="block">
-              <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-slate-500">Style</span>
-              <select className="input" defaultValue={user.profile_avatar_type ?? "emoji"} name="avatar_mode">
-                <option value="emoji">Emoji avatar</option>
-                <option value="image">Photo/Image avatar</option>
-              </select>
-            </label>
-
-            <label className="block">
-              <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-slate-500">Emoji</span>
-              <input
-                className="input"
-                defaultValue={user.profile_avatar_emoji ?? "😺"}
-                name="avatar_emoji"
-                placeholder="😺"
-                type="text"
-              />
-            </label>
-
-            <label className="block">
-              <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-slate-500">Image URL</span>
-              <input
-                className="input"
-                defaultValue={user.profile_avatar_url ?? ""}
-                name="avatar_url"
-                placeholder="https://..."
-                type="url"
-              />
-            </label>
-
-            <label className="block">
-              <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-slate-500">Or upload photo (max 2MB)</span>
-              <input className="input cursor-pointer" accept="image/*" name="avatar_file" type="file" />
-            </label>
-
-            <button className="btn btn-primary w-full" type="submit">
-              Save profile image
-            </button>
-          </form>
-        </details>
+        <ProfileAvatarEditor
+          initialEmoji={user.profile_avatar_emoji ?? "😺"}
+          initialImageUrl={user.profile_avatar_url ?? ""}
+          initialMode={user.profile_avatar_type ?? "emoji"}
+          locale={user.locale}
+        />
 
         <form action={logoutAction} className="mt-2">
           <button className="btn btn-muted w-full" type="submit">

@@ -134,7 +134,7 @@ export async function updateProfileAvatarAction(formData: FormData): Promise<voi
     await repo.updateUser(session.uid, {
       profile_avatar_type: "emoji",
       profile_avatar_emoji: emoji,
-      profile_avatar_url: undefined
+      profile_avatar_url: ""
     });
   }
 
