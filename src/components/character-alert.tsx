@@ -7,6 +7,8 @@ type Props = {
   glasses?: boolean;
   compact?: boolean;
   tone?: "default" | "warning" | "success";
+  showSpriteName?: boolean;
+  showExpressionBadge?: boolean;
 };
 
 function expressionEmoji(expression: ManagerExpression | UserExpression): string {
@@ -40,7 +42,15 @@ function toneClass(tone: Props["tone"]): string {
   return "bg-slate-50 border-slate-200";
 }
 
-export function CharacterAlert({ role, cue, glasses = false, compact = false, tone = "default" }: Props) {
+export function CharacterAlert({
+  role,
+  cue,
+  glasses = false,
+  compact = false,
+  tone = "default",
+  showSpriteName = true,
+  showExpressionBadge = true
+}: Props) {
   const characterName = cue.spriteName;
   const expression = expressionEmoji(cue.expression);
   const emotion =
@@ -65,14 +75,20 @@ export function CharacterAlert({ role, cue, glasses = false, compact = false, to
           size={56}
         />
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">{characterName}</p>
-            <span className="anim-pulse-soft text-sm">{cue.emoji}</span>
-          </div>
+          {(showSpriteName || cue.emoji) && (
+            <div className="flex items-center gap-2">
+              {showSpriteName && (
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">{characterName}</p>
+              )}
+              {cue.emoji ? <span className="anim-pulse-soft text-sm">{cue.emoji}</span> : null}
+            </div>
+          )}
           <p className="mt-0.5 font-semibold text-indigo-900">{cue.title}</p>
           <p className="text-sm text-slate-600">{cue.message}</p>
         </div>
-        <div className="anim-pop rounded-full bg-white px-2 py-1 text-lg leading-none">{expression}</div>
+        {showExpressionBadge ? (
+          <div className="anim-pop rounded-full bg-white px-2 py-1 text-lg leading-none">{expression}</div>
+        ) : null}
       </div>
     </div>
   );
