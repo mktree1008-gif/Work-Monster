@@ -286,10 +286,10 @@ class MemoryGameRepository implements GameRepository {
 
     const { hash, salt } = hashPassword(password);
     const id = createId("user");
+    const email = loginId.includes("@") ? loginId : undefined;
     const user: UserProfile = {
       id,
       login_id: loginId,
-      email: loginId.includes("@") ? loginId : undefined,
       role,
       locale,
       name: "",
@@ -626,6 +626,9 @@ class FirestoreGameRepository implements GameRepository {
       last_seen_notification_at: nowISO(),
       created_at: nowISO()
     };
+    if (email) {
+      user.email = email;
+    }
 
     await this.db.collection("users").doc(id).set(user);
     await this.db.collection("scores").doc(id).set(defaultScore(id));
