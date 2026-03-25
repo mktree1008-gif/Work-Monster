@@ -15,16 +15,18 @@ export default async function MissionPage() {
   const { bundle, strings } = await getViewerContext();
   const isKo = bundle.user.locale === "ko";
   const mission = bundle.notifications.find((item) => item.kind === "announcement");
-  const bonusPoints = mission ? extractBonusPoints(`${mission.title} ${mission.message}`) : 0;
+  const missionTitle = mission?.title?.trim() ?? "";
+  const missionMessage = mission?.message?.trim() ?? "";
+  const bonusPoints = mission ? extractBonusPoints(`${missionTitle} ${missionMessage}`) : 0;
   const hasMission = Boolean(mission);
 
   const objective = hasMission
-    ? mission.message
+    ? missionMessage
     : isKo
       ? "아직 활성 미션이 없습니다. 오늘은 스스로 계획해서 진행해보세요."
       : "No active mission yet. Enjoy building your own plan today.";
   const title = hasMission
-    ? mission.title
+    ? missionTitle
     : isKo
       ? "No mission yet"
       : "No mission yet";
@@ -55,7 +57,7 @@ export default async function MissionPage() {
           <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
             <div className="rounded-xl bg-white/80 px-3 py-2 text-slate-600">
               <p className="font-bold uppercase tracking-[0.12em] text-slate-500">{isKo ? "상태" : "Status"}</p>
-              <p className="mt-1 text-sm font-semibold text-indigo-900">{hasMission ? (mission.is_new ? "New" : "In Progress") : "Calm"}</p>
+              <p className="mt-1 text-sm font-semibold text-indigo-900">{hasMission ? (mission?.is_new ? "New" : "In Progress") : "Calm"}</p>
             </div>
             <div className="rounded-xl bg-white/80 px-3 py-2 text-slate-600">
               <p className="inline-flex items-center gap-1 font-bold uppercase tracking-[0.12em] text-slate-500">
@@ -63,7 +65,7 @@ export default async function MissionPage() {
                 {isKo ? "마감" : "Deadline"}
               </p>
               <p className="mt-1 text-sm font-semibold text-indigo-900">
-                {hasMission ? new Date(mission.created_at).toLocaleDateString() : (isKo ? "유동적" : "Flexible")}
+                {hasMission && mission?.created_at ? new Date(mission.created_at).toLocaleDateString() : (isKo ? "유동적" : "Flexible")}
               </p>
             </div>
           </div>
@@ -86,4 +88,3 @@ export default async function MissionPage() {
     </UserPageShell>
   );
 }
-

@@ -99,6 +99,26 @@ export async function setLocaleAction(formData: FormData): Promise<void> {
   revalidatePath("/manager");
 }
 
+export async function updateNicknameAction(formData: FormData): Promise<void> {
+  const session = await getSession();
+  if (!session) redirect("/auth/login");
+
+  const nickname = String(formData.get("nickname") ?? "").trim();
+  if (nickname.length < 2 || nickname.length > 24) {
+    throw new Error("Nickname must be 2-24 characters long.");
+  }
+
+  const repo = getGameRepository();
+  await repo.updateUser(session.uid, { name: nickname });
+
+  revalidatePath("/account");
+  revalidatePath("/app");
+  revalidatePath("/app/welcome");
+  revalidatePath("/app/questions");
+  revalidatePath("/manager");
+  redirect("/account?nickname_saved=1");
+}
+
 export async function updateProfileAvatarAction(formData: FormData): Promise<void> {
   const session = await getSession();
   if (!session) redirect("/auth/login");

@@ -1,21 +1,24 @@
 import { redirect } from "next/navigation";
 import { getSession } from "@/lib/session";
-import { logoutAction, setLocaleAction } from "@/lib/services/actions";
+import { logoutAction, setLocaleAction, updateNicknameAction } from "@/lib/services/actions";
 import { getGameRepository } from "@/lib/repositories/game-repository";
-import { CharacterAlert } from "@/components/character-alert";
 import { ProfileAvatar } from "@/components/profile-avatar";
-import { getUserCue } from "@/lib/character-system";
 import { ProfileAvatarEditor } from "@/components/profile-avatar-editor";
 
-export default async function AccountPage() {
+type Props = {
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function AccountPage({ searchParams }: Props) {
   const session = await getSession();
   if (!session) redirect("/auth/login");
 
   const repo = getGameRepository();
   const user = await repo.getUser(session.uid);
   if (!user) redirect("/auth/login");
+  const params = (searchParams ? await searchParams : {}) as Record<string, string | string[] | undefined>;
+  const nicknameSaved = params.nickname_saved === "1";
   const displayName = (user.name ?? "").trim() || user.login_id;
-  const characterCue = getUserCue("score_confident", user.locale);
 
   return (
     <main className="container-mobile page-padding">
@@ -39,9 +42,30 @@ export default async function AccountPage() {
           </div>
         </div>
 
-        <div className="mt-4">
-          <CharacterAlert role="user" cue={characterCue} compact />
-        </div>
+        {nicknameSaved && (
+          <p className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-700">
+            Nickname updated successfully.
+          </p>
+        )}
+
+        <form action={updateNicknameAction} className="mt-4 rounded-2xl bg-slate-100 p-3">
+          <label className="mb-2 block text-xs uppercase tracking-[0.2em] text-slate-500">Nickname</label>
+          <input
+            className="input"
+            defaultValue={user.name || displayName}
+            maxLength={24}
+            minLength={2}
+            name="nickname"
+            placeholder="Enter nickname"
+            required
+          />
+          <p className="mt-1 text-xs text-slate-500">
+            This name appears across the app. Google login keeps your current Google name as the initial default.
+          </p>
+          <button className="btn btn-primary mt-3 w-full" type="submit">
+            Save nickname
+          </button>
+        </form>
 
         <form action={setLocaleAction} className="mt-4">
           <label className="mb-2 block text-xs uppercase tracking-[0.2em] text-slate-500">Language</label>
