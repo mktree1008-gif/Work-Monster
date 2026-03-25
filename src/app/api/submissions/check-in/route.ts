@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { submitDailyCheckIn } from "@/lib/services/game-service";
+import { DailyCheckInAlreadySubmittedError, submitDailyCheckIn } from "@/lib/services/game-service";
 import { getSession } from "@/lib/session";
 
 type CheckInBody = {
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
       .map((item) => item.trim())
       .filter(Boolean);
 
-    await submitDailyCheckIn(
+    const result = await submitDailyCheckIn(
       session.uid,
       {
         mood: String(body.mood ?? "Steady"),
@@ -53,8 +53,24 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    return NextResponse.json({ ok: true, redirectTo: "/app/questions?saved=1" });
+    return NextResponse.json({
+      ok: true,
+      updated: result.mode === "updated",
+      redirectTo: result.mode === "updated" ? "/app/questions?saved=1&updated=1" : "/app/questions?saved=1"
+    });
   } catch (error) {
+    if (error instanceof DailyCheckInAlreadySubmittedError) {
+      return NextResponse.json(
+        {
+          code: error.code,
+          error: error.message,
+          submission_id: error.submissionId ?? "",
+          redirectTo: "/app/questions?already=1"
+        },
+        { status: 409 }
+      );
+    }
+
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to save check-in." },
       { status: 500 }

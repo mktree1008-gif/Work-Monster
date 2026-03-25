@@ -6,9 +6,10 @@ import { AnimatedCelebrationPopup } from "@/components/animated-celebration-popu
 
 type Props = {
   openOnMount: boolean;
+  updatedMode?: boolean;
 };
 
-export function QuestionsSaveCelebration({ openOnMount }: Props) {
+export function QuestionsSaveCelebration({ openOnMount, updatedMode = false }: Props) {
   const [open, setOpen] = useState(openOnMount);
   const router = useRouter();
   const pathname = usePathname();
@@ -22,13 +23,17 @@ export function QuestionsSaveCelebration({ openOnMount }: Props) {
     <AnimatedCelebrationPopup
       characterMode="manager"
       closeLabel="Continue Quest"
-      message="Saved! Your check-in is now waiting for manager approval."
+      message={
+        updatedMode
+          ? "Updated! Your pending check-in was refreshed for manager review."
+          : "Saved! Your check-in is now waiting for manager approval."
+      }
       onClose={closePopup}
       open={open}
-      pointsLabel="Submission Complete"
+      pointsLabel={updatedMode ? "Pending Submission Updated" : "Submission Complete"}
       progressCaption="Check-in"
       progressTarget={100}
-      title="Great Work Today!"
+      title={updatedMode ? "Update Complete!" : "Great Work Today!"}
     />
   );
 }

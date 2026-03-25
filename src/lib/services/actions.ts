@@ -10,6 +10,7 @@ import {
   approveSubmission,
   claimPenaltyReward,
   claimReward,
+  DailyCheckInAlreadySubmittedError,
   createAnnouncement,
   createReward,
   deleteReward,
@@ -153,29 +154,38 @@ export async function submitCheckInAction(formData: FormData): Promise<void> {
     throw new Error("Manager preview mode cannot submit check-ins.");
   }
 
-  await submitDailyCheckIn(session.uid, {
-    mood: String(formData.get("mood") ?? "Neutral"),
-    feeling: String(formData.get("feeling") ?? ""),
-    calories: parseNumber(formData.get("calories"), 0),
-    productive: parseBoolean(formData.get("productive")),
-    task_list: String(formData.get("task_list") ?? "")
-      .split("\n")
-      .map((line) => line.trim())
-      .filter(Boolean),
-    file_url: String(formData.get("file_url") ?? ""),
-    custom_answers: {
-      focus: String(formData.get("focus") ?? ""),
-      blocker: String(formData.get("blocker") ?? ""),
-      win: String(formData.get("win") ?? "")
+  let mode: "created" | "updated" = "created";
+  try {
+    const result = await submitDailyCheckIn(session.uid, {
+      mood: String(formData.get("mood") ?? "Neutral"),
+      feeling: String(formData.get("feeling") ?? ""),
+      calories: parseNumber(formData.get("calories"), 0),
+      productive: parseBoolean(formData.get("productive")),
+      task_list: String(formData.get("task_list") ?? "")
+        .split("\n")
+        .map((line) => line.trim())
+        .filter(Boolean),
+      file_url: String(formData.get("file_url") ?? ""),
+      custom_answers: {
+        focus: String(formData.get("focus") ?? ""),
+        blocker: String(formData.get("blocker") ?? ""),
+        win: String(formData.get("win") ?? "")
+      }
+    }, {
+      clientLocalDate: String(formData.get("client_local_date") ?? ""),
+      clientTimeZone: String(formData.get("client_time_zone") ?? "")
+    });
+    mode = result.mode;
+  } catch (error) {
+    if (error instanceof DailyCheckInAlreadySubmittedError) {
+      redirect("/app/questions?already=1");
     }
-  }, {
-    clientLocalDate: String(formData.get("client_local_date") ?? ""),
-    clientTimeZone: String(formData.get("client_time_zone") ?? "")
-  });
+    throw error;
+  }
 
   revalidatePath("/app/questions");
   revalidatePath("/app/record");
-  redirect("/app/questions?saved=1");
+  redirect(mode === "updated" ? "/app/questions?saved=1&updated=1" : "/app/questions?saved=1");
 }
 
 export async function acknowledgeRulesAction(): Promise<void> {

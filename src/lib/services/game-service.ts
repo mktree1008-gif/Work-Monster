@@ -37,6 +37,17 @@ type CheckInClientMeta = {
   clientTimeZone?: string;
 };
 
+export class DailyCheckInAlreadySubmittedError extends Error {
+  readonly code = "already_submitted" as const;
+  readonly submissionId?: string;
+
+  constructor(message: string, submissionId?: string) {
+    super(message);
+    this.name = "DailyCheckInAlreadySubmittedError";
+    this.submissionId = submissionId;
+  }
+}
+
 function resolveSubmissionDate(meta?: CheckInClientMeta): string {
   const rawDate = (meta?.clientLocalDate ?? "").trim();
   if (rawDate && isISODateString(rawDate)) {
@@ -61,10 +72,43 @@ export async function submitDailyCheckIn(
   meta?: CheckInClientMeta
 ) {
   const repo = getGameRepository();
-  const submission = makeSubmissionFromDraft({ ...draft, user_id: userId }, resolveSubmissionDate(meta));
-  await repo.saveSubmission(submission);
+  const targetDate = resolveSubmissionDate(meta);
+  const submissions = await repo.listSubmissionsByUser(userId);
+  const sameDateSubmissions = submissions
+    .filter((item) => item.date === targetDate)
+    .sort((a, b) => {
+      const left = a.created_at ?? "";
+      const right = b.created_at ?? "";
+      return left > right ? -1 : 1;
+    });
 
-  return submission;
+  const reviewedSameDate = sameDateSubmissions.find((item) => item.status === "approved" || item.status === "rejected");
+  if (reviewedSameDate) {
+    throw new DailyCheckInAlreadySubmittedError(
+      "You already submitted today. Check your score after manager review.",
+      reviewedSameDate.id
+    );
+  }
+
+  const pendingSameDate = sameDateSubmissions.find((item) => item.status === "pending");
+  if (pendingSameDate) {
+    const updatedPending: Submission = {
+      ...pendingSameDate,
+      mood: draft.mood,
+      feeling: draft.feeling,
+      calories: draft.calories,
+      productive: draft.productive,
+      custom_answers: draft.custom_answers,
+      task_list: draft.task_list,
+      file_url: draft.file_url ?? ""
+    };
+    await repo.saveSubmission(updatedPending);
+    return { submission: updatedPending, mode: "updated" as const };
+  }
+
+  const submission = makeSubmissionFromDraft({ ...draft, user_id: userId }, targetDate);
+  await repo.saveSubmission(submission);
+  return { submission, mode: "created" as const };
 }
 
 export async function approveSubmission(

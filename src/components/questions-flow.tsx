@@ -149,6 +149,7 @@ function answerLabel(stepIndex: number, state: StepState): string {
 
 export function QuestionsFlow({ locale, glasses = false, readOnly = false }: Props) {
   const router = useRouter();
+  const isKo = locale === "ko";
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<StepState[]>(initialSteps);
   const [taskList, setTaskList] = useState("");
@@ -158,6 +159,8 @@ export function QuestionsFlow({ locale, glasses = false, readOnly = false }: Pro
   const [saving, setSaving] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [showConfusedHint, setShowConfusedHint] = useState(false);
+  const [alreadyDonePopupOpen, setAlreadyDonePopupOpen] = useState(false);
+  const [alreadyDoneMessage, setAlreadyDoneMessage] = useState("");
 
   const progress = useMemo(() => Math.round(((step + 1) / stepDefinitions.length) * 100), [step]);
   const determinedCue = getUserCue("questions_determined", locale);
@@ -268,12 +271,26 @@ export function QuestionsFlow({ locale, glasses = false, readOnly = false }: Pro
         })
       });
 
+      const payload = (await response.json()) as {
+        error?: string;
+        code?: string;
+        redirectTo?: string;
+      };
+
       if (!response.ok) {
-        const payload = (await response.json()) as { error?: string };
+        if (response.status === 409 && payload.code === "already_submitted") {
+          setAlreadyDoneMessage(
+            payload.error ??
+              (isKo
+                ? "오늘 Daily Check-in은 이미 제출됐어요. 매니저 리뷰 결과를 확인해보세요."
+                : "Today's daily check-in is already submitted. Check your manager review result.")
+          );
+          setAlreadyDonePopupOpen(true);
+          return;
+        }
         throw new Error(payload.error ?? "Failed to save check-in.");
       }
 
-      const payload = (await response.json()) as { redirectTo?: string };
       router.push(payload.redirectTo ?? "/app/questions?saved=1");
       router.refresh();
     } catch (caught) {
@@ -428,6 +445,37 @@ export function QuestionsFlow({ locale, glasses = false, readOnly = false }: Pro
       {submitError && (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
           {submitError}
+        </div>
+      )}
+
+      {alreadyDonePopupOpen && (
+        <div className="fixed inset-0 z-[82] flex items-center justify-center bg-slate-950/45 p-4">
+          <div className="container-mobile card anim-pop p-5">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-indigo-500">
+              {isKo ? "Daily Check-in" : "Daily Check-in"}
+            </p>
+            <h3 className="mt-1 text-2xl font-black text-indigo-900">
+              {isKo ? "오늘 체크인은 이미 제출됨" : "Already submitted today"}
+            </h3>
+            <p className="mt-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
+              {alreadyDoneMessage}
+            </p>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button className="btn btn-muted w-full" onClick={() => setAlreadyDonePopupOpen(false)} type="button">
+                {isKo ? "닫기" : "Close"}
+              </button>
+              <button
+                className="btn btn-primary w-full"
+                onClick={() => {
+                  setAlreadyDonePopupOpen(false);
+                  router.push("/app/questions");
+                }}
+                type="button"
+              >
+                {isKo ? "홈으로 이동" : "Go Home"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
