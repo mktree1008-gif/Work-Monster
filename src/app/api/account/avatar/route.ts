@@ -64,6 +64,7 @@ export async function POST(request: NextRequest) {
 
     revalidatePath("/account");
     revalidatePath("/app");
+    revalidatePath("/app/welcome");
     revalidatePath("/app/questions");
     revalidatePath("/app/record");
     revalidatePath("/app/rewards");

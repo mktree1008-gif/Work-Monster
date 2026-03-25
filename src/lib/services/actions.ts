@@ -76,7 +76,7 @@ export async function loginAction(formData: FormData): Promise<void> {
     redirect("/manager");
   }
 
-  redirect("/app/questions");
+  redirect("/app/welcome");
 }
 
 export async function logoutAction(): Promise<void> {
@@ -141,6 +141,7 @@ export async function updateProfileAvatarAction(formData: FormData): Promise<voi
 
   revalidatePath("/account");
   revalidatePath("/app");
+  revalidatePath("/app/welcome");
   revalidatePath("/app/questions");
   revalidatePath("/app/record");
   revalidatePath("/app/rewards");
@@ -178,14 +179,14 @@ export async function submitCheckInAction(formData: FormData): Promise<void> {
     mode = result.mode;
   } catch (error) {
     if (error instanceof DailyCheckInAlreadySubmittedError) {
-      redirect("/app/questions?already=1");
+      redirect("/app/welcome?already=1");
     }
     throw error;
   }
 
-  revalidatePath("/app/questions");
+  revalidatePath("/app/welcome");
   revalidatePath("/app/record");
-  redirect(mode === "updated" ? "/app/questions?saved=1&updated=1" : "/app/questions?saved=1");
+  redirect(mode === "updated" ? "/app/welcome?saved=1&updated=1" : "/app/welcome?saved=1");
 }
 
 export async function acknowledgeRulesAction(): Promise<void> {

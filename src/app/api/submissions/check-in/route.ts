@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       ok: true,
       updated: result.mode === "updated",
-      redirectTo: result.mode === "updated" ? "/app/questions?saved=1&updated=1" : "/app/questions?saved=1"
+      redirectTo: result.mode === "updated" ? "/app/welcome?saved=1&updated=1" : "/app/welcome?saved=1"
     });
   } catch (error) {
     if (error instanceof DailyCheckInAlreadySubmittedError) {
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
           code: error.code,
           error: error.message,
           submission_id: error.submissionId ?? "",
-          redirectTo: "/app/questions?already=1"
+          redirectTo: "/app/welcome?already=1"
         },
         { status: 409 }
       );

@@ -291,7 +291,7 @@ export function QuestionsFlow({ locale, glasses = false, readOnly = false }: Pro
         throw new Error(payload.error ?? "Failed to save check-in.");
       }
 
-      router.push(payload.redirectTo ?? "/app/questions?saved=1");
+      router.push(payload.redirectTo ?? "/app/welcome?saved=1");
       router.refresh();
     } catch (caught) {
       setSubmitError(caught instanceof Error ? caught.message : "Failed to save check-in.");
@@ -468,7 +468,7 @@ export function QuestionsFlow({ locale, glasses = false, readOnly = false }: Pro
                 className="btn btn-primary w-full"
                 onClick={() => {
                   setAlreadyDonePopupOpen(false);
-                  router.push("/app/questions");
+                  router.push("/app/welcome");
                 }}
                 type="button"
               >

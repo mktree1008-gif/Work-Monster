@@ -21,7 +21,7 @@ type BottomTabsProps = {
 
 export function BottomTabs({ active, labels }: BottomTabsProps) {
   const tabs: Tab[] = [
-    { key: "questions", href: "/app/questions", label: labels.questions, icon: House },
+    { key: "questions", href: "/app/welcome", label: labels.questions, icon: House },
     { key: "record", href: "/app/record", label: labels.record, icon: ChartColumn },
     { key: "rewards", href: "/app/rewards", label: labels.rewards, icon: Gift },
     { key: "score", href: "/app/score", label: labels.score, icon: Star },

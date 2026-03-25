@@ -62,7 +62,7 @@ export default async function ManagerPage({ searchParams }: Props) {
     redirect("/auth/login");
   }
   if (!isManagerOwnerEmail(user.email)) {
-    redirect("/app/questions");
+    redirect("/app/welcome");
   }
   if ((user.name ?? "").trim().length === 0) {
     redirect("/auth/nickname");

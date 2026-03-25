@@ -86,7 +86,7 @@ export function TopAppBar({
             >
               <Menu size={18} />
             </button>
-            <Link className="display-cute text-2xl font-bold" href="/app/questions">
+            <Link className="display-cute text-2xl font-bold" href="/app/welcome">
               {appName}
             </Link>
           </div>
@@ -155,7 +155,7 @@ export function TopAppBar({
 
                 {navTab === "main" ? (
                   <nav className="space-y-2">
-                    <Link href="/app/questions" className="flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-sm font-medium" onClick={closePanel}>
+                    <Link href="/app/welcome" className="flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-sm font-medium" onClick={closePanel}>
                       <House size={16} />
                       {labels.questions}
                     </Link>
