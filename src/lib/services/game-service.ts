@@ -78,42 +78,56 @@ export async function approveSubmission(
     throw new Error("Submission not found.");
   }
 
-  const reviewed: Submission = {
-    ...submission,
-    status: input.approved ? "approved" : "rejected",
-    manager_note: input.note,
-    points_awarded: input.approved ? input.points : 0,
-    reviewed_at: nowISO()
-  };
+  const rawPoints = Number.isFinite(input.points) ? Math.round(input.points) : 0;
+  const normalizedPoints = input.approved ? rawPoints : Math.min(0, rawPoints);
+  const now = nowISO();
+  const score = await repo.getScore(submission.user_id);
 
-  await repo.saveSubmission(reviewed);
+  let appliedPoints = 0;
+  let nextScore: ScoreState | null = null;
 
   if (input.approved) {
-    const score = await repo.getScore(submission.user_id);
     const rules = await repo.getRules();
-
     const streak = computeStreak(score.current_streak, score.last_approved_at, submission.date);
-    const multiplierState = computeMultiplier(
-      streak,
-      rules.multiplier_trigger_days,
-      rules.multiplier_value
-    );
+    const multiplierState = computeMultiplier(streak, rules.multiplier_trigger_days, rules.multiplier_value);
+    const scoredPoints =
+      normalizedPoints > 0
+        ? Math.round(normalizedPoints * multiplierState.multiplier_value)
+        : normalizedPoints;
+    appliedPoints = scoredPoints;
 
-    const multipliedPoints = Math.round(input.points * multiplierState.multiplier_value);
-    const totalPoints = score.total_points + multipliedPoints;
-
-    const nextScore: ScoreState = {
+    nextScore = {
       ...score,
-      total_points: totalPoints,
-      lifetime_points: score.lifetime_points + Math.max(0, multipliedPoints),
+      total_points: score.total_points + scoredPoints,
+      lifetime_points: score.lifetime_points + Math.max(0, scoredPoints),
       current_streak: streak,
       longest_streak: Math.max(score.longest_streak, streak),
       multiplier_active: multiplierState.multiplier_active,
       multiplier_value: multiplierState.multiplier_value,
-      updated_at: nowISO(),
+      updated_at: now,
       last_approved_at: submission.date
     };
+  } else if (normalizedPoints !== 0) {
+    appliedPoints = normalizedPoints;
+    nextScore = {
+      ...score,
+      total_points: score.total_points + normalizedPoints,
+      lifetime_points: score.lifetime_points + Math.max(0, normalizedPoints),
+      updated_at: now
+    };
+  }
 
+  const reviewed: Submission = {
+    ...submission,
+    status: input.approved ? "approved" : "rejected",
+    manager_note: input.note,
+    points_awarded: appliedPoints,
+    reviewed_at: now
+  };
+
+  await repo.saveSubmission(reviewed);
+
+  if (nextScore) {
     await repo.saveScore(nextScore);
     await recalculateScore(submission.user_id);
   }
@@ -437,11 +451,25 @@ export async function getDashboard(uid: string): Promise<DashboardBundle> {
       const approved = Boolean(log.details.approved);
       const points = Number(log.details.points ?? 0);
       const note = String(log.details.note ?? "").trim();
+      let title = approved ? "Manager reviewed your check-in" : "Manager left a no-points review";
+      let fallbackMessage = approved ? `+${points} pts reflected in your score.` : "Check manager comment in Questions/Record.";
+
+      if (points < 0) {
+        title = "Manager applied a point deduction";
+        fallbackMessage = `${points} pts reflected in your score.`;
+      } else if (points === 0 && approved) {
+        title = "Manager reviewed your check-in";
+        fallbackMessage = "0 pts reviewed for this entry.";
+      } else if (points > 0 && !approved) {
+        title = "Manager updated your score";
+        fallbackMessage = `+${points} pts reflected in your score.`;
+      }
+
       const updateItem: ManagerUpdateNotification = {
         id: log.id,
         kind: "submission_review",
-        title: approved ? "Manager reviewed your check-in" : "Manager left a no-points review",
-        message: note.length > 0 ? note : approved ? `+${points} pts reflected in your score.` : "Check manager comment in Questions/Record.",
+        title,
+        message: note.length > 0 ? note : fallbackMessage,
         created_at: log.created_at
       };
       managerUpdateFeed.push(updateItem);

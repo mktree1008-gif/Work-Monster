@@ -239,7 +239,7 @@ export async function reviewSubmissionAction(formData: FormData): Promise<void> 
   const note = String(formData.get("note") ?? "");
   const points = parseNumber(formData.get("points"), 0);
 
-  await approveSubmission(
+  const reviewed = await approveSubmission(
     {
       submissionId: String(formData.get("submission_id") ?? ""),
       approved,
@@ -252,10 +252,12 @@ export async function reviewSubmissionAction(formData: FormData): Promise<void> 
   revalidatePath("/manager");
   revalidatePath("/app/score");
   revalidatePath("/app/record");
+  revalidatePath("/app/welcome");
+  revalidatePath("/app/questions");
   const params = new URLSearchParams();
   params.set("reviewed", "1");
-  params.set("approved", approved ? "1" : "0");
-  params.set("points", String(points));
+  params.set("approved", reviewed.status === "approved" ? "1" : "0");
+  params.set("points", String(reviewed.points_awarded));
   if (note.trim().length > 0) {
     params.set("note", note.slice(0, 120));
   }

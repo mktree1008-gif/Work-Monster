@@ -97,14 +97,16 @@ export default async function RecordPage() {
               <div className="flex items-center justify-between">
                 <span>{formatDateLabel(item.date)}</span>
                 <span className="font-semibold">
-                  {item.status === "approved"
-                    ? `${item.points_awarded > 0 ? `+${item.points_awarded}` : item.points_awarded} pts`
-                    : item.status}
+                  {item.status === "pending"
+                    ? "pending"
+                    : item.points_awarded !== 0
+                      ? `${item.points_awarded > 0 ? `+${item.points_awarded}` : item.points_awarded} pts`
+                      : `${item.status} • 0 pts`}
                 </span>
               </div>
-              {item.status === "approved" && (
+              {item.status !== "pending" && (
                 <div className="mt-2">
-                  <CharacterAlert role="manager" cue={managerCue} compact />
+                  <CharacterAlert role="manager" cue={managerCue} compact tone={item.points_awarded < 0 ? "warning" : "success"} />
                 </div>
               )}
             </li>

@@ -13,21 +13,35 @@ type Props = {
 export function ManagerReviewResultPopup({ openOnMount, approved, points, note }: Props) {
   const [open, setOpen] = useState(openOnMount);
   const safeNote = (note ?? "").trim();
-  const message = safeNote.length > 0 ? safeNote : approved ? "Points confirmed and user score updated." : "Reviewed as no-points for this entry.";
+  const message =
+    safeNote.length > 0
+      ? safeNote
+      : points < 0
+        ? "Point deduction applied and reflected in user score."
+        : approved
+          ? "Points confirmed and user score updated."
+          : "Reviewed as no-points for this entry.";
+  const pointsLabel =
+    points !== 0
+      ? `${points > 0 ? `+${points}` : points} pts reviewed`
+      : approved
+        ? "0 pts reviewed"
+        : "No points decision";
+  const title = points < 0 ? "manager_alert" : approved ? "manager_approving" : "Review completed";
 
   return (
     <AnimatedCelebrationPopup
       autoCloseMs={2200}
       characterMode="manager"
       closeLabel="Done"
-      managerEmotion="approval"
+      managerEmotion={points < 0 ? "alert" : "approval"}
       message={message}
       onClose={() => setOpen(false)}
       open={open}
-      pointsLabel={approved ? `+${points} pts reviewed` : "No points decision"}
+      pointsLabel={pointsLabel}
       progressCaption="Review"
       progressTarget={100}
-      title={approved ? "manager_approving" : "Review completed"}
+      title={title}
     />
   );
 }

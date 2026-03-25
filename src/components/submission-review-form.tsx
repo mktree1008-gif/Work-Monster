@@ -18,8 +18,12 @@ type Decision = "true" | "false";
 export function SubmissionReviewForm({ submissionId, defaultPoints, mood, productive, taskSummary }: Props) {
   const formRef = useRef<HTMLFormElement>(null);
   const [decision, setDecision] = useState<Decision>("true");
+  const [pointsInput, setPointsInput] = useState(String(defaultPoints));
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const parsedPoints = Number(pointsInput);
+  const safePoints = Number.isFinite(parsedPoints) ? Math.round(parsedPoints) : 0;
+  const rejectPathPoints = Math.min(0, safePoints);
 
   function openConfirm(nextDecision: Decision) {
     if (submitting) return;
@@ -47,7 +51,14 @@ export function SubmissionReviewForm({ submissionId, defaultPoints, mood, produc
         <input name="submission_id" type="hidden" value={submissionId} />
         <input name="approved" type="hidden" value={decision} />
         <input className="input col-span-2" disabled={submitting} name="note" placeholder="Optional note" />
-        <input className="input" defaultValue={defaultPoints} disabled={submitting} name="points" type="number" />
+        <input
+          className="input"
+          disabled={submitting}
+          name="points"
+          onChange={(event) => setPointsInput(event.target.value)}
+          type="number"
+          value={pointsInput}
+        />
         <div className="col-span-2 grid grid-cols-2 gap-2">
           <button
             className="btn btn-primary w-full"
@@ -63,7 +74,7 @@ export function SubmissionReviewForm({ submissionId, defaultPoints, mood, produc
             onClick={() => openConfirm("false")}
             type="button"
           >
-            {submitting ? "Processing..." : "No"}
+            {submitting ? "Processing..." : "No / Penalty"}
           </button>
         </div>
         {submitting && <p className="col-span-2 text-xs text-indigo-700">Review is being submitted. Please wait...</p>}
@@ -80,7 +91,11 @@ export function SubmissionReviewForm({ submissionId, defaultPoints, mood, produc
 
             <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Review confirmation</p>
             <h3 className="mt-1 text-xl font-black text-indigo-900">
-              {decision === "true" ? "Give points to this submission?" : "Submit without points?"}
+              {decision === "true"
+                ? "Apply this score to submission?"
+                : rejectPathPoints < 0
+                  ? `Apply ${rejectPathPoints} pts and mark as no?`
+                  : "Submit as no-points review?"}
             </h3>
             <p className="mt-2 text-sm text-slate-600">
               Mood: {mood} • Productive: {productive ? "Yes" : "No"}
@@ -88,7 +103,11 @@ export function SubmissionReviewForm({ submissionId, defaultPoints, mood, produc
             <p className="text-sm text-slate-600">Tasks: {taskSummary || "-"}</p>
             <p className="mt-2 inline-flex items-center gap-1 rounded-full bg-indigo-100 px-3 py-1 text-sm font-semibold text-indigo-800">
               <Sparkles size={14} />
-              {decision === "true" ? "Points will be applied after confirm" : "Submission will be marked as no points"}
+              {decision === "true"
+                ? `Score input: ${safePoints > 0 ? `+${safePoints}` : safePoints} pts`
+                : rejectPathPoints < 0
+                  ? `Penalty ${rejectPathPoints} pts will be applied`
+                  : "Submission will be marked as no points"}
             </p>
 
             <div className="mt-4 grid grid-cols-2 gap-2">

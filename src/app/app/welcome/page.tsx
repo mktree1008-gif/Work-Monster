@@ -17,7 +17,7 @@ export default async function WelcomePage() {
       const right = b.reviewed_at ?? b.created_at;
       return left > right ? -1 : 1;
     })[0];
-  const latestPoints = latestReviewed?.status === "approved" ? latestReviewed.points_awarded : 0;
+  const latestPoints = latestReviewed?.points_awarded ?? 0;
   const isNegativeReview = latestPoints < 0;
 
   const managerCue: CharacterCue = isNegativeReview
