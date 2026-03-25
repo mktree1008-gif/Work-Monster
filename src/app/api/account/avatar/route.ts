@@ -40,8 +40,8 @@ export async function POST(request: NextRequest) {
       if (!file.type.startsWith("image/")) {
         return NextResponse.json({ error: "Please upload an image file." }, { status: 400 });
       }
-      if (file.size > 2 * 1024 * 1024) {
-        return NextResponse.json({ error: "Please upload an image under 2MB." }, { status: 400 });
+      if (file.size > 50 * 1024 * 1024) {
+        return NextResponse.json({ error: "Please upload an image under 50MB." }, { status: 400 });
       }
       const bytes = new Uint8Array(await file.arrayBuffer());
       imageUrl = `data:${file.type};base64,${bytesToBase64(bytes)}`;

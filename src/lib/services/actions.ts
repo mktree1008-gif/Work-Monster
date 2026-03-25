@@ -115,8 +115,8 @@ export async function updateProfileAvatarAction(formData: FormData): Promise<voi
     if (!file.type.startsWith("image/")) {
       throw new Error("Please upload an image file.");
     }
-    if (file.size > 2 * 1024 * 1024) {
-      throw new Error("Please upload an image under 2MB.");
+    if (file.size > 50 * 1024 * 1024) {
+      throw new Error("Please upload an image under 50MB.");
     }
 
     const bytes = new Uint8Array(await file.arrayBuffer());

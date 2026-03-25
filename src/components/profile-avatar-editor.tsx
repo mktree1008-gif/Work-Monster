@@ -11,7 +11,9 @@ type Props = {
 };
 
 const PREVIEW_SIZE = 176;
-const MAX_FILE_BYTES = 2 * 1024 * 1024;
+const MAX_FILE_BYTES = 50 * 1024 * 1024;
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 4;
 
 type ImgMeta = {
   width: number;
@@ -34,10 +36,10 @@ function copyByLocale(locale: Props["locale"]) {
       saving: "저장 중...",
       success: "프로필 이미지가 저장되었어요.",
       failed: "저장에 실패했어요.",
-      fileTooLarge: "2MB 이하 이미지 파일만 업로드할 수 있어요.",
+      fileTooLarge: "50MB 이하 이미지 파일만 업로드할 수 있어요.",
       fileType: "이미지 파일만 업로드할 수 있어요.",
       noImage: "먼저 사진을 선택해 주세요.",
-      moveHint: "원 안에서 드래그하여 위치를 조절하세요.",
+      moveHint: "손가락으로 드래그 이동, 두 손가락으로 확대/축소하세요.",
       clearPhoto: "사진 제거"
     };
   }
@@ -56,10 +58,10 @@ function copyByLocale(locale: Props["locale"]) {
     saving: "Saving...",
     success: "Profile image saved.",
     failed: "Failed to save profile image.",
-    fileTooLarge: "Please upload an image under 2MB.",
+    fileTooLarge: "Please upload an image under 50MB.",
     fileType: "Please upload an image file.",
     noImage: "Please choose an image first.",
-    moveHint: "Drag inside the circle to position your photo.",
+    moveHint: "Drag with one finger, pinch with two fingers to zoom.",
     clearPhoto: "Remove photo"
   };
 }
@@ -128,7 +130,16 @@ export function ProfileAvatarEditor({
   const [pending, setPending] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  const dragStartRef = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
+  const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const gestureRef = useRef<{
+    mode: "drag" | "pinch";
+    startCenterX: number;
+    startCenterY: number;
+    startOffsetX: number;
+    startOffsetY: number;
+    startZoom: number;
+    startDistance: number;
+  } | null>(null);
 
   const baseSize = useMemo(() => {
     if (!imgMeta) return { width: PREVIEW_SIZE, height: PREVIEW_SIZE };
@@ -139,44 +150,141 @@ export function ProfileAvatarEditor({
     };
   }, [imgMeta]);
 
-  function clampOffset(nextX: number, nextY: number) {
-    const limitX = Math.max(0, ((baseSize.width * zoom) - PREVIEW_SIZE) / 2);
-    const limitY = Math.max(0, ((baseSize.height * zoom) - PREVIEW_SIZE) / 2);
+  function clampOffset(nextX: number, nextY: number, zoomValue = zoom) {
+    const limitX = Math.max(0, ((baseSize.width * zoomValue) - PREVIEW_SIZE) / 2);
+    const limitY = Math.max(0, ((baseSize.height * zoomValue) - PREVIEW_SIZE) / 2);
     return {
       x: Math.min(limitX, Math.max(-limitX, nextX)),
       y: Math.min(limitY, Math.max(-limitY, nextY))
     };
   }
 
-  function onPointerDown(event: PointerEvent<HTMLDivElement>) {
-    if (mode !== "image" || !imageSrc) return;
-    setIsDragging(true);
-    dragStartRef.current = {
-      x: event.clientX,
-      y: event.clientY,
-      ox: offsetX,
-      oy: offsetY
+  function getPointerPair() {
+    const values = [...pointersRef.current.values()];
+    if (values.length < 2) return null;
+    return [values[0], values[1]] as const;
+  }
+
+  function setDragGestureFrom(pointer: { x: number; y: number }) {
+    gestureRef.current = {
+      mode: "drag",
+      startCenterX: pointer.x,
+      startCenterY: pointer.y,
+      startOffsetX: offsetX,
+      startOffsetY: offsetY,
+      startZoom: zoom,
+      startDistance: 0
     };
   }
 
+  function setPinchGesture() {
+    const pair = getPointerPair();
+    if (!pair) return;
+    const [p1, p2] = pair;
+    const centerX = (p1.x + p2.x) / 2;
+    const centerY = (p1.y + p2.y) / 2;
+    const distance = Math.hypot(p1.x - p2.x, p1.y - p2.y);
+    gestureRef.current = {
+      mode: "pinch",
+      startCenterX: centerX,
+      startCenterY: centerY,
+      startOffsetX: offsetX,
+      startOffsetY: offsetY,
+      startZoom: zoom,
+      startDistance: distance || 1
+    };
+  }
+
+  function onPointerDown(event: PointerEvent<HTMLDivElement>) {
+    if (mode !== "image" || !imageSrc) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    setIsDragging(true);
+    if (pointersRef.current.size >= 2) {
+      setPinchGesture();
+      return;
+    }
+    setDragGestureFrom({ x: event.clientX, y: event.clientY });
+  }
+
   function onPointerMove(event: PointerEvent<HTMLDivElement>) {
-    if (!isDragging || !dragStartRef.current) return;
-    const dx = event.clientX - dragStartRef.current.x;
-    const dy = event.clientY - dragStartRef.current.y;
-    const clamped = clampOffset(dragStartRef.current.ox + dx, dragStartRef.current.oy + dy);
+    if (!isDragging || mode !== "image" || !imageSrc) return;
+    if (!pointersRef.current.has(event.pointerId)) return;
+    event.preventDefault();
+    pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+    if (!gestureRef.current) {
+      const first = pointersRef.current.values().next().value as { x: number; y: number } | undefined;
+      if (first) setDragGestureFrom(first);
+      return;
+    }
+
+    if (pointersRef.current.size >= 2) {
+      if (gestureRef.current.mode !== "pinch") {
+        setPinchGesture();
+      }
+      const pair = getPointerPair();
+      if (!pair || !gestureRef.current) return;
+      const [p1, p2] = pair;
+      const centerX = (p1.x + p2.x) / 2;
+      const centerY = (p1.y + p2.y) / 2;
+      const distance = Math.hypot(p1.x - p2.x, p1.y - p2.y) || 1;
+      const ratio = distance / (gestureRef.current.startDistance || 1);
+      const nextZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, gestureRef.current.startZoom * ratio));
+      const panX = centerX - gestureRef.current.startCenterX;
+      const panY = centerY - gestureRef.current.startCenterY;
+      const clamped = clampOffset(gestureRef.current.startOffsetX + panX, gestureRef.current.startOffsetY + panY, nextZoom);
+      setZoom(nextZoom);
+      setOffsetX(clamped.x);
+      setOffsetY(clamped.y);
+      return;
+    }
+
+    if (gestureRef.current.mode !== "drag") {
+      const onlyPointer = pointersRef.current.values().next().value as { x: number; y: number } | undefined;
+      if (!onlyPointer) return;
+      setDragGestureFrom(onlyPointer);
+    }
+    if (!gestureRef.current) return;
+    const dx = event.clientX - gestureRef.current.startCenterX;
+    const dy = event.clientY - gestureRef.current.startCenterY;
+    const clamped = clampOffset(gestureRef.current.startOffsetX + dx, gestureRef.current.startOffsetY + dy, zoom);
     setOffsetX(clamped.x);
     setOffsetY(clamped.y);
   }
 
-  function stopDrag() {
-    setIsDragging(false);
-    dragStartRef.current = null;
+  function stopDrag(event?: PointerEvent<HTMLDivElement>) {
+    if (event) {
+      pointersRef.current.delete(event.pointerId);
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+    } else {
+      pointersRef.current.clear();
+    }
+
+    if (pointersRef.current.size === 0) {
+      setIsDragging(false);
+      gestureRef.current = null;
+      return;
+    }
+
+    if (pointersRef.current.size >= 2) {
+      setPinchGesture();
+      return;
+    }
+
+    const remaining = pointersRef.current.values().next().value as { x: number; y: number } | undefined;
+    if (remaining) {
+      setDragGestureFrom(remaining);
+    }
   }
 
   function onZoomChange(nextZoom: number) {
-    const clampedZoom = Math.min(3, Math.max(1, nextZoom));
+    const clampedZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, nextZoom));
     setZoom(clampedZoom);
-    const clamped = clampOffset(offsetX, offsetY);
+    const clamped = clampOffset(offsetX, offsetY, clampedZoom);
     setOffsetX(clamped.x);
     setOffsetY(clamped.y);
   }
@@ -302,12 +410,12 @@ export function ProfileAvatarEditor({
 
             <div className="rounded-2xl bg-slate-100 p-3">
               <div
-                className="mx-auto flex h-52 w-52 items-center justify-center rounded-2xl bg-slate-200"
+                className="mx-auto flex h-52 w-52 touch-none items-center justify-center rounded-2xl bg-slate-200"
                 onPointerCancel={stopDrag}
                 onPointerDown={onPointerDown}
-                onPointerLeave={stopDrag}
                 onPointerMove={onPointerMove}
                 onPointerUp={stopDrag}
+                style={{ touchAction: "none" }}
                 role="presentation"
               >
                 <div className="relative h-44 w-44 overflow-hidden rounded-full border-4 border-white shadow-lg">
@@ -344,8 +452,8 @@ export function ProfileAvatarEditor({
               <span className="mb-2 block text-xs uppercase tracking-[0.2em] text-slate-500">{copy.zoom}</span>
               <input
                 className="w-full accent-indigo-600"
-                max={3}
-                min={1}
+                max={MAX_ZOOM}
+                min={MIN_ZOOM}
                 onChange={(event) => onZoomChange(Number(event.target.value))}
                 step={0.01}
                 type="range"
