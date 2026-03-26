@@ -29,6 +29,7 @@ export function SubmissionReviewForm({ submissionId, defaultPoints, mood, produc
   const parsedBonus = Number(bonusInput);
   const safeBonus = Number.isFinite(parsedBonus) ? Math.max(0, Math.round(parsedBonus)) : 0;
   const rejectPathPoints = Math.min(0, safePoints);
+  const rejectPathTotal = rejectPathPoints + safeBonus;
   const giveSelected = decision === "true";
   const penaltySelected = decision === "false";
 
@@ -57,6 +58,9 @@ export function SubmissionReviewForm({ submissionId, defaultPoints, mood, produc
       <form action={reviewSubmissionAction} className="mt-4 space-y-3 rounded-2xl border border-slate-200 bg-white p-4" ref={formRef}>
         <input name="submission_id" type="hidden" value={submissionId} />
         <input name="approved" type="hidden" value={decision} />
+        <p className="rounded-xl bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700">
+          Final score update = adjustment points + bonus points. Bonus can be used with both Give Points and No / Penalty.
+        </p>
         <div className="grid grid-cols-2 gap-2">
           <button
             className={`btn w-full ${giveSelected ? "btn-primary" : "btn-muted"} ${giveSelected ? "ring-2 ring-indigo-200" : ""}`}
@@ -78,7 +82,7 @@ export function SubmissionReviewForm({ submissionId, defaultPoints, mood, produc
 
         <div className="grid grid-cols-2 gap-2">
           <label className="rounded-xl bg-slate-50 p-2 text-xs font-semibold text-slate-600">
-            Score
+            Adjustment points
             <input
               className="input mt-1"
               disabled={submitting}
@@ -124,7 +128,7 @@ export function SubmissionReviewForm({ submissionId, defaultPoints, mood, produc
 
         <div className="flex items-center justify-between rounded-xl bg-slate-100 px-3 py-2 text-xs text-slate-600">
           <span>
-            Rule suggestion:{" "}
+            Rule suggestion (adjustment):{" "}
             <strong className="text-indigo-800">
               {defaultPoints > 0 ? `+${defaultPoints}` : defaultPoints} pts
             </strong>
@@ -157,8 +161,8 @@ export function SubmissionReviewForm({ submissionId, defaultPoints, mood, produc
             <h3 className="mt-1 text-xl font-black text-indigo-900">
               {decision === "true"
                 ? "Apply this score to submission?"
-                : rejectPathPoints < 0
-                  ? `Apply ${rejectPathPoints} pts and mark as no?`
+                : rejectPathTotal !== 0
+                  ? `Apply ${rejectPathTotal > 0 ? `+${rejectPathTotal}` : rejectPathTotal} pts and mark as no?`
                   : "Submit as no-points review?"}
             </h3>
             <p className="mt-2 text-sm text-slate-600">
@@ -169,11 +173,11 @@ export function SubmissionReviewForm({ submissionId, defaultPoints, mood, produc
               <Sparkles size={14} />
               {decision === "true"
                 ? `Score input: ${safePoints > 0 ? `+${safePoints}` : safePoints} pts${safeBonus > 0 ? ` + bonus ${safeBonus}` : ""}`
-                : rejectPathPoints < 0
-                  ? `Penalty ${rejectPathPoints} pts will be applied`
+                : rejectPathTotal !== 0
+                  ? `No/Penalty path: ${rejectPathPoints > 0 ? `+${rejectPathPoints}` : rejectPathPoints} pts${safeBonus > 0 ? ` + bonus ${safeBonus}` : ""}`
                   : "Submission will be marked as no points"}
             </p>
-            {decision === "true" && safeBonus > 0 && (
+            {safeBonus > 0 && (
               <p className="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-700">
                 🎁 Bonus surprise enabled. User will get a gift-style popup.
               </p>

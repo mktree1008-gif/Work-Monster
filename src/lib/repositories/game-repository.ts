@@ -102,6 +102,37 @@ function defaultScore(userId: string): ScoreState {
   };
 }
 
+function toFiniteNumber(value: unknown, fallback: number): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+function normalizeScoreState(userId: string, raw: Partial<ScoreState> | null | undefined): ScoreState {
+  const seeded = defaultScore(userId);
+  const merged: ScoreState = {
+    ...seeded,
+    ...(raw ?? {}),
+    user_id: userId,
+    total_points: Math.round(toFiniteNumber(raw?.total_points, seeded.total_points)),
+    lifetime_points: Math.round(toFiniteNumber(raw?.lifetime_points, seeded.lifetime_points)),
+    current_streak: Math.max(0, Math.round(toFiniteNumber(raw?.current_streak, seeded.current_streak))),
+    longest_streak: Math.max(0, Math.round(toFiniteNumber(raw?.longest_streak, seeded.longest_streak))),
+    multiplier_active: typeof raw?.multiplier_active === "boolean" ? raw.multiplier_active : seeded.multiplier_active,
+    multiplier_value: toFiniteNumber(raw?.multiplier_value, seeded.multiplier_value),
+    penalty_active: typeof raw?.penalty_active === "boolean" ? raw.penalty_active : seeded.penalty_active,
+    negative_balance: Math.max(0, Math.round(toFiniteNumber(raw?.negative_balance, seeded.negative_balance))),
+    updated_at: typeof raw?.updated_at === "string" && raw.updated_at.trim().length > 0 ? raw.updated_at : seeded.updated_at
+  };
+
+  if (typeof raw?.last_approved_at === "string" && raw.last_approved_at.trim().length > 0) {
+    merged.last_approved_at = raw.last_approved_at;
+  } else {
+    delete merged.last_approved_at;
+  }
+
+  return merged;
+}
+
 const seedUserId = "seed_user";
 const seedManagerId = "seed_manager";
 
@@ -370,7 +401,11 @@ class MemoryGameRepository implements GameRepository {
 
   async getScore(uid: string): Promise<ScoreState> {
     const score = this.db.scores.get(uid);
-    if (score) return score;
+    if (score) {
+      const normalized = normalizeScoreState(uid, score);
+      this.db.scores.set(uid, normalized);
+      return normalized;
+    }
 
     const seeded = defaultScore(uid);
     this.db.scores.set(uid, seeded);
@@ -378,8 +413,9 @@ class MemoryGameRepository implements GameRepository {
   }
 
   async saveScore(score: ScoreState): Promise<ScoreState> {
-    this.db.scores.set(score.user_id, score);
-    return score;
+    const normalized = normalizeScoreState(score.user_id, score);
+    this.db.scores.set(score.user_id, normalized);
+    return normalized;
   }
 
   async listRewards(): Promise<Reward[]> {
@@ -715,12 +751,16 @@ class FirestoreGameRepository implements GameRepository {
       return seeded;
     }
 
-    return snap.data() as ScoreState;
+    const raw = snap.data() as Partial<ScoreState>;
+    const normalized = normalizeScoreState(uid, raw);
+    await ref.set(normalized, { merge: true });
+    return normalized;
   }
 
   async saveScore(score: ScoreState): Promise<ScoreState> {
-    await this.db.collection("scores").doc(score.user_id).set(score, { merge: true });
-    return score;
+    const normalized = normalizeScoreState(score.user_id, score);
+    await this.db.collection("scores").doc(score.user_id).set(normalized, { merge: true });
+    return normalized;
   }
 
   async listRewards(): Promise<Reward[]> {

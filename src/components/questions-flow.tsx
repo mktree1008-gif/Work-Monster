@@ -31,7 +31,7 @@ type StepDefinition = {
 };
 
 type StepState = {
-  choice: ChoiceKey | "CUSTOM" | "";
+  choice: ChoiceKey | "";
   customText: string;
 };
 
@@ -66,26 +66,26 @@ const stepDefinitions: StepDefinition[] = [
   },
   {
     id: "q2",
-    title: "Q2. How was your work progress?",
-    help: "Select your closest result for today.",
+    title: "Q2. How was your plan progress (%)?",
+    help: "Select your closest progress result for today.",
     options: [
       {
         key: "A",
-        label: "Major progress with clear output",
+        label: "Major progress (100%)",
         emoji: "🚀",
         mood: "Focused",
         productive: true
       },
       {
         key: "B",
-        label: "Some progress, still in progress",
+        label: "Some progress (70%)",
         emoji: "👍",
         mood: "Steady",
         productive: true
       },
       {
         key: "C",
-        label: "Blocked and behind schedule",
+        label: "Blocked (<50%)",
         emoji: "😓",
         mood: "Tired",
         productive: false
@@ -94,26 +94,26 @@ const stepDefinitions: StepDefinition[] = [
   },
   {
     id: "q3",
-    title: "Q3. What do you need next?",
-    help: "Choose your next move before submitting.",
+    title: "Q3. What do you need to be more productive?",
+    help: "Choose what can help your productivity most.",
     options: [
       {
         key: "A",
-        label: "Deep focus sprint",
-        emoji: "🔥",
+        label: "Enough sleep with recovery",
+        emoji: "🌙",
         mood: "Focused",
         productive: true
       },
       {
         key: "B",
-        label: "Short reset and continue",
-        emoji: "🧘",
+        label: "Having a better diet",
+        emoji: "🥗",
         mood: "Steady",
         productive: true
       },
       {
         key: "C",
-        label: "Need feedback or help",
+        label: "Need feedback",
         emoji: "🆘",
         mood: "Tired",
         productive: false
@@ -127,24 +127,22 @@ function initialSteps(): StepState[] {
 }
 
 function hasAnswer(state: StepState): boolean {
-  if (state.choice === "CUSTOM") {
-    return state.customText.trim().length > 0;
-  }
-  return state.choice !== "";
+  return state.choice !== "" || state.customText.trim().length > 0;
 }
 
 function selectedOption(stepIndex: number, state: StepState): Option | null {
-  if (state.choice === "CUSTOM" || state.choice === "") {
+  if (state.choice === "") {
     return null;
   }
   return stepDefinitions[stepIndex].options.find((item) => item.key === state.choice) ?? null;
 }
 
 function answerLabel(stepIndex: number, state: StepState): string {
-  if (state.choice === "CUSTOM") {
-    return state.customText.trim();
-  }
-  return selectedOption(stepIndex, state)?.label ?? "";
+  const option = selectedOption(stepIndex, state);
+  const custom = state.customText.trim();
+  if (option && custom) return `${option.label} | ${custom}`;
+  if (option) return option.label;
+  return custom;
 }
 
 export function QuestionsFlow({ locale, glasses = false, readOnly = false }: Props) {
@@ -163,7 +161,6 @@ export function QuestionsFlow({ locale, glasses = false, readOnly = false }: Pro
   const [alreadyDoneMessage, setAlreadyDoneMessage] = useState("");
 
   const progress = useMemo(() => Math.round(((step + 1) / stepDefinitions.length) * 100), [step]);
-  const determinedCue = getUserCue("questions_determined", locale);
   const confusedCue = getUserCue("questions_confused", locale);
   const managerCuriousCue = getManagerCue("upload_saved_pending", locale);
 
@@ -172,15 +169,30 @@ export function QuestionsFlow({ locale, glasses = false, readOnly = false }: Pro
   const currentOption = selectedOption(step, currentState);
   const stepCompleted = hasAnswer(currentState);
   const allAnswered = answers.every((item) => hasAnswer(item));
-  const reactionEmoji = currentOption?.emoji ?? (currentState.customText.trim() ? "✍️" : "🙂");
-  const reactionText = currentOption?.label ?? (currentState.customText.trim() || "Choose an option");
+  const customAnswerText = currentState.customText.trim();
+  const reactionEmoji = currentOption?.emoji ?? (customAnswerText ? "✍️" : "🙂");
+  const reactionText = currentOption
+    ? customAnswerText
+      ? `${currentOption.label} + ${customAnswerText}`
+      : currentOption.label
+    : customAnswerText || "Choose an option";
   const userEmotion =
-    currentState.choice === ""
+    !stepCompleted
       ? "neutral"
-      : currentOption?.productive === false || currentState.choice === "CUSTOM"
+      : currentOption?.productive === false
         ? "alert"
         : "excited";
   const managerEmotion = stepCompleted ? "approval" : "encouraging";
+  const answerInputLabel = currentStepDef.id === "q2" ? "Your answer (%)" : "Your answer";
+  const answerPlaceholder = isKo ? "직접 답변을 입력해 주세요." : "Type your own answer.";
+  const taskLabel = "Task log (Leave your works)";
+  const taskPlaceholder = isKo
+    ? "오늘 한 업무/학습/성과를 자유롭게 적어주세요."
+    : "Write what you worked on today (tasks, lessons, outputs).";
+  const fileLabel = "File link (optional)";
+  const filePlaceholder = isKo
+    ? "작업 파일 또는 링크를 저장하세요 (선택)."
+    : "Save file/link of your work (optional).";
 
   useEffect(() => {
     try {
@@ -210,7 +222,7 @@ export function QuestionsFlow({ locale, glasses = false, readOnly = false }: Pro
     setAnswers((prev) =>
       prev.map((item, index) => {
         if (index !== step) return item;
-        return { choice: key, customText: "" };
+        return { ...item, choice: key };
       })
     );
   }
@@ -222,10 +234,7 @@ export function QuestionsFlow({ locale, glasses = false, readOnly = false }: Pro
     setAnswers((prev) =>
       prev.map((item, index) => {
         if (index !== step) return item;
-        if (value.trim().length === 0) {
-          return item.choice === "CUSTOM" ? { choice: "", customText: "" } : { ...item, customText: "" };
-        }
-        return { choice: "CUSTOM", customText: value };
+        return { ...item, customText: value };
       })
     );
   }
@@ -302,8 +311,6 @@ export function QuestionsFlow({ locale, glasses = false, readOnly = false }: Pro
 
   return (
     <div className="space-y-4">
-      <CharacterAlert glasses={glasses} role="user" cue={determinedCue} compact />
-
       <div className="soft-card p-3">
         <div className="mb-1 flex items-center justify-between text-xs text-slate-500">
           <span>Daily check-in flow</span>
@@ -350,13 +357,13 @@ export function QuestionsFlow({ locale, glasses = false, readOnly = false }: Pro
         </div>
 
         <label className="text-sm font-semibold text-slate-600">
-          Your answer
+          {answerInputLabel}
           <textarea
             className="input mt-2 h-20 resize-none"
             disabled={readOnly}
             onChange={(event) => updateCustom(event.target.value)}
-            placeholder="Type your own answer if A/B/C does not fit."
-            value={currentState.choice === "CUSTOM" ? currentState.customText : ""}
+            placeholder={answerPlaceholder}
+            value={currentState.customText}
           />
         </label>
 
@@ -371,7 +378,7 @@ export function QuestionsFlow({ locale, glasses = false, readOnly = false }: Pro
 
         {showConfusedHint && (
           <div className="rounded-2xl border border-amber-200 bg-amber-50 p-2">
-            <CharacterAlert glasses={glasses} role="user" cue={confusedCue} compact tone="warning" />
+            <CharacterAlert glasses={glasses} role="user" cue={confusedCue} compact showSpriteName={false} tone="warning" />
           </div>
         )}
       </article>
@@ -379,21 +386,22 @@ export function QuestionsFlow({ locale, glasses = false, readOnly = false }: Pro
       {step === stepDefinitions.length - 1 && (
         <article className="card space-y-3 p-5">
           <label className="text-sm font-semibold text-slate-600">
-            Task log (one task per line)
+            {taskLabel}
             <textarea
               className="input mt-2 h-24 resize-none"
               disabled={readOnly}
               onChange={(event) => setTaskList(event.target.value)}
-              placeholder="- Ship homepage\n- Review PR\n- Sync with manager"
+              placeholder={taskPlaceholder}
               value={taskList}
             />
           </label>
           <label className="text-sm font-semibold text-slate-600">
-            File link (optional)
+            {fileLabel}
             <input
               className="input mt-2"
               disabled={readOnly}
               onChange={(event) => setFileUrl(event.target.value)}
+              placeholder={filePlaceholder}
               value={fileUrl}
             />
           </label>

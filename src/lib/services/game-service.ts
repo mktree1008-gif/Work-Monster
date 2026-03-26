@@ -199,7 +199,7 @@ export async function approveSubmission(
   const rawPoints = Number.isFinite(input.points) ? Math.round(input.points) : 0;
   const normalizedPoints = input.approved ? rawPoints : Math.min(0, rawPoints);
   const bonusRaw = Number.isFinite(input.bonus_points) ? Math.round(input.bonus_points ?? 0) : 0;
-  const normalizedBonus = input.approved ? Math.max(0, bonusRaw) : 0;
+  const normalizedBonus = Math.max(0, bonusRaw);
   const normalizedBonusMessage = normalizedBonus > 0 ? String(input.bonus_message ?? "").trim().slice(0, 180) : "";
   const now = nowISO();
   const score = await repo.getScore(submission.user_id);
@@ -230,13 +230,13 @@ export async function approveSubmission(
       updated_at: now,
       last_approved_at: submission.date
     };
-  } else if (normalizedPoints !== 0) {
+  } else if (normalizedPoints !== 0 || normalizedBonus > 0) {
     baseAppliedPoints = normalizedPoints;
-    appliedPoints = normalizedPoints;
+    appliedPoints = normalizedPoints + normalizedBonus;
     nextScore = {
       ...score,
-      total_points: score.total_points + normalizedPoints,
-      lifetime_points: score.lifetime_points + Math.max(0, normalizedPoints),
+      total_points: score.total_points + appliedPoints,
+      lifetime_points: score.lifetime_points + Math.max(0, appliedPoints),
       updated_at: now
     };
   }

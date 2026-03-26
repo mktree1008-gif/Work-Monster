@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 import { getSession } from "@/lib/session";
 import { logoutAction, setLocaleAction, updateNicknameAction } from "@/lib/services/actions";
 import { getGameRepository } from "@/lib/repositories/game-repository";
@@ -22,6 +24,12 @@ export default async function AccountPage({ searchParams }: Props) {
 
   return (
     <main className="container-mobile page-padding">
+      <div className="mb-3">
+        <Link className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-2 text-sm font-semibold text-indigo-700 shadow-sm" href="/app/welcome">
+          <ArrowLeft size={16} />
+          Back
+        </Link>
+      </div>
       <section className="card p-5">
         <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Account</p>
         <h1 className="display-cute mt-2 text-4xl text-indigo-900">{displayName}</h1>

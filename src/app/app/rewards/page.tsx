@@ -1,5 +1,6 @@
 import { CharacterAlert } from "@/components/character-alert";
 import { RewardClaimPopup } from "@/components/reward-claim-popup";
+import { RewardProgressBattery } from "@/components/reward-progress-battery";
 import { getUserCue } from "@/lib/character-system";
 import { claimRewardAction } from "@/lib/services/actions";
 import { UserPageShell } from "@/components/user-page-shell";
@@ -43,27 +44,45 @@ export default async function RewardsPage({ searchParams }: Props) {
           const claim = claims.get(reward.id);
           const locked = bundle.score.total_points < reward.required_points;
           const status = claim?.status === "claimed" ? "Claimed" : locked ? "Locked" : "Available";
+          const safeRequired = Math.max(1, reward.required_points);
+          const progressPercent =
+            status === "Claimed"
+              ? 100
+              : Math.max(0, Math.min(100, Math.round((Math.max(bundle.score.total_points, 0) / safeRequired) * 100)));
+          const tone = (["sunset", "gold", "mint", "violet"] as const)[
+            Math.min(3, Math.max(0, Math.floor((reward.required_points / 40) % 4)))
+          ];
 
           return (
-            <article key={reward.id} className="card p-4">
-              <div className="flex items-start justify-between">
-                <div>
-                  <h2 className="text-xl font-black text-indigo-900">🎁 {reward.title}</h2>
+            <article key={reward.id} className="card overflow-hidden p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <h2 className="text-xl font-black text-indigo-900">🎁 {reward.title}</h2>
+                    <span
+                      className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${
+                        status === "Claimed"
+                          ? "bg-emerald-100 text-emerald-700"
+                          : status === "Available"
+                            ? "bg-indigo-100 text-indigo-800"
+                            : "bg-slate-100 text-slate-500"
+                      }`}
+                    >
+                      {status}
+                    </span>
+                  </div>
                   <p className="text-sm text-slate-500">{reward.description}</p>
+                  <p className="mt-2 text-xs font-bold uppercase tracking-[0.18em] text-indigo-500">Battery progress</p>
+                  <p className="mt-1 text-sm font-semibold text-slate-600">Required points: {reward.required_points}</p>
                 </div>
-                <span
-                  className={`rounded-full px-3 py-1 text-xs font-bold ${
-                    status === "Claimed"
-                      ? "bg-emerald-100 text-emerald-700"
-                      : status === "Available"
-                        ? "bg-indigo-100 text-indigo-800"
-                        : "bg-slate-100 text-slate-500"
-                  }`}
-                >
-                  {status}
-                </span>
+                <RewardProgressBattery
+                  currentPoints={bundle.score.total_points}
+                  progressPercent={progressPercent}
+                  requiredPoints={reward.required_points}
+                  status={status}
+                  tone={tone}
+                />
               </div>
-              <p className="mt-3 text-sm font-semibold text-slate-600">Required points: {reward.required_points}</p>
 
               {status === "Available" && !managerPreview && (
                 <form action={claimRewardAction} className="mt-3">
