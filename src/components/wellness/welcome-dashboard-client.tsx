@@ -276,9 +276,14 @@ export function WelcomeDashboardClient({ mission, checkinState, labels, score, r
                 <p className="mt-2 text-sm text-blue-100">
                   {planCount > 0 ? `${planCount} checklist items ready.` : "Set top priorities and build your checklist."}
                 </p>
-                <Link className="mt-4 inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-bold text-blue-700" href="/app/plan">
-                  <ClipboardList size={15} />
-                  Open planner
+                <Link
+                  className="mt-4 inline-flex items-center gap-2 rounded-full border border-blue-100 bg-white px-4 py-2 text-sm font-black text-slate-900 shadow-[0_8px_18px_rgba(8,42,120,0.2)]"
+                  href="/app/plan"
+                >
+                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-blue-100 text-blue-700">
+                    <ClipboardList size={13} />
+                  </span>
+                  <span className="tracking-tight">Open planner</span>
                 </Link>
               </div>
               <div className="relative mt-1 h-20 w-20 shrink-0 rounded-3xl bg-white/15 p-3">
