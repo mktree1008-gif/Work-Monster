@@ -1,5 +1,6 @@
 import { DEFAULT_RULES } from "@/lib/constants";
 import { computeMultiplier, computePenaltyState, computeStreak } from "@/lib/logic/scoring";
+import { encodeMissionAnnouncement, getMissionDueDate, isMissionForUser, parseMissionAnnouncement } from "@/lib/mission";
 import {
   createAuditLog,
   getGameRepository,
@@ -41,6 +42,11 @@ type DailyLoginAwardResult = {
   awarded: boolean;
   points: number;
   date: string;
+  inactivityPenaltyDetected?: {
+    loginDate: string;
+    missedDays: number;
+    suggestedPoints: number;
+  };
 };
 
 type SubmitDailyCheckInResult = {
@@ -53,6 +59,16 @@ type StreakSummary = {
   current_streak: number;
   longest_streak: number;
   last_approved_at?: string;
+};
+
+type InactivityPenaltyDraft = {
+  targetId: string;
+  userId: string;
+  baselineDate: string;
+  loginDate: string;
+  missedDays: number;
+  pointsPerDay: number;
+  suggestedPoints: number;
 };
 
 function toSafeInt(value: unknown): number {
@@ -69,6 +85,107 @@ function dayDiff(fromISODate: string, toISODateValue: string): number {
   const to = new Date(`${toISODateValue}T00:00:00.000Z`).getTime();
   if (!Number.isFinite(from) || !Number.isFinite(to)) return 0;
   return Math.round((to - from) / 86_400_000);
+}
+
+function toPenaltyTargetId(userId: string, loginDate: string): string {
+  return `inactivity-penalty:${userId}:${loginDate}`;
+}
+
+function parsePenaltyTargetId(targetId: string): { userId: string; loginDate: string } | null {
+  const matched = targetId.match(/^inactivity-penalty:([^:]+):(\d{4}-\d{2}-\d{2})$/);
+  if (!matched) return null;
+  return { userId: matched[1], loginDate: matched[2] };
+}
+
+function latestReferenceDate(user: UserProfile): string {
+  const lastLogin = isISODateString(user.last_login_point_date ?? "") ? (user.last_login_point_date as string) : "";
+  const lastPenalty = isISODateString(user.last_inactivity_penalty_date ?? "") ? (user.last_inactivity_penalty_date as string) : "";
+  if (!lastLogin) return lastPenalty;
+  if (!lastPenalty) return lastLogin;
+  return lastPenalty > lastLogin ? lastPenalty : lastLogin;
+}
+
+function resolveInactivityPenaltyDraft(
+  user: UserProfile,
+  rules: RuleConfig,
+  loginDate: string
+): InactivityPenaltyDraft | null {
+  if (user.role !== "user") return null;
+  if (!rules.inactivity_penalty_enabled) return null;
+  if (!isISODateString(loginDate)) return null;
+  const baselineDate = latestReferenceDate(user);
+  if (!baselineDate || !isISODateString(baselineDate)) return null;
+  const diff = dayDiff(baselineDate, loginDate);
+  if (!Number.isFinite(diff) || diff <= 1) return null;
+
+  const missedDays = Math.max(0, diff - 1);
+  if (missedDays <= 0) return null;
+  const pointsPerDay = Math.round(rules.inactivity_penalty_points_per_day ?? -3);
+  const suggestedPoints = pointsPerDay * missedDays;
+
+  return {
+    targetId: toPenaltyTargetId(user.id, loginDate),
+    userId: user.id,
+    baselineDate,
+    loginDate,
+    missedDays,
+    pointsPerDay,
+    suggestedPoints
+  };
+}
+
+const RULE_SECTION_LABELS: Record<string, string> = {
+  checkin_points: "Check-in points",
+  submission_points: "Submission points",
+  productive_points: "Productive bonus",
+  non_productive_penalty: "Penalty points",
+  inactivity_penalty_enabled: "Inactive login penalty toggle",
+  inactivity_penalty_points_per_day: "Inactive login penalty per day",
+  streak_days: "Streak rule",
+  multiplier_trigger_days: "Multiplier trigger",
+  multiplier_value: "Multiplier value",
+  greeting_message: "Greeting copy",
+  success_message: "Success copy",
+  rule_description_text: "Rule description",
+  manager_logic_text: "Manager logic text",
+  penalty_description: "Penalty description",
+  rewards_blurb: "Rewards copy",
+  penalty_thresholds: "Penalty thresholds",
+  penalty_rewards: "Penalty rewards",
+  penalty_action_rules: "Penalty actions"
+};
+
+function summarizeRuleSections(sections: string[], locale: UserProfile["locale"]): string {
+  const labels = sections
+    .map((section) => RULE_SECTION_LABELS[section] ?? section.replaceAll("_", " "))
+    .slice(0, 4);
+  if (labels.length === 0) {
+    return locale === "ko" ? "세부 업데이트가 적용되었습니다." : "Detailed updates were applied.";
+  }
+  if (locale === "ko") {
+    return `변경 항목: ${labels.join(", ")}${sections.length > labels.length ? " 외" : ""}`;
+  }
+  return `Updated: ${labels.join(", ")}${sections.length > labels.length ? ", and more" : ""}`;
+}
+
+function toISODateOnly(value: string): string {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : "";
+}
+
+function extractISODate(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const text = value.trim();
+  return isISODateString(text) ? text : null;
+}
+
+function computeMissionDuration(startDate: string, dueDate: string): number {
+  const start = toISODateOnly(startDate);
+  const due = toISODateOnly(dueDate);
+  if (!start || !due) return 0;
+  const startTime = new Date(`${start}T00:00:00.000Z`).getTime();
+  const dueTime = new Date(`${due}T00:00:00.000Z`).getTime();
+  if (!Number.isFinite(startTime) || !Number.isFinite(dueTime) || dueTime < startTime) return 0;
+  return Math.max(1, Math.round((dueTime - startTime) / 86_400_000) + 1);
 }
 
 function summarizeApprovedStreak(approvedDates: string[]): StreakSummary {
@@ -252,6 +369,7 @@ export async function awardDailyLoginPoints(userId: string): Promise<DailyLoginA
   }
 
   const loginDate = toISODate();
+  const inactivityDraft = resolveInactivityPenaltyDraft(user, rules, loginDate);
   if (user.last_login_point_date === loginDate) {
     return { awarded: false, points: 0, date: loginDate };
   }
@@ -275,8 +393,181 @@ export async function awardDailyLoginPoints(userId: string): Promise<DailyLoginA
     );
   }
 
+  if (inactivityDraft) {
+    const logs = await repo.listAuditLogs(2000);
+    const alreadyTracked = logs.some(
+      (log) =>
+        log.target_id === inactivityDraft.targetId
+        && (
+          log.action === "login.inactivity_penalty_detected"
+          || log.action === "login.inactivity_penalty_applied"
+          || log.action === "login.inactivity_penalty_skipped"
+        )
+    );
+
+    if (!alreadyTracked) {
+      await repo.saveAuditLog(
+        createAuditLog(user.id, "login.inactivity_penalty_detected", inactivityDraft.targetId, {
+          user_id: inactivityDraft.userId,
+          login_date: inactivityDraft.loginDate,
+          baseline_date: inactivityDraft.baselineDate,
+          missed_days: inactivityDraft.missedDays,
+          points_per_day: inactivityDraft.pointsPerDay,
+          suggested_points: inactivityDraft.suggestedPoints
+        })
+      );
+    }
+  }
+
   await repo.updateUser(userId, { last_login_point_date: loginDate });
-  return { awarded: celebrateAward, points: loginPoints, date: loginDate };
+  return {
+    awarded: celebrateAward,
+    points: loginPoints,
+    date: loginDate,
+    inactivityPenaltyDetected: inactivityDraft
+      ? {
+          loginDate: inactivityDraft.loginDate,
+          missedDays: inactivityDraft.missedDays,
+          suggestedPoints: inactivityDraft.suggestedPoints
+        }
+      : undefined
+  };
+}
+
+export async function applyInactivityPenalty(
+  managerId: string,
+  payload: {
+    target_id: string;
+    points?: number;
+    note?: string;
+  }
+): Promise<{ userId: string; loginDate: string; missedDays: number; appliedPoints: number }> {
+  const repo = getGameRepository();
+  const targetId = String(payload.target_id ?? "").trim();
+  const parsedTarget = parsePenaltyTargetId(targetId);
+  if (!parsedTarget) {
+    throw new Error("Invalid inactivity penalty target.");
+  }
+
+  const [user, logs, score] = await Promise.all([
+    repo.getUser(parsedTarget.userId),
+    repo.listAuditLogs(4000),
+    repo.getScore(parsedTarget.userId)
+  ]);
+  if (!user) {
+    throw new Error("Target user not found.");
+  }
+  if (user.role !== "user") {
+    throw new Error("Inactive login penalties are only for user accounts.");
+  }
+
+  const detectedLog = logs
+    .filter((log) => log.target_id === targetId && log.action === "login.inactivity_penalty_detected")
+    .sort((a, b) => (a.created_at > b.created_at ? -1 : 1))[0];
+  if (!detectedLog) {
+    throw new Error("No pending inactivity penalty candidate found.");
+  }
+
+  const alreadyResolved = logs.some(
+    (log) =>
+      log.target_id === targetId
+      && (log.action === "login.inactivity_penalty_applied" || log.action === "login.inactivity_penalty_skipped")
+  );
+  if (alreadyResolved) {
+    throw new Error("This inactivity penalty has already been resolved.");
+  }
+
+  const missedDays = toSafeInt(detectedLog.details.missed_days);
+  const suggestedPoints = toSafeInt(detectedLog.details.suggested_points);
+  const appliedPoints = Number.isFinite(payload.points) ? Math.round(payload.points ?? 0) : suggestedPoints;
+
+  if (appliedPoints !== 0) {
+    await repo.saveScore({
+      ...score,
+      total_points: score.total_points + appliedPoints,
+      lifetime_points: score.lifetime_points + Math.max(0, appliedPoints),
+      updated_at: nowISO()
+    });
+    await recalculateScore(parsedTarget.userId);
+  }
+
+  await repo.updateUser(parsedTarget.userId, { last_inactivity_penalty_date: parsedTarget.loginDate });
+  await repo.saveAuditLog(
+    createAuditLog(managerId, "login.inactivity_penalty_applied", targetId, {
+      user_id: parsedTarget.userId,
+      login_date: parsedTarget.loginDate,
+      baseline_date: String(detectedLog.details.baseline_date ?? ""),
+      missed_days: missedDays,
+      suggested_points: suggestedPoints,
+      points_applied: appliedPoints,
+      note: String(payload.note ?? "").trim()
+    })
+  );
+
+  return {
+    userId: parsedTarget.userId,
+    loginDate: parsedTarget.loginDate,
+    missedDays,
+    appliedPoints
+  };
+}
+
+export async function skipInactivityPenalty(
+  managerId: string,
+  payload: {
+    target_id: string;
+    note?: string;
+  }
+): Promise<{ userId: string; loginDate: string; missedDays: number }> {
+  const repo = getGameRepository();
+  const targetId = String(payload.target_id ?? "").trim();
+  const parsedTarget = parsePenaltyTargetId(targetId);
+  if (!parsedTarget) {
+    throw new Error("Invalid inactivity penalty target.");
+  }
+
+  const [user, logs] = await Promise.all([
+    repo.getUser(parsedTarget.userId),
+    repo.listAuditLogs(4000)
+  ]);
+  if (!user) {
+    throw new Error("Target user not found.");
+  }
+
+  const detectedLog = logs
+    .filter((log) => log.target_id === targetId && log.action === "login.inactivity_penalty_detected")
+    .sort((a, b) => (a.created_at > b.created_at ? -1 : 1))[0];
+  if (!detectedLog) {
+    throw new Error("No pending inactivity penalty candidate found.");
+  }
+
+  const alreadyResolved = logs.some(
+    (log) =>
+      log.target_id === targetId
+      && (log.action === "login.inactivity_penalty_applied" || log.action === "login.inactivity_penalty_skipped")
+  );
+  if (alreadyResolved) {
+    throw new Error("This inactivity penalty has already been resolved.");
+  }
+
+  const missedDays = toSafeInt(detectedLog.details.missed_days);
+  await repo.updateUser(parsedTarget.userId, { last_inactivity_penalty_date: parsedTarget.loginDate });
+  await repo.saveAuditLog(
+    createAuditLog(managerId, "login.inactivity_penalty_skipped", targetId, {
+      user_id: parsedTarget.userId,
+      login_date: parsedTarget.loginDate,
+      baseline_date: String(detectedLog.details.baseline_date ?? ""),
+      missed_days: missedDays,
+      suggested_points: toSafeInt(detectedLog.details.suggested_points),
+      note: String(payload.note ?? "").trim()
+    })
+  );
+
+  return {
+    userId: parsedTarget.userId,
+    loginDate: parsedTarget.loginDate,
+    missedDays
+  };
 }
 
 export async function approveSubmission(
@@ -458,6 +749,11 @@ export async function rebuildUserScoreFromHistory(userId: string): Promise<Score
       continue;
     }
 
+    if (log.action === "login.inactivity_penalty_applied" && String(log.details.user_id ?? "") === userId) {
+      addDelta(toSafeInt(log.details.points_applied));
+      continue;
+    }
+
     if (
       log.action === "submission.base_points_awarded"
       && log.actor_user_id === userId
@@ -568,11 +864,12 @@ export async function updateRules(
     : manualTarget
       ? `Rule version set to v${nextVersion}`
       : "Manager updated the rules";
+  const sectionSummary = summarizeRuleSections(changedFields, "en");
   const changeDescription = note?.trim()
-    ? note.trim()
+    ? `${note.trim()} • ${sectionSummary}`
     : manualTarget
-      ? "Manager adjusted the rule version label."
-      : "Rules have been adjusted.";
+      ? `Manager adjusted the rule version label. ${sectionSummary}`
+      : `${sectionSummary}. Open Rules tab for full details.`;
   const changeEntry = {
     version: nextVersion,
     title: changeTitle,
@@ -769,6 +1066,180 @@ export async function createAnnouncement(
   return announcement;
 }
 
+export async function assignMission(
+  managerId: string,
+  payload: {
+    target_user_id: string;
+    title: string;
+    objective: string;
+    start_date?: string;
+    due_date?: string;
+    duration_days?: number;
+    deadline?: string;
+    bonus_points?: number;
+  }
+): Promise<Announcement> {
+  const targetUserId = String(payload.target_user_id ?? "").trim();
+  const title = String(payload.title ?? "").trim();
+  const objective = String(payload.objective ?? "").trim();
+  const startDate = toISODateOnly(String(payload.start_date ?? "").trim());
+  const dueDateFromInput = toISODateOnly(String(payload.due_date ?? "").trim());
+  const legacyDeadline = toISODateOnly(String(payload.deadline ?? "").trim());
+  const dueDate = dueDateFromInput || legacyDeadline;
+  const durationDaysRaw = Number(payload.duration_days ?? 0);
+  const computedDuration = Number.isFinite(durationDaysRaw) && durationDaysRaw > 0
+    ? Math.max(1, Math.round(durationDaysRaw))
+    : computeMissionDuration(startDate || toISODate(), dueDate);
+  const bonusPointsRaw = Number(payload.bonus_points ?? 0);
+  const bonusPoints = Number.isFinite(bonusPointsRaw) ? Math.max(0, Math.round(bonusPointsRaw)) : 0;
+
+  if (!targetUserId) {
+    throw new Error("Target user is required.");
+  }
+  if (!title) {
+    throw new Error("Mission title is required.");
+  }
+  if (!objective) {
+    throw new Error("Mission objective is required.");
+  }
+  if (startDate && dueDate && dueDate < startDate) {
+    throw new Error("Due date must be the same as or after start date.");
+  }
+
+  const repo = getGameRepository();
+  const announcement = await createAnnouncement(managerId, {
+    title,
+    message: encodeMissionAnnouncement({
+      target_user_id: targetUserId,
+      title,
+      objective,
+      start_date: startDate,
+      due_date: dueDate,
+      duration_days: computedDuration,
+      deadline: dueDate,
+      bonus_points: bonusPoints
+    })
+  });
+
+  await repo.saveAuditLog(
+    createAuditLog(managerId, "mission.assigned", announcement.id, {
+      target_user_id: targetUserId,
+      title,
+      objective,
+      start_date: startDate,
+      due_date: dueDate,
+      duration_days: computedDuration,
+      bonus_points: bonusPoints
+    })
+  );
+
+  return announcement;
+}
+
+export async function updateMission(
+  managerId: string,
+  payload: {
+    mission_announcement_id: string;
+    target_user_id: string;
+    title: string;
+    objective: string;
+    start_date?: string;
+    due_date?: string;
+    duration_days?: number;
+    bonus_points?: number;
+  }
+): Promise<Announcement> {
+  const repo = getGameRepository();
+  const missionAnnouncementId = String(payload.mission_announcement_id ?? "").trim();
+  if (!missionAnnouncementId) {
+    throw new Error("Mission ID is required.");
+  }
+
+  const found = await repo.getAnnouncement(missionAnnouncementId);
+  if (!found) {
+    throw new Error("Mission not found.");
+  }
+  if (!parseMissionAnnouncement(found.message ?? "")) {
+    throw new Error("This announcement is not a mission.");
+  }
+
+  const targetUserId = String(payload.target_user_id ?? "").trim();
+  const title = String(payload.title ?? "").trim();
+  const objective = String(payload.objective ?? "").trim();
+  const startDate = toISODateOnly(String(payload.start_date ?? "").trim());
+  const dueDate = toISODateOnly(String(payload.due_date ?? "").trim());
+  const durationDaysRaw = Number(payload.duration_days ?? 0);
+  const durationDays = Number.isFinite(durationDaysRaw) && durationDaysRaw > 0
+    ? Math.max(1, Math.round(durationDaysRaw))
+    : computeMissionDuration(startDate || toISODate(), dueDate);
+  const bonusPointsRaw = Number(payload.bonus_points ?? 0);
+  const bonusPoints = Number.isFinite(bonusPointsRaw) ? Math.max(0, Math.round(bonusPointsRaw)) : 0;
+
+  if (!targetUserId) throw new Error("Target user is required.");
+  if (!title) throw new Error("Mission title is required.");
+  if (!objective) throw new Error("Mission objective is required.");
+  if (startDate && dueDate && dueDate < startDate) {
+    throw new Error("Due date must be the same as or after start date.");
+  }
+
+  const next: Announcement = {
+    ...found,
+    title,
+    message: encodeMissionAnnouncement({
+      target_user_id: targetUserId,
+      title,
+      objective,
+      start_date: startDate,
+      due_date: dueDate,
+      duration_days: durationDays,
+      deadline: dueDate,
+      bonus_points: bonusPoints
+    }),
+    created_at: nowISO()
+  };
+
+  await repo.saveAnnouncement(next);
+  await repo.saveAuditLog(
+    createAuditLog(managerId, "mission.updated", missionAnnouncementId, {
+      target_user_id: targetUserId,
+      title,
+      objective,
+      start_date: startDate,
+      due_date: dueDate,
+      duration_days: durationDays,
+      bonus_points: bonusPoints
+    })
+  );
+
+  return next;
+}
+
+export async function deleteMission(
+  managerId: string,
+  payload: { mission_announcement_id: string }
+): Promise<void> {
+  const repo = getGameRepository();
+  const missionAnnouncementId = String(payload.mission_announcement_id ?? "").trim();
+  if (!missionAnnouncementId) {
+    throw new Error("Mission ID is required.");
+  }
+
+  const found = await repo.getAnnouncement(missionAnnouncementId);
+  if (!found) {
+    throw new Error("Mission not found.");
+  }
+  if (!parseMissionAnnouncement(found.message ?? "")) {
+    throw new Error("This announcement is not a mission.");
+  }
+
+  await repo.deleteAnnouncement(missionAnnouncementId);
+  await repo.saveAuditLog(
+    createAuditLog(managerId, "mission.deleted", missionAnnouncementId, {
+      title: found.title
+    })
+  );
+}
+
 export async function acknowledgeRuleVersion(userId: string): Promise<UserProfile> {
   const repo = getGameRepository();
   const rules = await repo.getRules();
@@ -787,6 +1258,7 @@ export async function getDashboard(uid: string): Promise<DashboardBundle> {
   const managerUpdates: ManagerUpdateNotification[] = [];
   const managerUpdateFeed: ManagerUpdateNotification[] = [];
   const latestRuleChange = bundle.rules.changelog[0] ?? null;
+  const latestRuleSummary = summarizeRuleSections(latestRuleChange?.sections ?? [], bundle.user.locale);
   const ruleUpdateItem: ManagerUpdateNotification = {
     id: `rule-${bundle.rules.rule_version}`,
     kind: "rule_update",
@@ -798,9 +1270,10 @@ export async function getDashboard(uid: string): Promise<DashboardBundle> {
     message: latestRuleChange?.description?.trim()
       ? latestRuleChange.description
       : isKo
-        ? "매니저가 게임 규칙을 업데이트했어요. Rules 탭에서 변경 내용을 확인하세요."
-        : "Manager updated game rules. Open Rules tab to check details.",
-    created_at: bundle.rules.last_updated
+        ? `${latestRuleSummary} Rules 탭에서 변경 내용을 확인하세요.`
+        : `${latestRuleSummary} Open Rules tab to review details.`,
+    created_at: bundle.rules.last_updated,
+    deep_link: "/app/rules"
   };
 
   managerUpdateFeed.push(ruleUpdateItem);
@@ -865,6 +1338,29 @@ export async function getDashboard(uid: string): Promise<DashboardBundle> {
       }
     }
 
+    if (log.action === "login.inactivity_penalty_applied" && String(log.details.user_id ?? "") === bundle.user.id) {
+      const missedDays = Math.max(0, toSafeInt(log.details.missed_days));
+      const pointsApplied = toSafeInt(log.details.points_applied);
+      const note = String(log.details.note ?? "").trim();
+      const loginDate = extractISODate(log.details.login_date) ?? "";
+      const summaryMessage = isKo
+        ? `${missedDays}일 미로그인으로 ${pointsApplied} pts가 반영됐습니다.${loginDate ? ` (${loginDate})` : ""}`
+        : `${pointsApplied} pts applied for ${missedDays} inactive day(s).${loginDate ? ` (${loginDate})` : ""}`;
+      const updateItem: ManagerUpdateNotification = {
+        id: log.id,
+        kind: "submission_review",
+        title: isKo ? "미로그인 페널티가 반영됐어요" : "Inactive login penalty applied",
+        message: note.length > 0 ? `${note} • ${summaryMessage}` : summaryMessage,
+        created_at: log.created_at,
+        review_points: pointsApplied,
+        deep_link: "/app/score"
+      };
+      managerUpdateFeed.push(updateItem);
+      if (log.created_at > threshold) {
+        managerUpdates.push(updateItem);
+      }
+    }
+
     if (log.action === "reward.created" || log.action === "reward.updated" || log.action === "reward.deleted") {
       const updateItem: ManagerUpdateNotification = {
         id: log.id,
@@ -903,19 +1399,79 @@ export async function getDashboard(uid: string): Promise<DashboardBundle> {
         ? "/app/rules"
         : item.kind === "reward_update"
           ? "/app/rewards"
+          : item.deep_link ?? "/app/record",
+    category:
+      item.kind === "rule_update"
+        ? "rules"
+        : item.kind === "submission_review"
+          ? "review_points"
+          : "manager_message",
+    cta_label:
+      item.kind === "rule_update"
+        ? "Check updated rules"
+        : item.kind === "submission_review"
+          ? item.deep_link === "/app/score"
+            ? "Open score"
+            : "Open review"
+          : "Open update",
+    cta_link:
+      item.kind === "rule_update"
+        ? "/app/rules"
+        : item.kind === "reward_update"
+          ? "/app/rewards"
           : item.deep_link ?? "/app/record"
   }));
 
-  const announcementNotifications: AppNotification[] = announcements.map((item) => ({
-    id: `announce-${item.id}`,
-    kind: "announcement",
-    title: isKo ? "Manager로부터 메시지가 도착했습니다" : "A message arrived from Manager",
-    message: item.message,
-    created_at: item.created_at,
-    is_new: item.created_at > notificationsThreshold,
-    image_url: item.image_url,
-    source_id: item.id
-  }));
+  const announcementNotifications: AppNotification[] = announcements.flatMap((item) => {
+    const parsedMission = parseMissionAnnouncement(item.message ?? "");
+    if (parsedMission && !isMissionForUser(parsedMission, bundle.user.id)) {
+      return [];
+    }
+
+    const missionTitle = parsedMission?.title?.trim() ?? "";
+    const missionObjective = parsedMission?.objective?.trim() ?? "";
+    const missionStartDate = parsedMission?.start_date?.trim() ?? "";
+    const missionDueDate = parsedMission ? getMissionDueDate(parsedMission) : "";
+    const missionDurationDays = parsedMission?.duration_days ?? 0;
+    const missionBonus = parsedMission?.bonus_points ?? 0;
+
+    const hasMissionPayload = Boolean(parsedMission);
+    const fallbackTitle = item.title?.trim() || (isKo ? "Manager로부터 메시지가 도착했습니다" : "A message arrived from Manager");
+    const title = hasMissionPayload ? missionTitle || fallbackTitle : fallbackTitle;
+    const missionMetaChunks = [
+      missionStartDate ? `Start: ${missionStartDate}` : "",
+      missionDueDate ? `Due: ${missionDueDate}` : "",
+      missionBonus > 0 ? `Bonus: +${missionBonus} pts` : ""
+    ].filter(Boolean);
+    const message = hasMissionPayload
+      ? [missionObjective, ...missionMetaChunks].filter(Boolean).join(" • ")
+      : item.message;
+    const lowerTitle = title.toLowerCase();
+    const lowerMessage = String(message ?? "").toLowerCase();
+    const isRulesNotice = !hasMissionPayload
+      && (lowerTitle.includes("rule") || lowerTitle.includes("penalty") || lowerMessage.includes("rule version") || lowerMessage.includes("penalty rule"));
+
+    return [
+      {
+        id: `announce-${item.id}`,
+        kind: "announcement" as const,
+        title,
+        message,
+        created_at: item.created_at,
+        is_new: item.created_at > notificationsThreshold,
+        image_url: item.image_url,
+        source_id: item.id,
+        deep_link: hasMissionPayload ? "/app/mission" : isRulesNotice ? "/app/rules" : undefined,
+        category: hasMissionPayload ? "mission" : isRulesNotice ? "rules" : "manager_message",
+        cta_label: hasMissionPayload ? "Open mission" : isRulesNotice ? "Check updated rules" : "View details",
+        cta_link: hasMissionPayload ? "/app/mission" : isRulesNotice ? "/app/rules" : undefined,
+        mission_start_date: hasMissionPayload ? missionStartDate : undefined,
+        mission_due_date: hasMissionPayload ? missionDueDate : undefined,
+        mission_duration_days: hasMissionPayload && missionDurationDays > 0 ? missionDurationDays : undefined,
+        mission_bonus_points: hasMissionPayload ? missionBonus : undefined
+      }
+    ];
+  });
 
   const notifications = [...managerUpdateNotifications, ...announcementNotifications]
     .sort((a, b) => (a.created_at > b.created_at ? -1 : 1))
@@ -932,8 +1488,9 @@ export async function getDashboard(uid: string): Promise<DashboardBundle> {
 export async function getManagerOverview(managerId: string) {
   await rebuildAllUserScores();
   const repo = getGameRepository();
-  const [managerUser, pendingSubmissions, rules, rewards, openPenaltyEvents, auditLogs, rewardClaimAlerts, announcements] = await Promise.all([
+  const [managerUser, users, pendingSubmissions, rules, rewards, openPenaltyEvents, auditLogs, rewardClaimAlerts, announcements] = await Promise.all([
     repo.getUser(managerId),
+    repo.listUsers(),
     repo.listPendingSubmissions(),
     repo.getRules(),
     repo.listRewards(),
@@ -943,9 +1500,7 @@ export async function getManagerOverview(managerId: string) {
     repo.listAnnouncements(12)
   ]);
   const isKo = managerUser?.locale === "ko";
-  const userIds = [...new Set(pendingSubmissions.map((submission) => submission.user_id))];
-  const userPairs = await Promise.all(userIds.map(async (id) => [id, await repo.getUser(id)] as const));
-  const userMap = new Map(userPairs);
+  const userMap = new Map(users.map((item) => [item.id, item]));
 
   const claimAlerts = await Promise.all(
     rewardClaimAlerts.map(async (claim) => {
@@ -960,6 +1515,50 @@ export async function getManagerOverview(managerId: string) {
     })
   );
 
+  const inactivityDetectedByTarget = new Map<string, (typeof auditLogs)[number]>();
+  const resolvedInactivityTargets = new Set<string>();
+
+  for (const log of auditLogs) {
+    if (log.action === "login.inactivity_penalty_detected") {
+      const prev = inactivityDetectedByTarget.get(log.target_id);
+      if (!prev || log.created_at > prev.created_at) {
+        inactivityDetectedByTarget.set(log.target_id, log);
+      }
+      continue;
+    }
+    if (log.action === "login.inactivity_penalty_applied" || log.action === "login.inactivity_penalty_skipped") {
+      resolvedInactivityTargets.add(log.target_id);
+    }
+  }
+
+  const inactivityPenaltyAlerts = [...inactivityDetectedByTarget.values()]
+    .filter((log) => !resolvedInactivityTargets.has(log.target_id))
+    .map((log) => {
+      const userId = String(log.details.user_id ?? "");
+      const targetUser = userMap.get(userId);
+      const userDisplay = (targetUser?.name ?? "").trim() || targetUser?.login_id || userId;
+      const missedDays = Math.max(0, toSafeInt(log.details.missed_days));
+      const suggestedPoints = toSafeInt(log.details.suggested_points);
+      const pointsPerDay = toSafeInt(log.details.points_per_day);
+      const loginDate = String(log.details.login_date ?? "").trim();
+      const baselineDate = String(log.details.baseline_date ?? "").trim();
+
+      return {
+        id: log.id,
+        targetId: log.target_id,
+        userId,
+        userDisplay,
+        missedDays,
+        pointsPerDay,
+        suggestedPoints,
+        loginDate,
+        baselineDate,
+        createdAt: log.created_at
+      };
+    })
+    .filter((item) => item.userId.length > 0 && item.missedDays > 0)
+    .sort((a, b) => (a.createdAt > b.createdAt ? -1 : 1));
+
   const notificationsThreshold = managerUser?.last_seen_notification_at ?? managerUser?.created_at ?? "";
 
   const checkinNotifications: AppNotification[] = pendingSubmissions.map((submission) => {
@@ -973,7 +1572,10 @@ export async function getManagerOverview(managerId: string) {
       created_at: submission.created_at,
       is_new: notificationsThreshold ? submission.created_at > notificationsThreshold : true,
       source_id: submission.id,
-      deep_link: `/manager?manager_tab=review&focus_submission=${submission.id}#submission-${submission.id}`
+      deep_link: `/manager?manager_tab=review&focus_submission=${submission.id}#submission-${submission.id}`,
+      category: "checkin",
+      cta_label: isKo ? "리뷰 열기" : "Open review",
+      cta_link: `/manager?manager_tab=review&focus_submission=${submission.id}#submission-${submission.id}`
     };
   });
 
@@ -987,21 +1589,61 @@ export async function getManagerOverview(managerId: string) {
       ? (item.claim.claimed_at ?? item.claim.created_at) > notificationsThreshold
       : true,
     source_id: item.claim.id,
-    deep_link: "/manager?manager_tab=inbox#reward-claim-inbox"
+    deep_link: "/manager?manager_tab=inbox#reward-claim-inbox",
+    category: "reward_claim",
+    cta_label: isKo ? "요청 확인" : "Open claim",
+    cta_link: "/manager?manager_tab=inbox#reward-claim-inbox"
   }));
 
-  const announcementNotifications: AppNotification[] = announcements.map((item) => ({
-    id: `announce-self-${item.id}`,
+  const announcementNotifications: AppNotification[] = announcements.map((item) => {
+    const parsedMission = parseMissionAnnouncement(item.message ?? "");
+    if (parsedMission) {
+      return {
+        id: `announce-self-${item.id}`,
+        kind: "announcement" as const,
+        title: isKo ? "할당된 미션 공지" : "Assigned mission notice",
+        message: `${parsedMission.title} • ${parsedMission.objective}`,
+        created_at: item.created_at,
+        is_new: notificationsThreshold ? item.created_at > notificationsThreshold : false,
+        source_id: item.id,
+        deep_link: "/manager?manager_tab=inbox#mission-assignment",
+        category: "mission",
+        cta_label: isKo ? "미션 편집" : "Edit mission",
+        cta_link: "/manager?manager_tab=inbox#mission-assignment"
+      };
+    }
+    return {
+      id: `announce-self-${item.id}`,
+      kind: "announcement" as const,
+      title: isKo ? "최근 공지" : "Recent announcement",
+      message: item.message,
+      created_at: item.created_at,
+      is_new: notificationsThreshold ? item.created_at > notificationsThreshold : false,
+      image_url: item.image_url,
+      source_id: item.id,
+      category: "manager_message"
+    };
+  });
+
+  const inactivityNotifications: AppNotification[] = inactivityPenaltyAlerts.map((item) => ({
+    id: `inactive-${item.targetId}`,
     kind: "announcement",
-    title: isKo ? "최근 공지" : "Recent announcement",
-    message: item.message,
-    created_at: item.created_at,
-    is_new: notificationsThreshold ? item.created_at > notificationsThreshold : false,
-    image_url: item.image_url,
-    source_id: item.id
+    title: isKo
+      ? `${item.userDisplay} 사용자가 ${item.missedDays}일 미로그인 상태입니다`
+      : `${item.userDisplay} has ${item.missedDays} inactive day(s)`,
+    message: isKo
+      ? `권장 페널티 ${item.suggestedPoints} pts (${item.pointsPerDay}/day). 점수 수정 후 적용할 수 있습니다.`
+      : `Suggested penalty ${item.suggestedPoints} pts (${item.pointsPerDay}/day). You can edit points before applying.`,
+    created_at: item.createdAt,
+    is_new: notificationsThreshold ? item.createdAt > notificationsThreshold : true,
+    source_id: item.targetId,
+    deep_link: "/manager?manager_tab=inbox#inactivity-penalty-inbox",
+    category: "manager_message",
+    cta_label: isKo ? "페널티 검토" : "Review penalty",
+    cta_link: "/manager?manager_tab=inbox#inactivity-penalty-inbox"
   }));
 
-  const notifications = [...checkinNotifications, ...rewardClaimNotifications, ...announcementNotifications]
+  const notifications = [...checkinNotifications, ...rewardClaimNotifications, ...inactivityNotifications, ...announcementNotifications]
     .sort((a, b) => (a.created_at > b.created_at ? -1 : 1))
     .slice(0, 20);
 
@@ -1012,6 +1654,7 @@ export async function getManagerOverview(managerId: string) {
     openPenaltyEvents,
     auditLogs,
     rewardClaimAlerts: claimAlerts,
+    inactivityPenaltyAlerts,
     announcements,
     notifications,
     unreadNotificationCount: notifications.filter((item) => item.is_new).length

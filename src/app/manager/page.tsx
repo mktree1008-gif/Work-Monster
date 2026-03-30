@@ -15,14 +15,20 @@ import { getSession } from "@/lib/session";
 import {
   acknowledgeManagerRewardAlertsAction,
   acknowledgeNotificationsAction,
+  applyInactivityPenaltyAction,
+  assignMissionAction,
   createAnnouncementAction,
   createRewardAction,
+  deleteMissionAction,
   deleteRewardAction,
   logoutAction,
+  skipInactivityPenaltyAction,
+  updateMissionAction,
   updateRewardAction,
   updateRulesAction
 } from "@/lib/services/actions";
 import { getManagerOverview } from "@/lib/services/game-service";
+import { getMissionDueDate, parseMissionAnnouncement } from "@/lib/mission";
 
 type Props = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -49,6 +55,25 @@ function pickManagerTab(
     return value;
   }
   return "review";
+}
+
+function extractDollarAmount(value: string): number {
+  const matched = value.match(/-?\d+(?:\.\d+)?/);
+  if (!matched) return 0;
+  const parsed = Number(matched[0]);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function missionDaysLeft(dueDate: string): number | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dueDate)) return null;
+  const now = new Date();
+  const yyyy = now.getUTCFullYear();
+  const mm = String(now.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(now.getUTCDate()).padStart(2, "0");
+  const todayUTC = new Date(`${yyyy}-${mm}-${dd}T00:00:00.000Z`).getTime();
+  const dueUTC = new Date(`${dueDate}T00:00:00.000Z`).getTime();
+  if (!Number.isFinite(todayUTC) || !Number.isFinite(dueUTC)) return null;
+  return Math.round((dueUTC - todayUTC) / 86_400_000);
 }
 
 export default async function ManagerPage({ searchParams }: Props) {
@@ -90,6 +115,13 @@ export default async function ManagerPage({ searchParams }: Props) {
   const rulesSaved = params.rules_saved === "1";
   const penaltyNoticeSent = params.penalty_notice_sent === "1";
   const announced = params.announce === "1";
+  const missionAssigned = params.mission_assigned === "1";
+  const missionUpdated = params.mission_updated === "1";
+  const missionDeleted = params.mission_deleted === "1";
+  const missionAssignError = typeof params.assign_error === "string" ? params.assign_error : "";
+  const inactivityApplied = params.inactivity_applied === "1";
+  const inactivitySkipped = params.inactivity_skipped === "1";
+  const inactivityError = typeof params.inactivity_error === "string" ? params.inactivity_error : "";
   const announceError = typeof params.announce_error === "string" ? params.announce_error : "";
   const rulesVersion = Number(params.version ?? data.rules.rule_version);
   const safeRulesVersion = Number.isFinite(rulesVersion) && rulesVersion > 0 ? Math.floor(rulesVersion) : data.rules.rule_version;
@@ -127,11 +159,56 @@ export default async function ManagerPage({ searchParams }: Props) {
       loginId: item.login_id,
       displayName: (item.name ?? "").trim() || item.login_id
     }));
+  const userScores = await Promise.all(
+    analyticsUsers.map(async (item) => ({
+      user: item,
+      score: await repo.getScore(item.id)
+    }))
+  );
+  const negativeRows = userScores
+    .map((item) => ({
+      ...item,
+      negativePoints: Math.max(0, item.score.total_points < 0 ? Math.abs(item.score.total_points) : item.score.negative_balance)
+    }))
+    .filter((item) => item.negativePoints > 0)
+    .sort((a, b) => b.negativePoints - a.negativePoints);
+  const claimableByUser = new Map<string, number>();
+  for (const event of data.openPenaltyEvents) {
+    const value = Math.max(0, extractDollarAmount(event.reward_value));
+    if (value <= 0) continue;
+    const prev = claimableByUser.get(event.user_id) ?? 0;
+    claimableByUser.set(event.user_id, prev + value);
+  }
+  const claimableTotal = [...claimableByUser.values()].reduce((sum, value) => sum + value, 0);
 
   const analyticsRange = params.analytics_range === "month" ? "month" : "week";
   const requestedAnalyticsUserId = typeof params.analytics_user === "string" ? params.analytics_user : "";
   const selectedAnalyticsUser =
     analyticsUsers.find((item) => item.id === requestedAnalyticsUserId) ?? analyticsUsers[0] ?? null;
+
+  const missionRows = data.announcements
+    .map((item) => {
+      const parsed = parseMissionAnnouncement(item.message ?? "");
+      if (!parsed) return null;
+      const assignedUser = userMap.get(parsed.target_user_id);
+      const dueDate = getMissionDueDate(parsed);
+      const leftDays = missionDaysLeft(dueDate);
+      return {
+        id: item.id,
+        title: parsed.title,
+        objective: parsed.objective,
+        targetUserId: parsed.target_user_id,
+        targetUserDisplay: (assignedUser?.name ?? "").trim() || assignedUser?.login_id || parsed.target_user_id,
+        startDate: parsed.start_date?.trim() ?? "",
+        dueDate,
+        durationDays: parsed.duration_days ?? 0,
+        bonusPoints: parsed.bonus_points ?? 0,
+        createdAt: item.created_at,
+        daysLeft: leftDays
+      };
+    })
+    .filter((item): item is NonNullable<typeof item> => Boolean(item))
+    .sort((a, b) => (a.createdAt > b.createdAt ? -1 : 1));
 
   const selectedAnalyticsSubmissions = selectedAnalyticsUser
     ? await repo.listSubmissionsByUser(selectedAnalyticsUser.id)
@@ -194,6 +271,250 @@ export default async function ManagerPage({ searchParams }: Props) {
 
       {activeTab === "inbox" && (
         <>
+          <section className="card mb-4 p-4" id="inactivity-penalty-inbox">
+            <h2 className="text-xl font-black text-indigo-900">Inactive login penalty review</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Before applying points, review users who missed login days and approve/edit penalties.
+            </p>
+            {inactivityApplied && (
+              <p className="mt-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">
+                Inactivity penalty applied successfully.
+              </p>
+            )}
+            {inactivitySkipped && (
+              <p className="mt-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">
+                Inactivity penalty skipped.
+              </p>
+            )}
+            {inactivityError && (
+              <p className="mt-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">
+                {inactivityError}
+              </p>
+            )}
+            {data.inactivityPenaltyAlerts.length > 0 ? (
+              <div className="mt-3 space-y-3">
+                {data.inactivityPenaltyAlerts.map((alert) => (
+                  <article className="rounded-2xl border border-slate-200 bg-slate-50 p-3" key={alert.targetId}>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p className="text-sm font-black text-indigo-900">{alert.userDisplay}</p>
+                      <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-bold text-rose-700">
+                        {alert.missedDays} day(s) inactive
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs text-slate-600">
+                      Last active baseline: {alert.baselineDate || "-"} • Login event: {alert.loginDate || "-"}
+                    </p>
+                    <p className="mt-1 text-xs font-semibold text-slate-600">
+                      Suggested: {alert.suggestedPoints} pts ({alert.pointsPerDay}/day)
+                    </p>
+
+                    <form action={applyInactivityPenaltyAction} className="mt-3 space-y-2">
+                      <input name="target_id" type="hidden" value={alert.targetId} />
+                      <label className="block text-xs font-semibold text-slate-600">
+                        Penalty points (editable)
+                        <input className="input mt-1" defaultValue={alert.suggestedPoints} name="points" step={1} type="number" />
+                      </label>
+                      <input className="input" name="note" placeholder="Optional manager note" />
+                      <button className="btn btn-primary w-full" type="submit">
+                        Apply penalty
+                      </button>
+                    </form>
+
+                    <form action={skipInactivityPenaltyAction} className="mt-2">
+                      <input name="target_id" type="hidden" value={alert.targetId} />
+                      <input className="input" name="note" placeholder="Optional skip reason" />
+                      <button className="btn btn-muted mt-2 w-full text-slate-700" type="submit">
+                        Skip for now
+                      </button>
+                    </form>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-3 rounded-xl bg-slate-100 p-3 text-sm text-slate-600">
+                No pending inactive-login penalties.
+              </p>
+            )}
+          </section>
+
+          <section className="card mb-4 p-4" id="mission-assignment">
+            <h2 className="text-xl font-black text-indigo-900">Mission assignment</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Create missions by user with date range, due date, and points. Accepted missions appear in user Home/Mission and can be added to checklist.
+            </p>
+            {missionAssigned && (
+              <p className="mt-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">
+                Mission assigned successfully.
+              </p>
+            )}
+            {missionUpdated && (
+              <p className="mt-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">
+                Mission updated successfully.
+              </p>
+            )}
+            {missionDeleted && (
+              <p className="mt-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">
+                Mission deleted successfully.
+              </p>
+            )}
+            {missionAssignError && (
+              <p className="mt-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">
+                {missionAssignError}
+              </p>
+            )}
+            <form action={assignMissionAction} className="mt-3 space-y-2">
+              <label className="block text-xs font-semibold text-slate-600">
+                Target user
+                <select className="input mt-1" name="target_user_id" required>
+                  <option value="">Select user</option>
+                  {analyticsUsers.map((candidate) => (
+                    <option key={candidate.id} value={candidate.id}>
+                      {candidate.displayName} ({candidate.loginId})
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <input className="input" name="mission_title" placeholder="Mission title" required />
+              <textarea className="input h-24 resize-none" name="mission_objective" placeholder="Objective" required />
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <label className="text-xs font-semibold text-slate-600">
+                  Start date
+                  <input className="input mt-1" name="start_date" type="date" />
+                </label>
+                <label className="text-xs font-semibold text-slate-600">
+                  Due date
+                  <input className="input mt-1" name="due_date" type="date" />
+                </label>
+                <label className="text-xs font-semibold text-slate-600">
+                  Duration (days)
+                  <input className="input mt-1" min={0} name="duration_days" placeholder="Optional" step={1} type="number" />
+                </label>
+                <label className="text-xs font-semibold text-slate-600">
+                  Reward points
+                  <input className="input mt-1" min={0} name="bonus_points" placeholder="Bonus points" step={1} type="number" />
+                </label>
+              </div>
+              <button className="btn btn-primary w-full" type="submit">
+                Save mission
+              </button>
+            </form>
+            <div className="mt-3 rounded-xl bg-slate-100 p-3 text-sm">
+              <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Mission preview</p>
+              <p className="mt-1 font-semibold text-indigo-900">User / Objective / Start / Due / D-day / Reward points</p>
+              <p className="text-slate-600">When user accepts mission, it can be auto-added to today checklist and shown with D-day on Home.</p>
+            </div>
+          </section>
+
+          <section className="card mb-4 p-4" id="mission-management">
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-xl font-black text-indigo-900">Manage assigned missions</h2>
+              <span className="rounded-full bg-indigo-100 px-2 py-1 text-xs font-bold text-indigo-700">
+                {missionRows.length} active
+              </span>
+            </div>
+            {missionRows.length > 0 ? (
+              <div className="mt-3 space-y-3">
+                {missionRows.map((row) => (
+                  <article className="rounded-2xl border border-slate-200 bg-slate-50 p-3" key={row.id}>
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-black text-indigo-900">{row.title}</p>
+                        <p className="mt-0.5 text-xs text-slate-500">User: {row.targetUserDisplay}</p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-1">
+                        {row.bonusPoints > 0 && (
+                          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-700">
+                            +{row.bonusPoints} pts
+                          </span>
+                        )}
+                        <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${
+                          typeof row.daysLeft === "number" && row.daysLeft < 0
+                            ? "bg-rose-100 text-rose-700"
+                            : "bg-blue-100 text-blue-700"
+                        }`}>
+                          {typeof row.daysLeft === "number"
+                            ? row.daysLeft < 0
+                              ? `D+${Math.abs(row.daysLeft)}`
+                              : row.daysLeft === 0
+                                ? "D-Day"
+                                : `D-${row.daysLeft}`
+                            : "Flexible"}
+                        </span>
+                      </div>
+                    </div>
+                    <p className="mt-2 text-sm text-slate-700">{row.objective}</p>
+                    <p className="mt-1 text-xs font-semibold text-slate-500">
+                      {row.startDate ? `Start ${row.startDate}` : "Start flexible"} • {row.dueDate ? `Due ${row.dueDate}` : "Due flexible"} •{" "}
+                      {row.durationDays > 0 ? `${row.durationDays} days` : "No duration set"}
+                    </p>
+
+                    <form action={updateMissionAction} className="mt-3 space-y-2">
+                      <input name="mission_announcement_id" type="hidden" value={row.id} />
+                      <label className="block text-xs font-semibold text-slate-600">
+                        Target user
+                        <select className="input mt-1" defaultValue={row.targetUserId} name="target_user_id" required>
+                          <option value="">Select user</option>
+                          {analyticsUsers.map((candidate) => (
+                            <option key={candidate.id} value={candidate.id}>
+                              {candidate.displayName} ({candidate.loginId})
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <input className="input" defaultValue={row.title} name="mission_title" placeholder="Mission title" required />
+                      <textarea
+                        className="input h-20 resize-none"
+                        defaultValue={row.objective}
+                        name="mission_objective"
+                        placeholder="Objective"
+                        required
+                      />
+                      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                        <label className="text-xs font-semibold text-slate-600">
+                          Start date
+                          <input className="input mt-1" defaultValue={row.startDate} name="start_date" type="date" />
+                        </label>
+                        <label className="text-xs font-semibold text-slate-600">
+                          Due date
+                          <input className="input mt-1" defaultValue={row.dueDate} name="due_date" type="date" />
+                        </label>
+                        <label className="text-xs font-semibold text-slate-600">
+                          Duration (days)
+                          <input
+                            className="input mt-1"
+                            defaultValue={row.durationDays > 0 ? row.durationDays : undefined}
+                            min={0}
+                            name="duration_days"
+                            step={1}
+                            type="number"
+                          />
+                        </label>
+                        <label className="text-xs font-semibold text-slate-600">
+                          Reward points
+                          <input className="input mt-1" defaultValue={row.bonusPoints} min={0} name="bonus_points" step={1} type="number" />
+                        </label>
+                      </div>
+                      <button className="btn btn-primary w-full" type="submit">
+                        Update mission
+                      </button>
+                    </form>
+
+                    <form action={deleteMissionAction} className="mt-2">
+                      <input name="mission_announcement_id" type="hidden" value={row.id} />
+                      <button className="btn btn-muted w-full text-rose-700" type="submit">
+                        Delete mission
+                      </button>
+                    </form>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-3 rounded-xl bg-slate-100 p-3 text-sm text-slate-600">
+                No mission assignments yet.
+              </p>
+            )}
+          </section>
+
           <section className="card mb-4 p-4" id="announcement-broadcast">
             <h2 className="text-xl font-black text-indigo-900">Notification broadcast</h2>
             <p className="mt-1 text-sm text-slate-600">
@@ -222,12 +543,18 @@ export default async function ManagerPage({ searchParams }: Props) {
               </button>
             </form>
             <div className="mt-3 space-y-2">
-              {data.announcements.map((item) => (
-                <article key={item.id} className="rounded-xl bg-slate-100 p-3 text-sm">
-                  <p className="font-bold text-indigo-900">{item.title}</p>
-                  <p className="text-slate-700">{item.message}</p>
-                </article>
-              ))}
+              {data.announcements.map((item) => {
+                const parsedMission = parseMissionAnnouncement(item.message ?? "");
+                const preview = parsedMission
+                  ? `${parsedMission.objective} • Due ${getMissionDueDate(parsedMission) || "Flexible"}${parsedMission.bonus_points > 0 ? ` • +${parsedMission.bonus_points} pts` : ""}`
+                  : item.message;
+                return (
+                  <article key={item.id} className="rounded-xl bg-slate-100 p-3 text-sm">
+                    <p className="font-bold text-indigo-900">{item.title}</p>
+                    <p className="text-slate-700">{preview}</p>
+                  </article>
+                );
+              })}
               {data.announcements.length === 0 && (
                 <p className="rounded-xl bg-slate-100 p-3 text-sm text-slate-600">No announcements yet.</p>
               )}
@@ -264,6 +591,7 @@ export default async function ManagerPage({ searchParams }: Props) {
           <section className="card mb-4 p-4">
             <h2 className="text-xl font-black text-indigo-900">Manager priorities</h2>
             <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-slate-700">
+              <li>Review inactive-login penalty candidates and approve/edit points.</li>
               <li>Review daily check-ins and assign points/comments.</li>
               <li>Update rules/rewards and tune game balance.</li>
               <li>Handle user reward-claim requests from popup to-do alerts.</li>
@@ -433,6 +761,25 @@ export default async function ManagerPage({ searchParams }: Props) {
                     Non-productive penalty
                     <input className="input mt-1" defaultValue={data.rules.non_productive_penalty} name="non_productive_penalty" type="number" />
                   </label>
+                  <label className="col-span-2 rounded-xl bg-white p-2 text-xs font-semibold text-slate-600">
+                    <span className="flex items-center gap-2">
+                      <input
+                        defaultChecked={Boolean(data.rules.inactivity_penalty_enabled)}
+                        name="inactivity_penalty_enabled"
+                        type="checkbox"
+                      />
+                      Enable inactive-login penalty workflow
+                    </span>
+                  </label>
+                  <label className="col-span-2 text-xs font-semibold text-slate-600">
+                    Inactive-login penalty per missed day
+                    <input
+                      className="input mt-1"
+                      defaultValue={data.rules.inactivity_penalty_points_per_day}
+                      name="inactivity_penalty_points_per_day"
+                      type="number"
+                    />
+                  </label>
                 </div>
               </article>
 
@@ -584,6 +931,14 @@ export default async function ManagerPage({ searchParams }: Props) {
                 </p>
               </div>
               <div className="rounded-xl bg-slate-100 p-3 text-sm">
+                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Inactive-login penalty</p>
+                <p className="font-bold text-indigo-900">
+                  {data.rules.inactivity_penalty_enabled
+                    ? `${data.rules.inactivity_penalty_points_per_day} pts / missed day`
+                    : "Disabled"}
+                </p>
+              </div>
+              <div className="rounded-xl bg-slate-100 p-3 text-sm">
                 <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Rewards</p>
                 <p className="font-bold text-indigo-900">{data.rewards.length} cards</p>
               </div>
@@ -594,6 +949,40 @@ export default async function ManagerPage({ searchParams }: Props) {
 
       {activeTab === "rewards" && (
         <>
+          <section className="card mb-4 p-4">
+            <h2 className="text-xl font-black text-indigo-900">Penalty / Balance</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Monitor negative points and total claimable dollar balance unlocked by penalty rules.
+            </p>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <div className="rounded-xl bg-slate-100 p-3">
+                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Open penalty events</p>
+                <p className="text-lg font-black text-indigo-900">{data.openPenaltyEvents.length}</p>
+              </div>
+              <div className="rounded-xl bg-emerald-50 p-3">
+                <p className="text-xs uppercase tracking-[0.16em] text-emerald-700">Claimable balance</p>
+                <p className="text-lg font-black text-emerald-800">${claimableTotal.toFixed(0)}</p>
+              </div>
+            </div>
+            <div className="mt-3 space-y-2">
+              {negativeRows.length > 0 ? (
+                negativeRows.map((row) => (
+                  <article key={row.user.id} className="rounded-xl bg-slate-100 p-3 text-sm">
+                    <p className="font-semibold text-indigo-900">{row.user.displayName}</p>
+                    <p className="text-slate-700">Negative points: {row.negativePoints}</p>
+                    <p className="text-slate-600">
+                      Claimable: ${(claimableByUser.get(row.user.id) ?? 0).toFixed(0)}
+                    </p>
+                  </article>
+                ))
+              ) : (
+                <p className="rounded-xl bg-slate-100 p-3 text-sm text-slate-600">
+                  No users are currently in negative points.
+                </p>
+              )}
+            </div>
+          </section>
+
           <section className="card mb-4 p-4">
             <h2 className="text-xl font-black text-indigo-900">Penalty rewards</h2>
             <div className="mt-3 space-y-2">

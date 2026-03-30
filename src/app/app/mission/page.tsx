@@ -11,13 +11,44 @@ function extractBonusPoints(text: string): number {
   return Number.isFinite(value) ? value : 0;
 }
 
+function parseMissionMeta(message: string): { objective: string; startDate: string; dueDate: string; bonusPoints: number } {
+  const text = message.trim();
+  const startMatch = text.match(/Start:\s*([^•\n]+)/i);
+  const dueMatch = text.match(/Due:\s*([^•\n]+)/i);
+  const deadlineMatch = text.match(/Deadline:\s*([^•\n]+)/i);
+  const bonusMatch = text.match(/Bonus:\s*\+?(\d+)/i);
+  const objective = text
+    .replace(/Start:\s*([^•\n]+)/gi, "")
+    .replace(/Due:\s*([^•\n]+)/gi, "")
+    .replace(/Deadline:\s*([^•\n]+)/gi, "")
+    .replace(/Bonus:\s*\+?\d+\s*pts?/gi, "")
+    .replace(/\s*•\s*/g, " ")
+    .trim();
+  return {
+    objective: objective || text || "No objective yet.",
+    startDate: startMatch?.[1]?.trim() || "",
+    dueDate: dueMatch?.[1]?.trim() || deadlineMatch?.[1]?.trim() || "Flexible",
+    bonusPoints: bonusMatch ? Number(bonusMatch[1]) : 0
+  };
+}
+
 export default async function MissionPage() {
   const { bundle, strings } = await getViewerContext();
   const isKo = bundle.user.locale === "ko";
-  const mission = bundle.notifications.find((item) => item.kind === "announcement");
+  const mission = bundle.notifications.find(
+    (item) =>
+      item.kind === "announcement" &&
+      (item.category === "mission" || ((item.deep_link ?? "").includes("/app/mission")) || /mission/i.test(item.title))
+  );
   const missionTitle = mission?.title?.trim() ?? "";
-  const missionMessage = mission?.message?.trim() ?? "";
-  const bonusPoints = mission ? extractBonusPoints(`${missionTitle} ${missionMessage}`) : 0;
+  const parsedMeta = parseMissionMeta(mission?.message ?? "");
+  const missionStartDate = mission?.mission_start_date?.trim() || parsedMeta.startDate;
+  const missionDueDate = mission?.mission_due_date?.trim() || parsedMeta.dueDate;
+  const missionMessage = parsedMeta.objective;
+  const bonusPoints = mission
+    ? (typeof mission.mission_bonus_points === "number" ? mission.mission_bonus_points : parsedMeta.bonusPoints)
+      || extractBonusPoints(`${missionTitle} ${missionMessage}`)
+    : 0;
   const hasMission = Boolean(mission);
 
   const objective = hasMission
@@ -65,7 +96,7 @@ export default async function MissionPage() {
                 {isKo ? "마감" : "Deadline"}
               </p>
               <p className="mt-1 text-sm font-semibold text-indigo-900">
-                {hasMission && mission?.created_at ? new Date(mission.created_at).toLocaleDateString() : (isKo ? "유동적" : "Flexible")}
+                {hasMission ? missionDueDate : (isKo ? "유동적" : "Flexible")}
               </p>
             </div>
           </div>
@@ -79,7 +110,15 @@ export default async function MissionPage() {
         </div>
 
         <div className="p-5">
-          <MissionAddButton bonusPoints={bonusPoints} locale={bundle.user.locale} objective={objective} title={title} />
+          <MissionAddButton
+            bonusPoints={bonusPoints}
+            deadline={missionDueDate}
+            locale={bundle.user.locale}
+            missionId={mission?.source_id || mission?.id}
+            objective={objective}
+            startDate={missionStartDate}
+            title={title}
+          />
           <Link className="btn btn-muted mt-2 flex w-full items-center justify-center" href="/app/plan">
             {isKo ? "Plan 페이지 열기" : "Open Plan Your Day"}
           </Link>

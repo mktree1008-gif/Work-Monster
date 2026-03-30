@@ -14,6 +14,7 @@ type CheckInBody = {
   file_url?: string;
   client_time_zone?: string;
   client_local_date?: string;
+  custom_answers?: Record<string, string>;
 };
 
 export async function POST(request: NextRequest) {
@@ -44,7 +45,12 @@ export async function POST(request: NextRequest) {
         custom_answers: {
           focus: String(body.focus ?? ""),
           blocker: String(body.blocker ?? ""),
-          win: String(body.win ?? "")
+          win: String(body.win ?? ""),
+          ...(typeof body.custom_answers === "object" && body.custom_answers
+            ? Object.fromEntries(
+                Object.entries(body.custom_answers).map(([key, value]) => [key, String(value ?? "")])
+              )
+            : {})
         }
       },
       {

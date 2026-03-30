@@ -7,6 +7,8 @@ export const DEFAULT_RULES: RuleConfig = {
   submission_points: 5,
   productive_points: 3,
   non_productive_penalty: -1,
+  inactivity_penalty_enabled: true,
+  inactivity_penalty_points_per_day: -3,
   streak_days: 3,
   multiplier_trigger_days: 7,
   multiplier_value: 1.5,

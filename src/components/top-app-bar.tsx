@@ -159,6 +159,15 @@ export function TopAppBar({
                       <House size={16} />
                       {labels.questions}
                     </Link>
+                    <Link href="/app/food" className="block rounded-xl bg-slate-100 px-3 py-2 text-sm font-medium" onClick={closePanel}>
+                      Food
+                    </Link>
+                    <Link href="/app/workout" className="block rounded-xl bg-slate-100 px-3 py-2 text-sm font-medium" onClick={closePanel}>
+                      Workout
+                    </Link>
+                    <Link href="/app/sleep" className="block rounded-xl bg-slate-100 px-3 py-2 text-sm font-medium" onClick={closePanel}>
+                      Sleep
+                    </Link>
                     <Link href="/app/record" className="block rounded-xl bg-slate-100 px-3 py-2 text-sm font-medium" onClick={closePanel}>
                       {labels.record}
                     </Link>

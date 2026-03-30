@@ -6,25 +6,72 @@ import { CheckCircle2, Sparkles } from "lucide-react";
 
 type Props = {
   locale: "en" | "ko";
+  missionId?: string;
   title: string;
   objective: string;
+  startDate?: string;
+  deadline?: string;
   bonusPoints: number;
 };
 
 const ACTIVE_MISSION_KEY = "workmonster-active-mission";
+const PLAN_STORAGE_PREFIX = "workmonster-plan";
 
-export function MissionAddButton({ locale, title, objective, bonusPoints }: Props) {
+function toLocalISODate(input = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(input);
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+  return `${year}-${month}-${day}`;
+}
+
+export function MissionAddButton({ locale, missionId, title, objective, startDate = "", deadline = "", bonusPoints }: Props) {
   const isKo = locale === "ko";
   const [saved, setSaved] = useState(false);
   const router = useRouter();
 
   function handleAdd() {
+    const todayKey = `${PLAN_STORAGE_PREFIX}-${toLocalISODate()}`;
+    const raw = window.localStorage.getItem(todayKey);
+    let parsed: Array<Record<string, unknown>> = [];
+    if (raw) {
+      try {
+        const value = JSON.parse(raw) as Array<Record<string, unknown>>;
+        parsed = Array.isArray(value) ? value : [];
+      } catch (_error) {
+        parsed = [];
+      }
+    }
+    const exists = parsed.some((item) => item.linkedToMission && String(item.text ?? "").trim() === objective.trim());
+    if (!exists && objective.trim().length > 0) {
+      parsed.unshift({
+        id: `mission-${Date.now()}`,
+        text: objective.trim(),
+        category: "mission",
+        priority: "high",
+        estimatedMinutes: 60,
+        note: title.trim(),
+        linkedToMission: true,
+        completed: false,
+        createdAt: new Date().toISOString()
+      });
+      window.localStorage.setItem(todayKey, JSON.stringify(parsed));
+    }
+
     window.localStorage.setItem(
       ACTIVE_MISSION_KEY,
       JSON.stringify({
+        id: missionId ?? "",
         title,
         objective,
+        startDate,
+        deadline,
         bonusPoints,
+        acceptedAt: new Date().toISOString(),
         savedAt: new Date().toISOString()
       })
     );
@@ -57,4 +104,3 @@ export function MissionAddButton({ locale, title, objective, bonusPoints }: Prop
     </div>
   );
 }
-

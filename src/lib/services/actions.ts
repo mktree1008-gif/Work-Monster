@@ -7,17 +7,22 @@ import { Locale, RuleConfig, UserRole } from "@/lib/types";
 import { clearSession, getSession, setSession, updateLocale } from "@/lib/session";
 import {
   acknowledgeRuleVersion,
+  applyInactivityPenalty,
   approveSubmission,
+  assignMission,
   claimPenaltyReward,
   claimReward,
   DailyCheckInAlreadySubmittedError,
   createAnnouncement,
   createReward,
+  deleteMission,
   deleteReward,
   getDashboard,
   markRewardClaimAlertsSeen,
+  skipInactivityPenalty,
   submitDailyCheckIn,
   updateReward,
+  updateMission,
   updateRules
 } from "@/lib/services/game-service";
 import { getGameRepository } from "@/lib/repositories/game-repository";
@@ -313,6 +318,70 @@ export async function reviewSubmissionAction(formData: FormData): Promise<void> 
   redirect(`/manager?${params.toString()}`);
 }
 
+export async function applyInactivityPenaltyAction(formData: FormData): Promise<void> {
+  const session = await getSession();
+  if (!session || session.role !== "manager") redirect("/auth/login");
+  await assertManagerOwner(session.uid);
+
+  const params = new URLSearchParams();
+  params.set("manager_tab", "inbox");
+
+  const targetId = String(formData.get("target_id") ?? "").trim();
+  const rawPoints = String(formData.get("points") ?? "").trim();
+  const parsedPoints = rawPoints.length > 0 ? Number(rawPoints) : NaN;
+  const points = Number.isFinite(parsedPoints) ? Math.round(parsedPoints) : undefined;
+  const note = String(formData.get("note") ?? "").trim();
+
+  try {
+    await applyInactivityPenalty(session.uid, {
+      target_id: targetId,
+      points,
+      note
+    });
+    params.set("inactivity_applied", "1");
+  } catch (error) {
+    const text = error instanceof Error ? error.message : "Failed to apply inactivity penalty.";
+    params.set("inactivity_error", text);
+  }
+
+  revalidatePath("/manager");
+  revalidatePath("/app");
+  revalidatePath("/app/welcome");
+  revalidatePath("/app/score");
+  revalidatePath("/app/record");
+  redirect(`/manager?${params.toString()}`);
+}
+
+export async function skipInactivityPenaltyAction(formData: FormData): Promise<void> {
+  const session = await getSession();
+  if (!session || session.role !== "manager") redirect("/auth/login");
+  await assertManagerOwner(session.uid);
+
+  const params = new URLSearchParams();
+  params.set("manager_tab", "inbox");
+
+  const targetId = String(formData.get("target_id") ?? "").trim();
+  const note = String(formData.get("note") ?? "").trim();
+
+  try {
+    await skipInactivityPenalty(session.uid, {
+      target_id: targetId,
+      note
+    });
+    params.set("inactivity_skipped", "1");
+  } catch (error) {
+    const text = error instanceof Error ? error.message : "Failed to skip inactivity penalty.";
+    params.set("inactivity_error", text);
+  }
+
+  revalidatePath("/manager");
+  revalidatePath("/app");
+  revalidatePath("/app/welcome");
+  revalidatePath("/app/score");
+  revalidatePath("/app/record");
+  redirect(`/manager?${params.toString()}`);
+}
+
 export async function acknowledgeManagerRewardAlertsAction(formData: FormData): Promise<void> {
   const session = await getSession();
   if (!session || session.role !== "manager") redirect("/auth/login");
@@ -409,6 +478,8 @@ export async function updateRulesAction(formData: FormData): Promise<void> {
       submission_points: parseNumber(formData.get("submission_points"), 5),
       productive_points: parseNumber(formData.get("productive_points"), 3),
       non_productive_penalty: parseNumber(formData.get("non_productive_penalty"), -1),
+      inactivity_penalty_enabled: parseBoolean(formData.get("inactivity_penalty_enabled")),
+      inactivity_penalty_points_per_day: parseNumber(formData.get("inactivity_penalty_points_per_day"), -3),
       streak_days: parseNumber(formData.get("streak_days"), 3),
       multiplier_trigger_days: parseNumber(formData.get("multiplier_trigger_days"), 7),
       multiplier_value: parseNumber(formData.get("multiplier_value"), 1.5),
@@ -440,14 +511,16 @@ export async function updateRulesAction(formData: FormData): Promise<void> {
   const params = new URLSearchParams();
   const shouldSendPenaltyNotice = penaltyNotice.length > 0 || penaltyRulesChanged;
   if (shouldSendPenaltyNotice) {
+    const penaltySummary =
+      afterPenaltyRules.length > 0
+        ? `Updated penalty actions: ${afterPenaltyRules.join(" / ")}`
+        : "Penalty rules were updated.";
     const autoPenaltyNotice = penaltyNotice.length > 0
       ? penaltyNotice
-      : afterPenaltyRules.length > 0
-        ? `Penalty rules were updated: ${afterPenaltyRules.join(" | ")}`
-        : "Penalty rules were updated. Open Rules tab to review the latest version.";
+      : `${penaltySummary} Open Rules tab to review full details.`;
     try {
       await createAnnouncement(session.uid, {
-        title: "Penalty Rule Update",
+        title: `Rule update summary (v${saved.rule_version})`,
         message: autoPenaltyNotice
       });
       params.set("penalty_notice_sent", "1");
@@ -523,6 +596,117 @@ export async function createAnnouncementAction(formData: FormData): Promise<void
   revalidatePath("/manager");
   revalidatePath("/app");
   params.set("announce", "1");
+  redirect(`/manager?${params.toString()}`);
+}
+
+export async function assignMissionAction(formData: FormData): Promise<void> {
+  const session = await getSession();
+  if (!session || session.role !== "manager") redirect("/auth/login");
+  await assertManagerOwner(session.uid);
+
+  const params = new URLSearchParams();
+  params.set("manager_tab", "inbox");
+
+  const targetUserId = String(formData.get("target_user_id") ?? "").trim();
+  const title = String(formData.get("mission_title") ?? "").trim();
+  const objective = String(formData.get("mission_objective") ?? "").trim();
+  const startDate = String(formData.get("start_date") ?? "").trim();
+  const dueDate = String(formData.get("due_date") ?? "").trim();
+  const durationDaysRaw = Number(formData.get("duration_days") ?? 0);
+  const durationDays = Number.isFinite(durationDaysRaw) ? Math.max(0, Math.round(durationDaysRaw)) : 0;
+  const bonusPointsRaw = Number(formData.get("bonus_points") ?? 0);
+  const bonusPoints = Number.isFinite(bonusPointsRaw) ? Math.max(0, Math.round(bonusPointsRaw)) : 0;
+
+  try {
+    await assignMission(session.uid, {
+      target_user_id: targetUserId,
+      title,
+      objective,
+      start_date: startDate,
+      due_date: dueDate,
+      duration_days: durationDays,
+      bonus_points: bonusPoints
+    });
+  } catch (error) {
+    const text = error instanceof Error ? error.message : "Failed to assign mission.";
+    params.set("assign_error", text);
+    redirect(`/manager?${params.toString()}`);
+  }
+
+  revalidatePath("/manager");
+  revalidatePath("/app");
+  revalidatePath("/app/welcome");
+  revalidatePath("/app/mission");
+  params.set("mission_assigned", "1");
+  redirect(`/manager?${params.toString()}`);
+}
+
+export async function updateMissionAction(formData: FormData): Promise<void> {
+  const session = await getSession();
+  if (!session || session.role !== "manager") redirect("/auth/login");
+  await assertManagerOwner(session.uid);
+
+  const params = new URLSearchParams();
+  params.set("manager_tab", "inbox");
+
+  const missionAnnouncementId = String(formData.get("mission_announcement_id") ?? "").trim();
+  const targetUserId = String(formData.get("target_user_id") ?? "").trim();
+  const title = String(formData.get("mission_title") ?? "").trim();
+  const objective = String(formData.get("mission_objective") ?? "").trim();
+  const startDate = String(formData.get("start_date") ?? "").trim();
+  const dueDate = String(formData.get("due_date") ?? "").trim();
+  const durationDaysRaw = Number(formData.get("duration_days") ?? 0);
+  const durationDays = Number.isFinite(durationDaysRaw) ? Math.max(0, Math.round(durationDaysRaw)) : 0;
+  const bonusPointsRaw = Number(formData.get("bonus_points") ?? 0);
+  const bonusPoints = Number.isFinite(bonusPointsRaw) ? Math.max(0, Math.round(bonusPointsRaw)) : 0;
+
+  try {
+    await updateMission(session.uid, {
+      mission_announcement_id: missionAnnouncementId,
+      target_user_id: targetUserId,
+      title,
+      objective,
+      start_date: startDate,
+      due_date: dueDate,
+      duration_days: durationDays,
+      bonus_points: bonusPoints
+    });
+  } catch (error) {
+    const text = error instanceof Error ? error.message : "Failed to update mission.";
+    params.set("assign_error", text);
+    redirect(`/manager?${params.toString()}`);
+  }
+
+  revalidatePath("/manager");
+  revalidatePath("/app");
+  revalidatePath("/app/welcome");
+  revalidatePath("/app/mission");
+  params.set("mission_updated", "1");
+  redirect(`/manager?${params.toString()}`);
+}
+
+export async function deleteMissionAction(formData: FormData): Promise<void> {
+  const session = await getSession();
+  if (!session || session.role !== "manager") redirect("/auth/login");
+  await assertManagerOwner(session.uid);
+
+  const params = new URLSearchParams();
+  params.set("manager_tab", "inbox");
+
+  const missionAnnouncementId = String(formData.get("mission_announcement_id") ?? "").trim();
+  try {
+    await deleteMission(session.uid, { mission_announcement_id: missionAnnouncementId });
+  } catch (error) {
+    const text = error instanceof Error ? error.message : "Failed to delete mission.";
+    params.set("assign_error", text);
+    redirect(`/manager?${params.toString()}`);
+  }
+
+  revalidatePath("/manager");
+  revalidatePath("/app");
+  revalidatePath("/app/welcome");
+  revalidatePath("/app/mission");
+  params.set("mission_deleted", "1");
   redirect(`/manager?${params.toString()}`);
 }
 

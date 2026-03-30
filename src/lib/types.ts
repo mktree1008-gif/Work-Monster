@@ -20,6 +20,8 @@ export interface RuleConfig {
   submission_points: number;
   productive_points: number;
   non_productive_penalty: number;
+  inactivity_penalty_enabled: boolean;
+  inactivity_penalty_points_per_day: number;
   streak_days: number;
   multiplier_trigger_days: number;
   multiplier_value: number;
@@ -53,6 +55,7 @@ export interface UserProfile {
   password_hash?: string;
   password_salt?: string;
   last_login_point_date?: string;
+  last_inactivity_penalty_date?: string;
   last_seen_rule_version: number;
   last_seen_manager_update_at?: string;
   last_seen_notification_at?: string;
@@ -144,6 +147,15 @@ export type AppNotificationKind =
   | "reward_claim_request"
   | "checkin_arrived";
 
+export type AppNotificationCategory =
+  | "all"
+  | "manager_message"
+  | "mission"
+  | "review_points"
+  | "rules"
+  | "checkin"
+  | "reward_claim";
+
 export interface AppNotification {
   id: string;
   kind: AppNotificationKind;
@@ -157,6 +169,13 @@ export interface AppNotification {
   review_points?: number;
   bonus_points?: number;
   bonus_message?: string;
+  category?: AppNotificationCategory;
+  cta_label?: string;
+  cta_link?: string;
+  mission_start_date?: string;
+  mission_due_date?: string;
+  mission_duration_days?: number;
+  mission_bonus_points?: number;
 }
 
 export interface PenaltyEvent {

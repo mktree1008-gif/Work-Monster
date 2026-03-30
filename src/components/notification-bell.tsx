@@ -1,7 +1,18 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Bell, X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import {
+  Bell,
+  CheckCircle2,
+  ChevronRight,
+  ClipboardCheck,
+  ListFilter,
+  Megaphone,
+  Shield,
+  Target,
+  X
+} from "lucide-react";
 import { AppNotification, Locale } from "@/lib/types";
 import { ChibiAvatar } from "@/components/chibi-avatar";
 
@@ -13,13 +24,148 @@ type Props = {
   locale: Locale;
 };
 
+type NotificationTabId =
+  | "all"
+  | "manager_message"
+  | "mission"
+  | "review_points"
+  | "rules"
+  | "checkin"
+  | "reward_claim";
+
+type NotificationTab = {
+  id: NotificationTabId;
+  label: string;
+};
+
+type CategorizedNotification = {
+  item: AppNotification;
+  category: NotificationTabId;
+};
+
+function deriveCategory(item: AppNotification, role: "user" | "manager"): NotificationTabId {
+  if (item.category && item.category !== "all") {
+    return item.category as NotificationTabId;
+  }
+
+  const lowerTitle = item.title.toLowerCase();
+  const lowerMessage = item.message.toLowerCase();
+  const isMission =
+    (item.deep_link ?? "").includes("/app/mission")
+    || lowerTitle.includes("mission")
+    || lowerMessage.includes("mission");
+  const isRules =
+    (item.deep_link ?? "").includes("/rules")
+    || lowerTitle.includes("rule")
+    || lowerMessage.includes("rule")
+    || lowerTitle.includes("penalty")
+    || lowerMessage.includes("penalty");
+
+  if (role === "manager") {
+    if (item.kind === "checkin_arrived") return "checkin";
+    if (item.kind === "reward_claim_request") return "reward_claim";
+    if (isMission) return "mission";
+    return "manager_message";
+  }
+
+  if (isMission) return "mission";
+  if (isRules) return "rules";
+  if ((item.review_points ?? 0) !== 0 || (item.bonus_points ?? 0) > 0) return "review_points";
+  return "manager_message";
+}
+
+function defaultCtaLabel(item: AppNotification, locale: Locale, role: "user" | "manager"): string {
+  const isKo = locale === "ko";
+  const category = deriveCategory(item, role);
+  if (category === "rules") return isKo ? "업데이트 규칙 확인" : "Check updated rules";
+  if (category === "mission") return isKo ? "미션 열기" : "Open mission";
+  if (category === "review_points") return isKo ? "리뷰 보기" : "Open review";
+  if (category === "checkin") return isKo ? "리뷰 열기" : "Open review";
+  if (category === "reward_claim") return isKo ? "요청 보기" : "Open claim";
+  return isKo ? "열기" : "Open";
+}
+
+function categoryLabel(category: NotificationTabId, locale: Locale): string {
+  const isKo = locale === "ko";
+  switch (category) {
+    case "mission":
+      return isKo ? "미션" : "Missions";
+    case "review_points":
+      return isKo ? "리뷰/포인트" : "Reviews & Points";
+    case "rules":
+      return isKo ? "룰 업데이트" : "Rule Updates";
+    case "checkin":
+      return isKo ? "체크인" : "Check-ins";
+    case "reward_claim":
+      return isKo ? "리워드 요청" : "Reward Claims";
+    case "manager_message":
+      return isKo ? "공지" : "Manager Msg";
+    default:
+      return isKo ? "전체" : "All";
+  }
+}
+
+function categoryIcon(category: NotificationTabId) {
+  switch (category) {
+    case "mission":
+      return <Target size={13} />;
+    case "review_points":
+      return <ClipboardCheck size={13} />;
+    case "rules":
+      return <Shield size={13} />;
+    default:
+      return <Megaphone size={13} />;
+  }
+}
+
 export function NotificationBell({ notifications, unreadCount, action, role, locale }: Props) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<AppNotification | null>(null);
   const [selectedBonus, setSelectedBonus] = useState<AppNotification | null>(null);
   const [bonusStep, setBonusStep] = useState<"teaser" | "detail">("teaser");
+  const [activeTab, setActiveTab] = useState<NotificationTabId>("all");
   const hasNew = unreadCount > 0;
   const isKo = locale === "ko";
+
+  const tabs = useMemo<NotificationTab[]>(() => {
+    if (role === "manager") {
+      return [
+        { id: "all", label: isKo ? "전체" : "All" },
+        { id: "checkin", label: isKo ? "체크인" : "Check-ins" },
+        { id: "reward_claim", label: isKo ? "클레임" : "Claims" },
+        { id: "mission", label: isKo ? "미션" : "Missions" },
+        { id: "manager_message", label: isKo ? "공지" : "Broadcasts" }
+      ];
+    }
+
+    return [
+      { id: "all", label: isKo ? "전체" : "All" },
+      { id: "mission", label: isKo ? "미션" : "Missions" },
+      { id: "review_points", label: isKo ? "리뷰/포인트" : "Reviews" },
+      { id: "rules", label: isKo ? "룰" : "Rules" },
+      { id: "manager_message", label: isKo ? "공지" : "Notices" }
+    ];
+  }, [isKo, role]);
+
+  const categorizedNotifications = useMemo<CategorizedNotification[]>(
+    () => notifications.map((item) => ({ item, category: deriveCategory(item, role) })),
+    [notifications, role]
+  );
+
+  const countsByTab = useMemo(() => {
+    const counts = new Map<NotificationTabId, number>();
+    counts.set("all", categorizedNotifications.length);
+    for (const { category } of categorizedNotifications) {
+      counts.set(category, (counts.get(category) ?? 0) + 1);
+    }
+    return counts;
+  }, [categorizedNotifications]);
+
+  const visibleNotifications = useMemo<CategorizedNotification[]>(() => {
+    if (activeTab === "all") return categorizedNotifications;
+    return categorizedNotifications.filter((entry) => entry.category === activeTab);
+  }, [activeTab, categorizedNotifications]);
 
   const emptyLabel = useMemo(
     () =>
@@ -36,11 +182,72 @@ export function NotificationBell({ notifications, unreadCount, action, role, loc
   useEffect(() => {
     function handleOpenNotifications() {
       setOpen(true);
+      setActiveTab("all");
     }
 
     window.addEventListener("workmonster:open-notifications", handleOpenNotifications);
     return () => window.removeEventListener("workmonster:open-notifications", handleOpenNotifications);
   }, []);
+
+  useEffect(() => {
+    if (!open && !selected && !selectedBonus) return undefined;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [open, selected, selectedBonus]);
+
+  useEffect(() => {
+    if (!open && !selected && !selectedBonus) return undefined;
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      setOpen(false);
+      setSelected(null);
+      setSelectedBonus(null);
+    }
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [open, selected, selectedBonus]);
+
+  function navigateTo(link: string) {
+    if (!link) return;
+    const trimmed = link.trim();
+    if (!trimmed) return;
+
+    if (/^https?:\/\//i.test(trimmed)) {
+      try {
+        const url = new URL(trimmed);
+        if (typeof window !== "undefined" && url.origin === window.location.origin) {
+          router.push(`${url.pathname}${url.search}${url.hash}`);
+          return;
+        }
+      } catch (_error) {
+        // fallthrough
+      }
+      window.location.href = trimmed;
+      return;
+    }
+
+    router.push(trimmed);
+  }
+
+  function openByLink(link?: string) {
+    if (!link) return;
+    setOpen(false);
+    navigateTo(link);
+  }
+
+  function openBonus(item: AppNotification) {
+    setOpen(false);
+    setSelectedBonus(item);
+    setBonusStep("teaser");
+  }
+
+  function openAnnouncementDetail(item: AppNotification) {
+    setOpen(false);
+    setSelected(item);
+  }
 
   return (
     <>
@@ -48,7 +255,10 @@ export function NotificationBell({ notifications, unreadCount, action, role, loc
         aria-label="Open notifications"
         id="global-notification-bell-trigger"
         className="relative rounded-full bg-indigo-100 p-2 text-indigo-900"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          setOpen(true);
+          setActiveTab("all");
+        }}
         type="button"
       >
         <Bell size={18} />
@@ -56,72 +266,165 @@ export function NotificationBell({ notifications, unreadCount, action, role, loc
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-[68] bg-slate-950/35" onClick={() => setOpen(false)}>
-          <div
-            className={`h-full w-[84%] max-w-sm bg-white p-4 shadow-2xl ${role === "manager" ? "ml-auto" : "ml-auto"}`}
+        <div
+          className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/62 p-2 backdrop-blur-[3px] sm:items-center sm:p-6"
+          onClick={() => setOpen(false)}
+        >
+          <section
+            className="anim-pop flex h-[88dvh] w-full max-w-3xl flex-col overflow-hidden rounded-[1.75rem] border border-indigo-100 bg-[#f8faff] shadow-[0_36px_80px_rgba(15,23,42,0.45)]"
             onClick={(event) => event.stopPropagation()}
           >
-            <div className="mb-3 flex items-center justify-between">
-              <p className="text-xl font-black text-indigo-900">Notifications</p>
-              <button
-                aria-label="Close notifications"
-                className="rounded-full bg-slate-100 p-2"
-                onClick={() => setOpen(false)}
-                type="button"
-              >
-                <X size={16} />
-              </button>
-            </div>
+            <div className="border-b border-indigo-100 bg-white/95 px-4 pb-3 pt-4 sm:px-5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-2xl font-black text-indigo-900">{isKo ? "알림" : "Notifications"}</p>
+                  <p className="mt-1 text-xs font-semibold text-slate-500">
+                    {isKo ? "카테고리별로 빠르게 확인하고 바로 이동하세요." : "Scan by category and jump to action fast."}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="rounded-full bg-indigo-100 px-2.5 py-1 text-[11px] font-black text-indigo-700">
+                    {isKo ? `읽지 않음 ${unreadCount}` : `${unreadCount} unread`}
+                  </span>
+                  <button
+                    aria-label="Close notifications"
+                    className="rounded-full bg-slate-100 p-2 text-slate-600 hover:bg-slate-200"
+                    onClick={() => setOpen(false)}
+                    type="button"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              </div>
 
-            {notifications.length > 0 ? (
-              <ul className="max-h-[70dvh] space-y-2 overflow-y-auto pr-1">
-                {notifications.map((item) => (
-                  <li key={item.id}>
+              <div className="-mx-1 mt-3 flex items-center gap-2 overflow-x-auto px-1 pb-1">
+                {tabs.map((tab) => {
+                  const count = countsByTab.get(tab.id) ?? 0;
+                  const active = tab.id === activeTab;
+                  return (
                     <button
-                      className="w-full rounded-xl bg-slate-100 p-3 text-left transition hover:bg-indigo-50"
-                      onClick={() => {
-                        if (item.kind === "manager_update" && (item.bonus_points ?? 0) > 0) {
-                          setOpen(false);
-                          setSelectedBonus(item);
-                          setBonusStep("teaser");
-                          return;
-                        }
-                        if (item.deep_link) {
-                          window.location.href = item.deep_link;
-                          return;
-                        }
-                        if (item.kind === "announcement") {
-                          setSelected(item);
-                        }
-                      }}
+                      className={`inline-flex shrink-0 items-center gap-1 rounded-full border px-3 py-1.5 text-xs font-bold transition ${
+                        active
+                          ? "border-indigo-500 bg-indigo-600 text-white"
+                          : "border-slate-200 bg-white text-slate-600 hover:border-indigo-200 hover:text-indigo-700"
+                      }`}
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
                       type="button"
                     >
-                        <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
-                        {item.kind === "announcement" ? (isKo ? "공지" : "Announcement") : isKo ? "최근 업데이트" : "Recent update"}
-                        {item.is_new ? " • NEW" : ""}
-                      </p>
-                      <p className="mt-1 text-sm font-bold text-indigo-900">{item.title}</p>
-                      <p className="text-sm text-slate-600">{item.message}</p>
-                      {(item.bonus_points ?? 0) > 0 && (
-                        <p className="mt-1 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-700">
-                          🎁 Bonus +{item.bonus_points}
-                        </p>
-                      )}
-                      <p className="mt-1 text-[11px] text-slate-500">{new Date(item.created_at).toLocaleString()}</p>
+                      <ListFilter size={12} />
+                      {tab.label}
+                      <span
+                        className={`rounded-full px-1.5 py-0.5 text-[10px] font-black ${
+                          active ? "bg-white/20 text-white" : "bg-slate-100 text-slate-500"
+                        }`}
+                      >
+                        {count}
+                      </span>
                     </button>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="rounded-xl bg-slate-100 p-3 text-sm text-slate-600">{emptyLabel}</p>
-            )}
+                  );
+                })}
+              </div>
+            </div>
 
-            <form action={action} className="mt-3">
-              <button className="btn btn-primary w-full" type="submit">
-                {isKo ? "모두 읽음 처리" : "Mark all as read"}
-              </button>
-            </form>
-          </div>
+            <div className="flex-1 overflow-y-auto px-3 pb-24 pt-3 sm:px-4">
+              {visibleNotifications.length > 0 ? (
+                <ul className="space-y-2.5">
+                  {visibleNotifications.map(({ item, category }) => {
+                    const deepLink = item.cta_link || item.deep_link;
+                    const bonusOnly = item.kind === "manager_update" && (item.bonus_points ?? 0) > 0;
+                    const canOpenModal = item.kind === "announcement";
+                    return (
+                      <li key={item.id}>
+                        <article
+                          className={`rounded-2xl border p-3.5 shadow-sm ${
+                            item.is_new ? "border-indigo-200 bg-white" : "border-slate-200 bg-slate-50/70"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                              {categoryIcon(category)}
+                              {categoryLabel(category, locale)}
+                              {item.is_new ? (
+                                <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[10px] font-black text-rose-700">NEW</span>
+                              ) : null}
+                            </p>
+                            {(item.review_points ?? 0) < 0 ? (
+                              <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-bold text-rose-700">
+                                {item.review_points} pts
+                              </span>
+                            ) : null}
+                          </div>
+                          <p className="mt-1.5 text-[15px] font-black leading-5 text-indigo-900">{item.title}</p>
+                          <p className="mt-1.5 text-sm leading-relaxed text-slate-600">{item.message}</p>
+
+                          {(item.mission_due_date || item.mission_bonus_points) && (
+                            <p className="mt-2 text-[11px] font-semibold text-slate-500">
+                              {item.mission_due_date ? `Due ${item.mission_due_date}` : "Due flexible"}
+                              {typeof item.mission_bonus_points === "number" && item.mission_bonus_points > 0
+                                ? ` • +${item.mission_bonus_points} pts`
+                                : ""}
+                            </p>
+                          )}
+
+                          {(item.bonus_points ?? 0) > 0 && (
+                            <p className="mt-2 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-700">
+                              🎁 Bonus +{item.bonus_points}
+                            </p>
+                          )}
+
+                          <div className="mt-3 flex items-center justify-between gap-2">
+                            <p className="text-[11px] text-slate-500">{new Date(item.created_at).toLocaleString()}</p>
+                            {bonusOnly ? (
+                              <button
+                                className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-700"
+                                onClick={() => openBonus(item)}
+                                type="button"
+                              >
+                                {isKo ? "보너스 보기" : "Open bonus"}
+                                <ChevronRight size={13} />
+                              </button>
+                            ) : deepLink ? (
+                              <button
+                                className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2.5 py-1 text-xs font-bold text-indigo-700"
+                                onClick={() => openByLink(deepLink)}
+                                type="button"
+                              >
+                                {item.cta_label?.trim() || defaultCtaLabel(item, locale, role)}
+                                <ChevronRight size={13} />
+                              </button>
+                            ) : canOpenModal ? (
+                              <button
+                                className="inline-flex items-center gap-1 rounded-full bg-slate-200 px-2.5 py-1 text-xs font-bold text-slate-700"
+                                onClick={() => openAnnouncementDetail(item)}
+                                type="button"
+                              >
+                                {isKo ? "상세 보기" : "View"}
+                                <ChevronRight size={13} />
+                              </button>
+                            ) : null}
+                          </div>
+                        </article>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <p className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600">{emptyLabel}</p>
+              )}
+            </div>
+
+            <div className="border-t border-indigo-100 bg-white/95 p-4">
+              <form action={action}>
+                <button className="btn btn-primary w-full" type="submit">
+                  <span className="inline-flex items-center gap-2">
+                    <CheckCircle2 size={14} />
+                    {isKo ? "모두 읽음 처리" : "Mark all as read"}
+                  </span>
+                </button>
+              </form>
+            </div>
+          </section>
         </div>
       )}
 
@@ -210,7 +513,8 @@ export function NotificationBell({ notifications, unreadCount, action, role, loc
                   className="btn btn-primary w-full"
                   onClick={() => {
                     const target = selectedBonus.deep_link || "/app/record";
-                    window.location.href = target;
+                    setSelectedBonus(null);
+                    navigateTo(target);
                   }}
                   type="button"
                 >

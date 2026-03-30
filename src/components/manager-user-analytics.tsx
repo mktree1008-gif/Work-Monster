@@ -219,6 +219,16 @@ export function ManagerUserAnalytics({
         });
       }
     }
+
+    if (log.action === "login.inactivity_penalty_applied" && selectedUser && String(log.details.user_id ?? "") === selectedUser.id) {
+      pointEvents.push({
+        id: log.id,
+        date: safeDateKey(log.details.login_date, log.created_at),
+        delta: toSafeInt(log.details.points_applied),
+        created_at: log.created_at,
+        source: "manager_review"
+      });
+    }
   }
 
   const reflectedReviews = new Set<string>();

@@ -2,6 +2,7 @@ import { CalendarDays } from "lucide-react";
 import { RecordPointsCalendar } from "@/components/record-points-calendar";
 import type { RecordPointDay, RecordPointEvent } from "@/components/record-points-calendar";
 import { RecordSubmissionHistory } from "@/components/record-submission-history";
+import { WellnessRecordSections } from "@/components/wellness/wellness-record-sections";
 import { getGameRepository } from "@/lib/repositories/game-repository";
 import { UserPageShell } from "@/components/user-page-shell";
 import { formatDateLabel, isISODateString, toISODate } from "@/lib/utils";
@@ -145,6 +146,26 @@ export default async function RecordPage({ searchParams }: Props) {
         detail: buildReviewDetail(points, basePoints, bonusPoints, bundle.user.locale),
         manager_message: managerMessage || undefined
       });
+      continue;
+    }
+
+    if (log.action === "login.inactivity_penalty_applied" && String(log.details.user_id ?? "") === bundle.user.id) {
+      const points = toSafePoints(log.details.points_applied);
+      const missedDays = toSafePoints(log.details.missed_days);
+      const eventDate = extractISODate(log.details.login_date) ?? todayISO;
+      const note = String(log.details.note ?? "").trim();
+      pointEvents.push({
+        id: log.id,
+        action: "manager_review",
+        created_at: log.created_at,
+        date: eventDate,
+        delta: points,
+        title: isKo ? "미로그인 페널티 반영" : "Inactive login penalty",
+        detail: isKo
+          ? `${missedDays}일 미로그인으로 ${points} pts 반영`
+          : `${points} pts applied for ${missedDays} inactive day(s)`,
+        manager_message: note || undefined
+      });
     }
   }
 
@@ -255,6 +276,12 @@ export default async function RecordPage({ searchParams }: Props) {
         focusSubmissionId={focusSubmissionId}
         locale={bundle.user.locale}
         submissions={recentSubmissions}
+      />
+      <WellnessRecordSections
+        initialSection={typeof params.section === "string" ? params.section : undefined}
+        penaltyHistory={bundle.penaltyHistory}
+        rewardClaims={bundle.rewardClaims}
+        submissions={bundle.submissions}
       />
     </UserPageShell>
   );

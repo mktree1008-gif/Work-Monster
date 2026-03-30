@@ -66,6 +66,12 @@ export default async function RulesPage() {
           <p className="text-sm text-slate-600">Submission approved: +{rules.submission_points}</p>
           <p className="text-sm text-slate-600">Productive bonus: +{rules.productive_points}</p>
           <p className="text-sm text-slate-600">Non-productive penalty: {rules.non_productive_penalty}</p>
+          <p className="text-sm text-slate-600">
+            Inactive-login penalty:{" "}
+            {rules.inactivity_penalty_enabled
+              ? `${rules.inactivity_penalty_points_per_day} per missed day (manager approval required)`
+              : "Disabled"}
+          </p>
         </article>
 
         <article className="card p-4">

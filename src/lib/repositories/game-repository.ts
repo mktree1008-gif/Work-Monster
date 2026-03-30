@@ -73,7 +73,9 @@ export interface GameRepository {
   saveRewardClaim(claim: RewardClaim): Promise<RewardClaim>;
   markRewardClaimsNotified(claimIds: string[], notifiedAtISO: string): Promise<void>;
   listAnnouncements(limit?: number): Promise<Announcement[]>;
+  getAnnouncement(announcementId: string): Promise<Announcement | null>;
   saveAnnouncement(announcement: Announcement): Promise<Announcement>;
+  deleteAnnouncement(announcementId: string): Promise<void>;
   listSubmissionsByUser(userId: string): Promise<Submission[]>;
   listPendingSubmissions(): Promise<Submission[]>;
   getSubmission(submissionId: string): Promise<Submission | null>;
@@ -266,6 +268,14 @@ function normalizeRules(raw: Partial<RuleConfig> | null | undefined): RuleConfig
 
   const normalized = normalizeRuleVersionForLaunch({
     ...seeded,
+    inactivity_penalty_enabled:
+      typeof raw?.inactivity_penalty_enabled === "boolean"
+        ? raw.inactivity_penalty_enabled
+        : DEFAULT_RULES.inactivity_penalty_enabled,
+    inactivity_penalty_points_per_day: Math.min(
+      0,
+      Math.round(toFiniteNumber(raw?.inactivity_penalty_points_per_day, DEFAULT_RULES.inactivity_penalty_points_per_day))
+    ),
     penalty_thresholds: uniqueThresholds.length > 0 ? uniqueThresholds : [...DEFAULT_RULES.penalty_thresholds],
     penalty_rewards: penaltyRewards.length > 0 ? penaltyRewards : [...DEFAULT_RULES.penalty_rewards],
     penalty_action_rules: penaltyActionRules
@@ -514,9 +524,17 @@ class MemoryGameRepository implements GameRepository {
       .slice(0, limit);
   }
 
+  async getAnnouncement(announcementId: string): Promise<Announcement | null> {
+    return this.db.announcements.get(announcementId) ?? null;
+  }
+
   async saveAnnouncement(announcement: Announcement): Promise<Announcement> {
     this.db.announcements.set(announcement.id, announcement);
     return announcement;
+  }
+
+  async deleteAnnouncement(announcementId: string): Promise<void> {
+    this.db.announcements.delete(announcementId);
   }
 
   async listSubmissionsByUser(userId: string): Promise<Submission[]> {
@@ -877,9 +895,19 @@ class FirestoreGameRepository implements GameRepository {
     return snap.docs.map((doc) => doc.data() as Announcement);
   }
 
+  async getAnnouncement(announcementId: string): Promise<Announcement | null> {
+    const snap = await this.db.collection("announcements").doc(announcementId).get();
+    if (!snap.exists) return null;
+    return snap.data() as Announcement;
+  }
+
   async saveAnnouncement(announcement: Announcement): Promise<Announcement> {
     await this.db.collection("announcements").doc(announcement.id).set(announcement, { merge: true });
     return announcement;
+  }
+
+  async deleteAnnouncement(announcementId: string): Promise<void> {
+    await this.db.collection("announcements").doc(announcementId).delete();
   }
 
   async listSubmissionsByUser(userId: string): Promise<Submission[]> {

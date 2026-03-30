@@ -1,0 +1,331 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import type { PenaltyEvent, RewardClaim, Submission } from "@/lib/types";
+import {
+  getFoodLogs,
+  getSleepLogs,
+  getWorkoutLogs,
+  todayLocalISO,
+  toHourMinuteLabel
+} from "@/lib/wellness-storage";
+
+type SectionKey =
+  | "overview"
+  | "food"
+  | "workout"
+  | "sleep"
+  | "checklist"
+  | "missions"
+  | "points"
+  | "rewards"
+  | "penalties";
+
+type Props = {
+  initialSection?: string;
+  submissions: Submission[];
+  rewardClaims: RewardClaim[];
+  penaltyHistory: PenaltyEvent[];
+};
+
+const SECTIONS: Array<{ key: SectionKey; label: string }> = [
+  { key: "overview", label: "Overview" },
+  { key: "food", label: "Food" },
+  { key: "workout", label: "Workout" },
+  { key: "sleep", label: "Sleep" },
+  { key: "checklist", label: "Checklist" },
+  { key: "missions", label: "Missions" },
+  { key: "points", label: "Points" },
+  { key: "rewards", label: "Rewards" },
+  { key: "penalties", label: "Penalties" }
+];
+
+function shiftDate(baseISO: string, offset: number): string {
+  const date = new Date(`${baseISO}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + offset);
+  return date.toISOString().slice(0, 10);
+}
+
+function rangeDates(days: number): string[] {
+  const today = todayLocalISO();
+  return Array.from({ length: days }, (_, index) => shiftDate(today, index - (days - 1)));
+}
+
+function normalizeSection(value?: string): SectionKey {
+  if (!value) return "overview";
+  const lowered = value.toLowerCase();
+  const found = SECTIONS.find((item) => item.key === lowered);
+  return found?.key ?? "overview";
+}
+
+export function WellnessRecordSections({ initialSection, submissions, rewardClaims, penaltyHistory }: Props) {
+  const [section, setSection] = useState<SectionKey>(normalizeSection(initialSection));
+  const [days, setDays] = useState<7 | 30>(7);
+  const [foodLogs, setFoodLogs] = useState<ReturnType<typeof getFoodLogs>>([]);
+  const [workoutLogs, setWorkoutLogs] = useState<ReturnType<typeof getWorkoutLogs>>([]);
+  const [sleepLogs, setSleepLogs] = useState<ReturnType<typeof getSleepLogs>>([]);
+  const dates = useMemo(() => rangeDates(days), [days]);
+
+  useEffect(() => {
+    setFoodLogs(getFoodLogs());
+    setWorkoutLogs(getWorkoutLogs());
+    setSleepLogs(getSleepLogs());
+  }, []);
+
+  const foodSeries = useMemo(
+    () =>
+      dates.map((date) => ({
+        date,
+        value: foodLogs.filter((item) => item.date === date).reduce((sum, item) => sum + item.calories, 0)
+      })),
+    [dates, foodLogs]
+  );
+  const workoutSeries = useMemo(
+    () =>
+      dates.map((date) => ({
+        date,
+        value: workoutLogs.filter((item) => item.date === date).reduce((sum, item) => sum + item.duration, 0)
+      })),
+    [dates, workoutLogs]
+  );
+  const sleepSeries = useMemo(
+    () =>
+      dates.map((date) => ({
+        date,
+        value: sleepLogs.find((item) => item.date === date)?.recovery_percent ?? 0
+      })),
+    [dates, sleepLogs]
+  );
+  const pointSeries = useMemo(
+    () =>
+      dates.map((date) => ({
+        date,
+        value: submissions.filter((item) => item.date === date && item.status !== "pending").reduce((sum, item) => sum + item.points_awarded, 0)
+      })),
+    [dates, submissions]
+  );
+
+  const maxFood = Math.max(1, ...foodSeries.map((item) => item.value));
+  const maxWorkout = Math.max(1, ...workoutSeries.map((item) => item.value));
+  const maxPoints = Math.max(1, ...pointSeries.map((item) => Math.abs(item.value)));
+  const avgRecovery = sleepSeries.length > 0 ? Math.round(sleepSeries.reduce((sum, item) => sum + item.value, 0) / sleepSeries.length) : 0;
+  const avgFood = foodSeries.length > 0 ? Math.round(foodSeries.reduce((sum, item) => sum + item.value, 0) / foodSeries.length) : 0;
+  const avgWorkout = workoutSeries.length > 0 ? Math.round(workoutSeries.reduce((sum, item) => sum + item.value, 0) / workoutSeries.length) : 0;
+
+  const missionRows = submissions
+    .map((item) => ({
+      id: item.id,
+      date: item.date,
+      mission: (item.custom_answers.mission ?? "").trim(),
+      status: item.status
+    }))
+    .filter((item) => item.mission.length > 0);
+
+  const checklistRows = submissions
+    .map((item) => ({
+      id: item.id,
+      date: item.date,
+      taskCount: item.task_list.length,
+      complete: item.productive
+    }))
+    .sort((a, b) => (a.date > b.date ? -1 : 1))
+    .slice(0, 10);
+
+  const cardioMinutes = workoutLogs
+    .filter((item) => item.workout_type === "Run" || item.workout_type === "Walk")
+    .reduce((sum, item) => sum + item.duration, 0);
+  const strengthMinutes = workoutLogs
+    .filter((item) => item.workout_type === "Gym" || item.workout_type === "Home")
+    .reduce((sum, item) => sum + item.duration, 0);
+  const otherMinutes = Math.max(0, workoutLogs.reduce((sum, item) => sum + item.duration, 0) - cardioMinutes - strengthMinutes);
+  const workoutTotal = Math.max(1, cardioMinutes + strengthMinutes + otherMinutes);
+
+  return (
+    <section className="card mt-4 p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="text-xl font-black text-indigo-900">Wellness Record</h2>
+        <div className="rounded-full bg-slate-100 p-1 text-xs font-semibold text-slate-700">
+          <button className={`rounded-full px-3 py-1 ${days === 7 ? "bg-white shadow-sm" : ""}`} onClick={() => setDays(7)} type="button">
+            7D
+          </button>
+          <button className={`rounded-full px-3 py-1 ${days === 30 ? "bg-white shadow-sm" : ""}`} onClick={() => setDays(30)} type="button">
+            30D
+          </button>
+        </div>
+      </div>
+
+      <div className="no-scrollbar mb-4 flex gap-2 overflow-x-auto pb-1">
+        {SECTIONS.map((item) => (
+          <button
+            key={item.key}
+            className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${
+              section === item.key ? "bg-indigo-100 text-indigo-700" : "bg-slate-100 text-slate-600"
+            }`}
+            onClick={() => setSection(item.key)}
+            type="button"
+          >
+            {item.label}
+          </button>
+        ))}
+      </div>
+
+      {section === "overview" && (
+        <div className="space-y-3">
+          <div className="grid grid-cols-3 gap-2">
+            <article className="rounded-xl bg-slate-100 p-3">
+              <p className="text-xs text-slate-500">Food Avg</p>
+              <p className="text-xl font-black text-indigo-900">{avgFood}</p>
+              <p className="text-[11px] text-slate-500">kcal/day</p>
+            </article>
+            <article className="rounded-xl bg-slate-100 p-3">
+              <p className="text-xs text-slate-500">Workout Avg</p>
+              <p className="text-xl font-black text-indigo-900">{avgWorkout}</p>
+              <p className="text-[11px] text-slate-500">min/day</p>
+            </article>
+            <article className="rounded-xl bg-slate-100 p-3">
+              <p className="text-xs text-slate-500">Recovery Avg</p>
+              <p className="text-xl font-black text-indigo-900">{avgRecovery}%</p>
+              <p className="text-[11px] text-slate-500">sleep trend</p>
+            </article>
+          </div>
+          <article className="rounded-xl bg-slate-50 p-3">
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Points line</p>
+            <div className="mt-3 flex h-24 items-end gap-1">
+              {pointSeries.map((item) => (
+                <div className="flex flex-1 flex-col items-center" key={item.date}>
+                  <div
+                    className={`w-full rounded-t-md ${item.value >= 0 ? "bg-emerald-500" : "bg-rose-500"}`}
+                    style={{ height: `${Math.max(8, Math.round((Math.abs(item.value) / maxPoints) * 100))}%` }}
+                  />
+                  <span className="mt-1 text-[10px] text-slate-500">{item.date.slice(8)}</span>
+                </div>
+              ))}
+            </div>
+          </article>
+        </div>
+      )}
+
+      {section === "food" && (
+        <article className="rounded-xl bg-slate-50 p-3">
+          <p className="text-sm font-bold text-slate-700">Food Calories</p>
+          <div className="mt-3 flex h-28 items-end gap-1">
+            {foodSeries.map((item) => (
+              <div className="flex flex-1 flex-col items-center" key={item.date}>
+                <div className="w-full rounded-t-md bg-blue-500" style={{ height: `${Math.max(8, Math.round((item.value / maxFood) * 100))}%` }} />
+                <span className="mt-1 text-[10px] text-slate-500">{item.date.slice(8)}</span>
+              </div>
+            ))}
+          </div>
+        </article>
+      )}
+
+      {section === "workout" && (
+        <div className="space-y-3">
+          <article className="rounded-xl bg-slate-50 p-3">
+            <p className="text-sm font-bold text-slate-700">Workout Duration</p>
+            <div className="mt-3 flex h-28 items-end gap-1">
+              {workoutSeries.map((item) => (
+                <div className="flex flex-1 flex-col items-center" key={item.date}>
+                  <div className="w-full rounded-t-md bg-indigo-500" style={{ height: `${Math.max(8, Math.round((item.value / maxWorkout) * 100))}%` }} />
+                  <span className="mt-1 text-[10px] text-slate-500">{item.date.slice(8)}</span>
+                </div>
+              ))}
+            </div>
+          </article>
+          <article className="rounded-xl bg-slate-50 p-3">
+            <p className="text-sm font-bold text-slate-700">Distribution</p>
+            <div className="mt-2 text-sm text-slate-600">
+              Cardio {Math.round((cardioMinutes / workoutTotal) * 100)}% • Strength {Math.round((strengthMinutes / workoutTotal) * 100)}% • Other {Math.round((otherMinutes / workoutTotal) * 100)}%
+            </div>
+          </article>
+        </div>
+      )}
+
+      {section === "sleep" && (
+        <article className="rounded-xl bg-slate-50 p-3">
+          <p className="text-sm font-bold text-slate-700">Recovery Trend</p>
+          <div className="mt-3 flex h-24 items-end gap-1">
+            {sleepSeries.map((item) => (
+              <div className="flex flex-1 flex-col items-center" key={item.date}>
+                <div className="w-full rounded-t-md bg-cyan-500" style={{ height: `${Math.max(8, item.value)}%` }} />
+                <span className="mt-1 text-[10px] text-slate-500">{item.date.slice(8)}</span>
+              </div>
+            ))}
+          </div>
+        </article>
+      )}
+
+      {section === "checklist" && (
+        <div className="space-y-2">
+          {checklistRows.map((row) => (
+            <article className="rounded-xl bg-slate-50 p-3 text-sm" key={row.id}>
+              <p className="font-semibold text-slate-800">{row.date}</p>
+              <p className="text-slate-600">Checklist tasks: {row.taskCount}</p>
+              <p className={row.complete ? "text-emerald-700" : "text-amber-700"}>{row.complete ? "Completed mode" : "Needs carry over"}</p>
+            </article>
+          ))}
+          {checklistRows.length === 0 && <p className="text-sm text-slate-500">No checklist records yet.</p>}
+        </div>
+      )}
+
+      {section === "missions" && (
+        <div className="space-y-2">
+          {missionRows.map((row) => (
+            <article className="rounded-xl bg-slate-50 p-3 text-sm" key={row.id}>
+              <p className="font-semibold text-slate-800">{row.date}</p>
+              <p className="text-slate-600">{row.mission}</p>
+              <p className="text-xs font-semibold text-indigo-700">{row.status}</p>
+            </article>
+          ))}
+          {missionRows.length === 0 && <p className="text-sm text-slate-500">No mission answers found yet.</p>}
+        </div>
+      )}
+
+      {section === "points" && (
+        <article className="rounded-xl bg-slate-50 p-3">
+          <p className="text-sm font-bold text-slate-700">Points by day</p>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            {pointSeries.slice().reverse().slice(0, 10).map((row) => (
+              <div className="rounded-lg bg-white p-2 text-sm" key={row.date}>
+                <p className="text-slate-500">{row.date}</p>
+                <p className={`font-bold ${row.value >= 0 ? "text-emerald-700" : "text-rose-700"}`}>
+                  {row.value >= 0 ? `+${row.value}` : row.value}
+                </p>
+              </div>
+            ))}
+          </div>
+        </article>
+      )}
+
+      {section === "rewards" && (
+        <div className="space-y-2">
+          {rewardClaims.map((claim) => (
+            <article className="rounded-xl bg-slate-50 p-3 text-sm" key={claim.id}>
+              <p className="font-semibold text-slate-800">{claim.reward_id}</p>
+              <p className="text-slate-600">{claim.status}</p>
+              <p className="text-xs text-slate-500">{claim.claimed_at ?? claim.created_at}</p>
+            </article>
+          ))}
+          {rewardClaims.length === 0 && <p className="text-sm text-slate-500">No reward history yet.</p>}
+        </div>
+      )}
+
+      {section === "penalties" && (
+        <div className="space-y-2">
+          {penaltyHistory.map((event) => (
+            <article className="rounded-xl bg-slate-50 p-3 text-sm" key={event.id}>
+              <p className="font-semibold text-slate-800">{event.threshold} threshold</p>
+              <p className="text-slate-600">{event.reward_label}</p>
+              <p className="text-xs text-slate-500">{event.triggered_at}</p>
+            </article>
+          ))}
+          {penaltyHistory.length === 0 && <p className="text-sm text-slate-500">No penalty history yet.</p>}
+        </div>
+      )}
+
+      <div className="mt-4 rounded-xl bg-indigo-50 p-3 text-sm text-indigo-800">
+        Range: last {days} days • Sleep average {toHourMinuteLabel(Math.round(sleepLogs.slice(0, 7).reduce((sum, item) => sum + item.total_sleep_minutes, 0) / Math.max(1, Math.min(7, sleepLogs.length))))}
+      </div>
+    </section>
+  );
+}

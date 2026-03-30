@@ -3,196 +3,49 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CharacterAlert } from "@/components/character-alert";
-import { ChibiAvatar } from "@/components/chibi-avatar";
-import { getManagerCue, getUserCue } from "@/lib/character-system";
 import { Locale } from "@/lib/types";
 
 type Props = {
   locale: Locale;
-  glasses?: boolean;
   readOnly?: boolean;
 };
 
-type ChoiceKey = "A" | "B" | "C";
+type Check = "yes" | "partial" | "no";
 
-type Option = {
-  key: ChoiceKey;
-  label: string;
-  emoji: string;
-  mood: string;
-  productive: boolean;
-};
+const MOODS = [
+  { emoji: "😞", label: "Rough" },
+  { emoji: "😐", label: "Okay" },
+  { emoji: "🙂", label: "Good" },
+  { emoji: "😄", label: "Great" }
+] as const;
 
-type StepDefinition = {
-  id: "q1" | "q2" | "q3";
-  title: string;
-  help: string;
-  options: [Option, Option, Option];
-};
-
-type StepState = {
-  choice: ChoiceKey | "";
-  customText: string;
-};
-
-const stepDefinitions: StepDefinition[] = [
-  {
-    id: "q1",
-    title: "Q1. How do you feel right now?",
-    help: "Pick A/B/C quickly, or add your own answer.",
-    options: [
-      {
-        key: "A",
-        label: "Focused and ready to execute",
-        emoji: "😎",
-        mood: "Focused",
-        productive: true
-      },
-      {
-        key: "B",
-        label: "Steady but low energy",
-        emoji: "🙂",
-        mood: "Steady",
-        productive: true
-      },
-      {
-        key: "C",
-        label: "Overwhelmed and distracted",
-        emoji: "😵",
-        mood: "Tired",
-        productive: false
-      }
-    ]
-  },
-  {
-    id: "q2",
-    title: "Q2. How was your plan progress (%)?",
-    help: "Select your closest progress result for today.",
-    options: [
-      {
-        key: "A",
-        label: "Major progress (100%)",
-        emoji: "🚀",
-        mood: "Focused",
-        productive: true
-      },
-      {
-        key: "B",
-        label: "Some progress (70%)",
-        emoji: "👍",
-        mood: "Steady",
-        productive: true
-      },
-      {
-        key: "C",
-        label: "Blocked (<50%)",
-        emoji: "😓",
-        mood: "Tired",
-        productive: false
-      }
-    ]
-  },
-  {
-    id: "q3",
-    title: "Q3. What do you need to be more productive?",
-    help: "Choose what can help your productivity most.",
-    options: [
-      {
-        key: "A",
-        label: "Enough sleep with recovery",
-        emoji: "🌙",
-        mood: "Focused",
-        productive: true
-      },
-      {
-        key: "B",
-        label: "Having a better diet",
-        emoji: "🥗",
-        mood: "Steady",
-        productive: true
-      },
-      {
-        key: "C",
-        label: "Need feedback",
-        emoji: "🆘",
-        mood: "Tired",
-        productive: false
-      }
-    ]
-  }
-];
-
-function initialSteps(): StepState[] {
-  return stepDefinitions.map(() => ({ choice: "", customText: "" }));
+function scoreFromCheck(value: Check): number {
+  if (value === "yes") return 2;
+  if (value === "partial") return 1;
+  return 0;
 }
 
-function hasAnswer(state: StepState): boolean {
-  return state.choice !== "" || state.customText.trim().length > 0;
-}
-
-function selectedOption(stepIndex: number, state: StepState): Option | null {
-  if (state.choice === "") {
-    return null;
-  }
-  return stepDefinitions[stepIndex].options.find((item) => item.key === state.choice) ?? null;
-}
-
-function answerLabel(stepIndex: number, state: StepState): string {
-  const option = selectedOption(stepIndex, state);
-  const custom = state.customText.trim();
-  if (option && custom) return `${option.label} | ${custom}`;
-  if (option) return option.label;
-  return custom;
-}
-
-export function QuestionsFlow({ locale, glasses = false, readOnly = false }: Props) {
+export function QuestionsFlow({ locale, readOnly = false }: Props) {
   const router = useRouter();
   const isKo = locale === "ko";
-  const [step, setStep] = useState(0);
-  const [answers, setAnswers] = useState<StepState[]>(initialSteps);
-  const [taskList, setTaskList] = useState("");
+  const [mood, setMood] = useState<(typeof MOODS)[number]>(MOODS[2]);
+  const [checklist, setChecklist] = useState<Check>("partial");
+  const [food, setFood] = useState<Check>("partial");
+  const [exercise, setExercise] = useState<Check>("partial");
+  const [sleep, setSleep] = useState<Check>("partial");
+  const [mission, setMission] = useState<Check>("partial");
+  const [workedOn, setWorkedOn] = useState("");
+  const [blocker, setBlocker] = useState("");
+  const [carryOver, setCarryOver] = useState("");
+  const [calories, setCalories] = useState<number>(0);
   const [fileUrl, setFileUrl] = useState("");
   const [clientTimeZone, setClientTimeZone] = useState("UTC");
   const [clientLocalDate, setClientLocalDate] = useState("");
   const [saving, setSaving] = useState(false);
   const [submitError, setSubmitError] = useState("");
-  const [showConfusedHint, setShowConfusedHint] = useState(false);
   const [alreadyDonePopupOpen, setAlreadyDonePopupOpen] = useState(false);
   const [alreadyDoneMessage, setAlreadyDoneMessage] = useState("");
-
-  const progress = useMemo(() => Math.round(((step + 1) / stepDefinitions.length) * 100), [step]);
-  const confusedCue = getUserCue("questions_confused", locale);
-  const managerCuriousCue = getManagerCue("upload_saved_pending", locale);
-
-  const currentStepDef = stepDefinitions[step];
-  const currentState = answers[step];
-  const currentOption = selectedOption(step, currentState);
-  const stepCompleted = hasAnswer(currentState);
-  const allAnswered = answers.every((item) => hasAnswer(item));
-  const customAnswerText = currentState.customText.trim();
-  const reactionEmoji = currentOption?.emoji ?? (customAnswerText ? "✍️" : "🙂");
-  const reactionText = currentOption
-    ? customAnswerText
-      ? `${currentOption.label} + ${customAnswerText}`
-      : currentOption.label
-    : customAnswerText || "Choose an option";
-  const userEmotion =
-    !stepCompleted
-      ? "neutral"
-      : currentOption?.productive === false
-        ? "alert"
-        : "excited";
-  const managerEmotion = stepCompleted ? "approval" : "encouraging";
-  const answerInputLabel = currentStepDef.id === "q2" ? "Your answer (%)" : "Your answer";
-  const answerPlaceholder = isKo ? "직접 답변을 입력해 주세요." : "Type your own answer.";
-  const taskLabel = "Task log (Leave your works)";
-  const taskPlaceholder = isKo
-    ? "오늘 한 업무/학습/성과를 자유롭게 적어주세요."
-    : "Write what you worked on today (tasks, lessons, outputs).";
-  const fileLabel = "File link (optional)";
-  const filePlaceholder = isKo
-    ? "작업 파일 또는 링크를 저장하세요 (선택)."
-    : "Save file/link of your work (optional).";
+  const [showGlow, setShowGlow] = useState(false);
 
   useEffect(() => {
     try {
@@ -206,7 +59,6 @@ export function QuestionsFlow({ locale, glasses = false, readOnly = false }: Pro
       const year = parts.find((part) => part.type === "year")?.value;
       const month = parts.find((part) => part.type === "month")?.value;
       const day = parts.find((part) => part.type === "day")?.value;
-
       setClientTimeZone(timeZone);
       setClientLocalDate(year && month && day ? `${year}-${month}-${day}` : "");
     } catch (_error) {
@@ -215,37 +67,16 @@ export function QuestionsFlow({ locale, glasses = false, readOnly = false }: Pro
     }
   }, []);
 
-  function chooseOption(key: ChoiceKey) {
-    if (readOnly) return;
-    setSubmitError("");
-    setShowConfusedHint(false);
-    setAnswers((prev) =>
-      prev.map((item, index) => {
-        if (index !== step) return item;
-        return { ...item, choice: key };
-      })
-    );
-  }
-
-  function updateCustom(value: string) {
-    if (readOnly) return;
-    setSubmitError("");
-    setShowConfusedHint(false);
-    setAnswers((prev) =>
-      prev.map((item, index) => {
-        if (index !== step) return item;
-        return { ...item, customText: value };
-      })
-    );
-  }
-
-  const mood = selectedOption(0, answers[0])?.mood ?? (answerLabel(0, answers[0]) || "Steady");
-  const progressAnswer = answerLabel(1, answers[1]) || "";
-  const nextMoveAnswer = answerLabel(2, answers[2]) || "";
-  const productive =
-    (selectedOption(0, answers[0])?.productive ?? true) &&
-    (selectedOption(1, answers[1])?.productive ?? true) &&
-    (selectedOption(2, answers[2])?.productive ?? true);
+  const completionScore = useMemo(
+    () =>
+      scoreFromCheck(checklist) +
+      scoreFromCheck(food) +
+      scoreFromCheck(exercise) +
+      scoreFromCheck(sleep) +
+      scoreFromCheck(mission),
+    [checklist, exercise, food, mission, sleep]
+  );
+  const productive = completionScore >= 6;
 
   async function onSubmitCheckIn() {
     if (readOnly) {
@@ -253,8 +84,8 @@ export function QuestionsFlow({ locale, glasses = false, readOnly = false }: Pro
       return;
     }
     if (saving) return;
-    if (!allAnswered) {
-      setShowConfusedHint(true);
+    if (workedOn.trim().length === 0) {
+      setSubmitError("Please fill in what you worked on today.");
       return;
     }
 
@@ -266,17 +97,27 @@ export function QuestionsFlow({ locale, glasses = false, readOnly = false }: Pro
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          mood,
-          feeling: mood,
-          focus: answerLabel(0, answers[0]),
-          blocker: progressAnswer,
-          win: nextMoveAnswer,
-          calories: 0,
+          mood: mood.label,
+          feeling: mood.label,
+          focus: workedOn,
+          blocker,
+          win: carryOver,
+          calories,
           productive,
-          task_list: taskList,
+          task_list: workedOn,
           file_url: fileUrl,
           client_time_zone: clientTimeZone,
-          client_local_date: clientLocalDate
+          client_local_date: clientLocalDate,
+          custom_answers: {
+            checklist,
+            food,
+            exercise,
+            sleep,
+            mission,
+            worked_on: workedOn,
+            blocker,
+            carry_over: carryOver
+          }
         })
       });
 
@@ -300,8 +141,11 @@ export function QuestionsFlow({ locale, glasses = false, readOnly = false }: Pro
         throw new Error(payload.error ?? "Failed to save check-in.");
       }
 
-      router.push(payload.redirectTo ?? "/app/welcome?saved=1");
-      router.refresh();
+      setShowGlow(true);
+      setTimeout(() => {
+        router.push(payload.redirectTo ?? "/app/welcome?saved=1");
+        router.refresh();
+      }, 420);
     } catch (caught) {
       setSubmitError(caught instanceof Error ? caught.message : "Failed to save check-in.");
     } finally {
@@ -309,181 +153,153 @@ export function QuestionsFlow({ locale, glasses = false, readOnly = false }: Pro
     }
   }
 
+  function renderCheckSelector(label: string, value: Check, onChange: (next: Check) => void) {
+    return (
+      <label className="text-sm font-semibold text-slate-600">
+        {label}
+        <select
+          className="input mt-2"
+          disabled={readOnly}
+          onChange={(event) => onChange(event.target.value as Check)}
+          value={value}
+        >
+          <option value="yes">Yes</option>
+          <option value="partial">Partly</option>
+          <option value="no">No</option>
+        </select>
+      </label>
+    );
+  }
+
   return (
     <div className="space-y-4">
-      <div className="soft-card p-3">
-        <div className="mb-1 flex items-center justify-between text-xs text-slate-500">
-          <span>Daily check-in flow</span>
-          <span>
-            {step + 1}/{stepDefinitions.length}
-          </span>
+      <article className="card p-5">
+        <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Daily Check-In</p>
+        <h2 className="mt-1 text-2xl font-black text-indigo-900">How was your day?</h2>
+        <div className="mt-3 grid grid-cols-4 gap-2">
+          {MOODS.map((item) => (
+            <button
+              key={item.label}
+              className={`rounded-2xl border px-2 py-3 text-center text-sm font-semibold transition ${
+                mood.label === item.label ? "border-indigo-300 bg-indigo-50 text-indigo-900" : "border-slate-200 bg-slate-50 text-slate-600"
+              }`}
+              disabled={readOnly}
+              onClick={() => setMood(item)}
+              type="button"
+            >
+              <span className="block text-2xl">{item.emoji}</span>
+              <span>{item.label}</span>
+            </button>
+          ))}
         </div>
-        <div className="h-2 overflow-hidden rounded-full bg-white">
-          <div className="h-full rounded-full bg-indigo-600 transition-all" style={{ width: `${progress}%` }} />
-        </div>
-        <p className="mt-2 text-[11px] text-slate-500">
-          Date auto-sync: {clientLocalDate || "syncing..."} ({clientTimeZone})
-        </p>
-      </div>
-
-      <article className="card space-y-4 p-5">
-        <div className="rounded-2xl bg-indigo-50 p-3">
-          <p className="text-sm font-semibold text-indigo-900">{currentStepDef.title}</p>
-          <p className="text-xs text-indigo-700">{currentStepDef.help}</p>
-        </div>
-
-        <div className="grid grid-cols-1 gap-2">
-          {currentStepDef.options.map((option) => {
-            const selected = currentState.choice === option.key;
-            return (
-              <button
-                key={option.key}
-                className={`rounded-2xl border px-3 py-3 text-left text-sm font-semibold transition ${
-                  selected
-                    ? "border-indigo-400 bg-indigo-100 text-indigo-900"
-                    : "border-slate-200 bg-slate-50 text-slate-700"
-                }`}
-                disabled={readOnly}
-                onClick={() => chooseOption(option.key)}
-                type="button"
-              >
-                <span className="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white text-xs font-bold text-indigo-700">
-                  {option.key}
-                </span>
-                {option.emoji} {option.label}
-              </button>
-            );
-          })}
-        </div>
-
-        <label className="text-sm font-semibold text-slate-600">
-          {answerInputLabel}
-          <textarea
-            className="input mt-2 h-20 resize-none"
-            disabled={readOnly}
-            onChange={(event) => updateCustom(event.target.value)}
-            placeholder={answerPlaceholder}
-            value={currentState.customText}
-          />
-        </label>
-
-        <div className="rounded-2xl bg-amber-50 p-3">
-          <div className="flex items-center justify-center gap-3">
-            <ChibiAvatar emotion={managerEmotion} role="manager" size={48} />
-            <p className="anim-pop text-3xl">{reactionEmoji}</p>
-            <ChibiAvatar emotion={userEmotion} glasses={glasses} role="user" size={48} />
-          </div>
-          <p className="mt-1 text-center text-sm font-semibold text-amber-800">{reactionText}</p>
-        </div>
-
-        {showConfusedHint && (
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-2">
-            <CharacterAlert glasses={glasses} role="user" cue={confusedCue} compact showSpriteName={false} tone="warning" />
-          </div>
-        )}
       </article>
 
-      {step === stepDefinitions.length - 1 && (
-        <article className="card space-y-3 p-5">
+      <article className="card p-5">
+        <h3 className="text-lg font-black text-indigo-900">Evening Reflection</h3>
+        <div className="mt-3 grid grid-cols-1 gap-3">
+          {renderCheckSelector("Did you complete your checklist?", checklist, setChecklist)}
+          {renderCheckSelector("How was your food/calorie intake?", food, setFood)}
+          {renderCheckSelector("Did you get some exercise?", exercise, setExercise)}
+          {renderCheckSelector("Did you get enough sleep/recovery?", sleep, setSleep)}
+          {renderCheckSelector("Did you complete your mission?", mission, setMission)}
           <label className="text-sm font-semibold text-slate-600">
-            {taskLabel}
+            What did you work on today?
             <textarea
               className="input mt-2 h-24 resize-none"
               disabled={readOnly}
-              onChange={(event) => setTaskList(event.target.value)}
-              placeholder={taskPlaceholder}
-              value={taskList}
+              onChange={(event) => setWorkedOn(event.target.value)}
+              placeholder="Write the important work, study, outputs, and wins."
+              value={workedOn}
             />
           </label>
           <label className="text-sm font-semibold text-slate-600">
-            {fileLabel}
+            What got in the way?
+            <textarea
+              className="input mt-2 h-20 resize-none"
+              disabled={readOnly}
+              onChange={(event) => setBlocker(event.target.value)}
+              placeholder="Blockers, distractions, constraints."
+              value={blocker}
+            />
+          </label>
+          <label className="text-sm font-semibold text-slate-600">
+            What should carry over to tomorrow?
+            <textarea
+              className="input mt-2 h-20 resize-none"
+              disabled={readOnly}
+              onChange={(event) => setCarryOver(event.target.value)}
+              placeholder="Tasks or intentions to carry over."
+              value={carryOver}
+            />
+          </label>
+          <label className="text-sm font-semibold text-slate-600">
+            Calories today (optional)
+            <input
+              className="input mt-2"
+              disabled={readOnly}
+              min={0}
+              onChange={(event) => setCalories(Number(event.target.value))}
+              type="number"
+              value={Number.isFinite(calories) ? calories : 0}
+            />
+          </label>
+          <label className="text-sm font-semibold text-slate-600">
+            File link (optional)
             <input
               className="input mt-2"
               disabled={readOnly}
               onChange={(event) => setFileUrl(event.target.value)}
-              placeholder={filePlaceholder}
+              placeholder="https://..."
               value={fileUrl}
             />
           </label>
-          {(fileUrl.trim().length > 0 || allAnswered) && (
-            <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-2">
-              <CharacterAlert role="manager" cue={managerCuriousCue} compact />
-            </div>
-          )}
-        </article>
-      )}
+        </div>
+      </article>
 
-      <div className="flex items-center justify-between gap-2">
-        <button
-          className="btn btn-muted w-full"
-          disabled={step === 0 || readOnly}
-          onClick={() => setStep((value) => Math.max(0, value - 1))}
-          type="button"
-        >
-          Back
-        </button>
-
-        {step < stepDefinitions.length - 1 ? (
-          <button
-            className="btn btn-primary w-full"
-            disabled={readOnly}
-            onClick={() => {
-              if (!stepCompleted) {
-                setShowConfusedHint(true);
-                return;
-              }
-              setShowConfusedHint(false);
-              setStep((value) => Math.min(stepDefinitions.length - 1, value + 1));
-            }}
-            type="button"
-          >
-            Next
-          </button>
-        ) : (
-          <button className="btn btn-primary w-full" disabled={saving} onClick={onSubmitCheckIn} type="button">
-            <span className="inline-flex items-center gap-2">
-              <ChibiAvatar emotion={allAnswered ? "approval" : "encouraging"} role="manager" size={24} />
-              {readOnly ? "Preview only" : saving ? "Saving..." : "Save check-in"}
-              <ChibiAvatar emotion={allAnswered ? "excited" : "neutral"} glasses={glasses} role="user" size={24} />
-            </span>
-          </button>
-        )}
-      </div>
+      <article className={`card p-4 transition ${showGlow ? "ring-2 ring-emerald-300 bg-emerald-50" : ""}`}>
+        <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Check-in Summary</p>
+        <p className="mt-1 text-sm text-slate-700">Mood: {mood.emoji} {mood.label}</p>
+        <p className="text-sm text-slate-700">Completion score: {completionScore}/10</p>
+        <p className={`text-sm font-semibold ${productive ? "text-emerald-700" : "text-amber-700"}`}>
+          {productive ? "Productive day detected" : "Recovery day detected"}
+        </p>
+        <p className="mt-2 text-[11px] text-slate-500">
+          Date auto-sync: {clientLocalDate || "syncing..."} ({clientTimeZone})
+        </p>
+      </article>
 
       {submitError && (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm font-semibold text-rose-700">
           {submitError}
         </div>
       )}
 
+      <button
+        className="btn btn-energetic w-full"
+        disabled={saving || readOnly}
+        onClick={onSubmitCheckIn}
+        type="button"
+      >
+        {saving ? "Saving..." : "Submit Daily Check-In"}
+      </button>
+
       {alreadyDonePopupOpen && (
-        <div className="fixed inset-0 z-[82] flex items-center justify-center bg-slate-950/45 p-4">
-          <div className="container-mobile card anim-pop p-5">
-            <p className="text-xs font-bold uppercase tracking-[0.16em] text-indigo-500">
-              {isKo ? "Daily Check-in" : "Daily Check-in"}
-            </p>
-            <h3 className="mt-1 text-2xl font-black text-indigo-900">
-              {isKo ? "오늘 체크인은 이미 제출됨" : "Already submitted today"}
-            </h3>
-            <p className="mt-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
-              {alreadyDoneMessage}
-            </p>
-            <div className="mt-4 grid grid-cols-2 gap-2">
-              <button className="btn btn-muted w-full" onClick={() => setAlreadyDonePopupOpen(false)} type="button">
-                {isKo ? "닫기" : "Close"}
-              </button>
-              <button
-                className="btn btn-primary w-full"
-                onClick={() => {
-                  setAlreadyDonePopupOpen(false);
-                  router.push("/app/welcome");
-                }}
-                type="button"
-              >
-                {isKo ? "홈으로 이동" : "Go Home"}
-              </button>
-            </div>
-          </div>
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3">
+          <CharacterAlert
+            compact
+            cue={{
+              spriteName: "manager_curious",
+              expression: "wide-eyes",
+              emoji: "🗓️",
+              title: "Already submitted",
+              message: alreadyDoneMessage
+            }}
+            role="manager"
+            tone="warning"
+          />
+          <button className="btn btn-muted mt-3 w-full" onClick={() => setAlreadyDonePopupOpen(false)} type="button">
+            Close
+          </button>
         </div>
       )}
     </div>
