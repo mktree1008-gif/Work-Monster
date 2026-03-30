@@ -300,7 +300,8 @@ export function QuestionsFlow({ locale, readOnly = false, initialSubmission = nu
   const [clientLocalDate, setClientLocalDate] = useState("");
   const [draft, setDraft] = useState<CheckInDraft>({ ...DEFAULT_DRAFT });
   const [hydrated, setHydrated] = useState(false);
-  const [savingDraft, setSavingDraft] = useState(false);
+  const [isAutoSaving, setIsAutoSaving] = useState(false);
+  const [isStepSaving, setIsStepSaving] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [alreadyDoneMessage, setAlreadyDoneMessage] = useState("");
@@ -309,6 +310,7 @@ export function QuestionsFlow({ locale, readOnly = false, initialSubmission = nu
   const [attachmentPreviews, setAttachmentPreviews] = useState<AttachmentPreview[]>([]);
   const initialLoadedRef = useRef(false);
   const autosaveTimerRef = useRef<number | null>(null);
+  const skipAutosaveOnceRef = useRef(false);
 
   const previewScore = useMemo(() => computePreviewScore(draft), [draft]);
   const topFocusSummary = useMemo(() => buildTopFocusSummary(draft), [draft]);
@@ -516,7 +518,7 @@ export function QuestionsFlow({ locale, readOnly = false, initialSubmission = nu
   ]);
 
   useEffect(() => {
-    if (!hydrated || !storageKey || !canEdit) return;
+    if (!hydrated || !storageKey || !canEdit || isStepSaving || submitting) return;
 
     try {
       window.localStorage.setItem(
@@ -536,14 +538,19 @@ export function QuestionsFlow({ locale, readOnly = false, initialSubmission = nu
       autosaveTimerRef.current = null;
     }
 
+    if (skipAutosaveOnceRef.current) {
+      skipAutosaveOnceRef.current = false;
+      return;
+    }
+
     autosaveTimerRef.current = window.setTimeout(async () => {
       try {
-        setSavingDraft(true);
+        setIsAutoSaving(true);
         await persist("draft");
       } catch {
         // autosave failures should not block UX
       } finally {
-        setSavingDraft(false);
+        setIsAutoSaving(false);
       }
     }, 900);
 
@@ -553,7 +560,7 @@ export function QuestionsFlow({ locale, readOnly = false, initialSubmission = nu
         autosaveTimerRef.current = null;
       }
     };
-  }, [canEdit, currentStep, draft, hydrated, persist, storageKey]);
+  }, [canEdit, currentStep, draft, hydrated, isStepSaving, persist, storageKey, submitting]);
 
   function patchDraft(next: Partial<CheckInDraft>) {
     setDraft((prev) => ({ ...prev, ...next }));
@@ -630,14 +637,19 @@ export function QuestionsFlow({ locale, readOnly = false, initialSubmission = nu
     if (!stepValid || currentStep >= TOTAL_STEPS - 1) return;
     if (canEdit) {
       try {
-        setSavingDraft(true);
+        setIsStepSaving(true);
+        if (autosaveTimerRef.current) {
+          window.clearTimeout(autosaveTimerRef.current);
+          autosaveTimerRef.current = null;
+        }
         await persist("draft");
       } catch (error) {
         setSubmitError(error instanceof Error ? error.message : "Autosave failed.");
       } finally {
-        setSavingDraft(false);
+        setIsStepSaving(false);
       }
     }
+    skipAutosaveOnceRef.current = true;
     setCurrentStep((prev) => Math.min(TOTAL_STEPS - 1, prev + 1));
   }
 
@@ -721,10 +733,13 @@ export function QuestionsFlow({ locale, readOnly = false, initialSubmission = nu
           <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700">{stepHeading}</span>
         </div>
 
-        <div className="mt-3">
+          <div className="mt-3">
           <div className="mb-1 flex items-center justify-between text-xs font-semibold text-slate-500">
             <span>{`Step ${currentStep + 1}/${TOTAL_STEPS}`}</span>
-            <span>{progressPercent(currentStep)}% Complete</span>
+            <span className="inline-flex items-center gap-2">
+              {isAutoSaving ? "Auto-saving..." : "Draft saved"}
+              <span>{progressPercent(currentStep)}% Complete</span>
+            </span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-slate-200">
             <div
@@ -1169,11 +1184,11 @@ export function QuestionsFlow({ locale, readOnly = false, initialSubmission = nu
           {currentStep < TOTAL_STEPS - 1 ? (
             <button
               className="inline-flex min-w-[8.8rem] items-center justify-center gap-2 rounded-full bg-gradient-to-r from-blue-600 to-blue-400 px-5 py-3 text-sm font-black text-white shadow-[0_12px_22px_rgba(37,99,235,0.32)] disabled:opacity-45"
-              disabled={!stepValid || submitting}
+              disabled={!stepValid || submitting || isStepSaving}
               onClick={goNext}
               type="button"
             >
-              {savingDraft ? "Saving..." : "Next"}
+              {isStepSaving ? "Saving..." : "Next"}
               <ArrowRight size={16} />
             </button>
           ) : (
@@ -1195,7 +1210,7 @@ export function QuestionsFlow({ locale, readOnly = false, initialSubmission = nu
         <div className="absolute bottom-10 left-0 h-56 w-56 rounded-full bg-amber-100/30 blur-[90px]" />
       </div>
 
-      <div className="sr-only" aria-live="polite">{savingDraft ? "Auto-saving draft" : "Draft saved"}</div>
+      <div className="sr-only" aria-live="polite">{isAutoSaving ? "Auto-saving draft" : "Draft saved"}</div>
 
       <div className="hidden">
         <ArrowLeft />
