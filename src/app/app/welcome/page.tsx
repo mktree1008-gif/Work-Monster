@@ -84,6 +84,7 @@ export default async function WelcomePage({ searchParams }: Props) {
   const isKo = locale === "ko";
   const managerPreview = bundle.user.role === "manager";
   const displayName = (bundle.user.name ?? "").trim() || bundle.user.login_id;
+  const welcomeName = displayName || "Work Monster";
 
   const todayISO = toISODate(new Date());
   const todaySubmission = bundle.submissions.find((item) => item.date === todayISO) ?? bundle.submissions[0];
@@ -143,8 +144,7 @@ export default async function WelcomePage({ searchParams }: Props) {
       subtitle={isKo ? "How was your day?" : "How was your day?"}
       title={
         <>
-          <span className="block text-balance leading-[1.08]">Hello Ashton!</span>
-          <span className="mt-1 block text-balance text-[0.7em] font-semibold text-indigo-700">{displayName}</span>
+          <span className="block text-balance leading-[1.08]">Hello {welcomeName}!</span>
         </>
       }
     >
