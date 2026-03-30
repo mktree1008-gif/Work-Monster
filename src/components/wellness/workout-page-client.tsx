@@ -24,7 +24,15 @@ import {
   weeklyDates,
   WorkoutType
 } from "@/lib/wellness-storage";
-import { WellnessBottomNav } from "@/components/wellness-bottom-nav";
+import { BottomTabs } from "@/components/bottom-tabs";
+
+type Labels = {
+  questions: string;
+  record: string;
+  rewards: string;
+  score: string;
+  rules: string;
+};
 
 const QUICK_TYPES: WorkoutType[] = ["Gym", "Walk", "Run", "Stretch", "Home", "Custom"];
 
@@ -37,7 +45,7 @@ function typeIcon(type: WorkoutType) {
   return <TimerReset size={18} />;
 }
 
-export function WorkoutPageClient() {
+export function WorkoutPageClient({ labels }: { labels: Labels }) {
   const [selectedDate, setSelectedDate] = useState(todayLocalISO());
   const [logs, setLogs] = useState<ReturnType<typeof getWorkoutLogs>>([]);
   const [mounted, setMounted] = useState(false);
@@ -329,7 +337,7 @@ export function WorkoutPageClient() {
         <Plus size={22} />
       </button>
 
-      <WellnessBottomNav active="workout" />
+      <BottomTabs active="questions" labels={labels} />
     </section>
   );
 }

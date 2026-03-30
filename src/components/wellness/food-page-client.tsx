@@ -27,7 +27,15 @@ import {
   upsertFoodLog,
   weeklyDates
 } from "@/lib/wellness-storage";
-import { WellnessBottomNav } from "@/components/wellness-bottom-nav";
+import { BottomTabs } from "@/components/bottom-tabs";
+
+type Labels = {
+  questions: string;
+  record: string;
+  rewards: string;
+  score: string;
+  rules: string;
+};
 
 const QUICK_PRESETS: Record<MealType, { title: string; calories: number; protein: number }> = {
   Breakfast: { title: "Healthy breakfast", calories: 360, protein: 20 },
@@ -43,7 +51,7 @@ function mealIcon(type: MealType) {
   return <Cookie size={18} />;
 }
 
-export function FoodPageClient() {
+export function FoodPageClient({ labels }: { labels: Labels }) {
   const [selectedDate, setSelectedDate] = useState(todayLocalISO());
   const [logs, setLogs] = useState<ReturnType<typeof getFoodLogs>>([]);
   const [mounted, setMounted] = useState(false);
@@ -378,7 +386,7 @@ export function FoodPageClient() {
       >
         <Plus size={18} />
       </button>
-      <WellnessBottomNav active="food" />
+      <BottomTabs active="questions" labels={labels} />
     </section>
   );
 }

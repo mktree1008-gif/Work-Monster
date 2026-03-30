@@ -62,12 +62,22 @@ export interface UserProfile {
   created_at: string;
 }
 
-export type SubmissionStatus = "pending" | "approved" | "rejected";
+export type SubmissionStatus =
+  | "draft"
+  | "submitted"
+  | "in_review"
+  | "approved"
+  | "rejected"
+  | "needs_revision"
+  | "pending";
+
+export type SubmissionReviewDecision = "approved" | "rejected" | "needs_revision";
 
 export interface Submission {
   id: string;
   user_id: string;
   date: string;
+  checkin_date?: string;
   mood: string;
   feeling: string;
   calories: number;
@@ -81,8 +91,38 @@ export interface Submission {
   base_points_awarded?: number;
   bonus_points_awarded?: number;
   bonus_message?: string;
+  step_index?: number;
+  feeling_state?: string;
+  primary_productivity_factor?: string;
+  primary_productivity_factor_note?: string;
+  completed_top_priorities?: boolean;
+  worked_on_high_impact?: boolean;
+  avoided_low_value_work?: boolean;
+  self_productivity_rating?: string;
+  tomorrow_improvement_focus?: string;
+  tomorrow_improvement_note?: string;
+  completed_work_summary?: string;
+  mission_tags?: string[];
+  evidence_files?: string[];
+  evidence_links?: string[];
+  performance_score_preview?: number;
+  coach_insight_text?: string;
+  top_focus_summary?: string;
+  energy_peak_summary?: string;
+  submission_time?: string;
+  submitted_at?: string;
+  updated_at?: string;
   created_at: string;
   reviewed_at?: string;
+  reviewed_by?: string;
+  review_decision?: SubmissionReviewDecision;
+  manager_feedback?: string;
+  manager_points_awarded?: number;
+  manager_review_tags?: string[];
+  manager_rating_label?: string;
+  mission_id?: string;
+  mission_status_snapshot?: string;
+  mission_objective_snapshot?: string;
 }
 
 export interface ScoreState {

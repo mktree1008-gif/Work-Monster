@@ -1,9 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CalendarDays } from "lucide-react";
 import { ProductivityRecordSystem } from "@/components/record/productivity-record-system";
-import { RecordPointsCalendar, type RecordPointDay } from "@/components/record-points-calendar";
 import { RecordSubmissionHistory } from "@/components/record-submission-history";
 import { WellnessRecordSections } from "@/components/wellness/wellness-record-sections";
 import type { AppNotification, Locale, PenaltyEvent, RewardClaim, ScoreState, Submission } from "@/lib/types";
@@ -18,7 +16,6 @@ type Props = {
   notifications: AppNotification[];
   rewardClaims: RewardClaim[];
   penaltyHistory: PenaltyEvent[];
-  recordCalendarDays: RecordPointDay[];
   initialWellnessSection?: string;
   focusSubmissionId?: string;
 };
@@ -31,7 +28,6 @@ export function RecordHubTabs({
   notifications,
   rewardClaims,
   penaltyHistory,
-  recordCalendarDays,
   initialWellnessSection,
   focusSubmissionId
 }: Props) {
@@ -75,13 +71,6 @@ export function RecordHubTabs({
         />
       ) : (
         <>
-          <section className="card p-4">
-            <div className="flex items-center gap-2">
-              <CalendarDays className="text-indigo-600" size={18} />
-              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Points calendar</p>
-            </div>
-            <RecordPointsCalendar days={recordCalendarDays} locale={locale} />
-          </section>
           <RecordSubmissionHistory
             focusSubmissionId={focusSubmissionId}
             locale={locale}

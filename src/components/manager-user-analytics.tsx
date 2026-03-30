@@ -152,7 +152,13 @@ export function ManagerUserAnalytics({
   const submissionById = new Map(submissions.map((submission) => [submission.id, submission] as const));
 
   const reviewedEntries = submissions
-    .filter((submission) => submission.status !== "pending")
+    .filter(
+      (submission) =>
+        submission.status !== "pending"
+        && submission.status !== "submitted"
+        && submission.status !== "in_review"
+        && submission.status !== "draft"
+    )
     .map((submission) => ({
       id: submission.id,
       date: submission.date,

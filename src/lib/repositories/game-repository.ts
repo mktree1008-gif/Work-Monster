@@ -26,6 +26,27 @@ export interface SubmissionDraft {
   custom_answers: Record<string, string>;
   task_list: string[];
   file_url?: string;
+  status?: Submission["status"];
+  step_index?: number;
+  feeling_state?: string;
+  primary_productivity_factor?: string;
+  primary_productivity_factor_note?: string;
+  completed_top_priorities?: boolean;
+  worked_on_high_impact?: boolean;
+  avoided_low_value_work?: boolean;
+  self_productivity_rating?: string;
+  tomorrow_improvement_focus?: string;
+  tomorrow_improvement_note?: string;
+  completed_work_summary?: string;
+  mission_tags?: string[];
+  evidence_files?: string[];
+  evidence_links?: string[];
+  performance_score_preview?: number;
+  coach_insight_text?: string;
+  top_focus_summary?: string;
+  energy_peak_summary?: string;
+  submitted_at?: string;
+  updated_at?: string;
 }
 
 export interface RuleUpdatePayload extends Partial<RuleConfig> {
@@ -545,7 +566,7 @@ class MemoryGameRepository implements GameRepository {
 
   async listPendingSubmissions(): Promise<Submission[]> {
     return [...this.db.submissions.values()]
-      .filter((submission) => submission.status === "pending")
+      .filter((submission) => submission.status === "pending" || submission.status === "submitted" || submission.status === "in_review")
       .sort((a, b) => (a.created_at > b.created_at ? -1 : 1));
   }
 
@@ -918,7 +939,7 @@ class FirestoreGameRepository implements GameRepository {
   }
 
   async listPendingSubmissions(): Promise<Submission[]> {
-    const snap = await this.db.collection("submissions").where("status", "==", "pending").get();
+    const snap = await this.db.collection("submissions").where("status", "in", ["pending", "submitted", "in_review"]).get();
     return snap.docs
       .map((doc) => doc.data() as Submission)
       .sort((a, b) => (a.created_at > b.created_at ? -1 : 1));
@@ -1049,10 +1070,12 @@ export function resetInMemoryRepositoryForTests() {
 }
 
 export function makeSubmissionFromDraft(draft: SubmissionDraft, submissionDate?: string): Submission {
+  const createdAt = nowISO();
   return {
     id: createId("submission"),
     user_id: draft.user_id,
     date: submissionDate ?? toISODate(new Date()),
+    checkin_date: submissionDate ?? toISODate(new Date()),
     mood: draft.mood,
     feeling: draft.feeling,
     calories: draft.calories,
@@ -1060,12 +1083,33 @@ export function makeSubmissionFromDraft(draft: SubmissionDraft, submissionDate?:
     custom_answers: draft.custom_answers,
     task_list: draft.task_list,
     file_url: draft.file_url,
-    status: "pending",
+    status: draft.status ?? "submitted",
     points_awarded: 0,
     base_points_awarded: 0,
     bonus_points_awarded: 0,
     bonus_message: "",
-    created_at: nowISO()
+    step_index: draft.step_index,
+    feeling_state: draft.feeling_state,
+    primary_productivity_factor: draft.primary_productivity_factor,
+    primary_productivity_factor_note: draft.primary_productivity_factor_note,
+    completed_top_priorities: draft.completed_top_priorities,
+    worked_on_high_impact: draft.worked_on_high_impact,
+    avoided_low_value_work: draft.avoided_low_value_work,
+    self_productivity_rating: draft.self_productivity_rating,
+    tomorrow_improvement_focus: draft.tomorrow_improvement_focus,
+    tomorrow_improvement_note: draft.tomorrow_improvement_note,
+    completed_work_summary: draft.completed_work_summary,
+    mission_tags: draft.mission_tags ?? [],
+    evidence_files: draft.evidence_files ?? [],
+    evidence_links: draft.evidence_links ?? [],
+    performance_score_preview: draft.performance_score_preview,
+    coach_insight_text: draft.coach_insight_text,
+    top_focus_summary: draft.top_focus_summary,
+    energy_peak_summary: draft.energy_peak_summary,
+    submission_time: draft.submitted_at ?? createdAt,
+    submitted_at: draft.submitted_at,
+    updated_at: draft.updated_at ?? createdAt,
+    created_at: createdAt
   };
 }
 

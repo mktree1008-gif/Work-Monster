@@ -267,17 +267,17 @@ export function NotificationBell({ notifications, unreadCount, action, role, loc
 
       {open && (
         <div
-          className="fixed inset-0 z-[80] flex items-end justify-center bg-slate-950/62 p-2 backdrop-blur-[3px] sm:items-center sm:p-6"
+          className="fixed inset-0 z-[80] flex items-start justify-center overflow-hidden bg-slate-950/62 px-2 pb-[calc(0.75rem+var(--safe-bottom))] pt-[calc(0.75rem+var(--safe-top))] backdrop-blur-[3px] sm:items-center sm:px-6 sm:py-6"
           onClick={() => setOpen(false)}
         >
           <section
-            className="anim-pop flex h-[88dvh] w-full max-w-3xl flex-col overflow-hidden rounded-[1.75rem] border border-indigo-100 bg-[#f8faff] shadow-[0_36px_80px_rgba(15,23,42,0.45)]"
+            className="anim-pop flex w-full max-w-3xl max-h-[calc(100dvh-var(--safe-top)-var(--safe-bottom)-1.5rem)] flex-col overflow-hidden rounded-[1.55rem] border border-indigo-100 bg-[#f8faff] shadow-[0_36px_80px_rgba(15,23,42,0.45)] sm:h-[88dvh] sm:max-h-[760px] sm:rounded-[1.75rem]"
             onClick={(event) => event.stopPropagation()}
           >
             <div className="border-b border-indigo-100 bg-white/95 px-4 pb-3 pt-4 sm:px-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-2xl font-black text-indigo-900">{isKo ? "알림" : "Notifications"}</p>
+                  <p className="text-xl font-black text-indigo-900">{isKo ? "알림" : "Notifications"}</p>
                   <p className="mt-1 text-xs font-semibold text-slate-500">
                     {isKo ? "카테고리별로 빠르게 확인하고 바로 이동하세요." : "Scan by category and jump to action fast."}
                   </p>
@@ -471,7 +471,7 @@ export function NotificationBell({ notifications, unreadCount, action, role, loc
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-amber-600">
                 {isKo ? "보너스 선물 도착" : "Bonus Surprise"}
               </p>
-              <h3 className="mt-1 text-2xl font-black text-indigo-900">
+              <h3 className="mt-1 text-xl font-black text-indigo-900">
                 {isKo ? "보너스 포인트를 받았어요!" : "You got bonus points!"}
               </h3>
               <p className="mt-1 text-sm text-slate-600">
@@ -494,7 +494,7 @@ export function NotificationBell({ notifications, unreadCount, action, role, loc
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-indigo-600">
                 {isKo ? "보너스 상세" : "Bonus Details"}
               </p>
-              <h3 className="mt-1 text-2xl font-black text-indigo-900">
+              <h3 className="mt-1 text-xl font-black text-indigo-900">
                 {isKo ? `+${selectedBonus.bonus_points ?? 0} 보너스 포인트` : `+${selectedBonus.bonus_points ?? 0} Bonus Points`}
               </h3>
               <p className="mt-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">

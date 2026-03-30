@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { CircleUserRound, House, Menu, X } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { BarChart3, CircleUserRound, Dumbbell, Gift, House, Menu, Moon, Settings2, Shield, Star, Utensils, X } from "lucide-react";
 import { AppNotification, Locale, UserRole } from "@/lib/types";
 import { logoutAction, setLocaleAction } from "@/lib/services/actions";
 import { ProfileAvatar } from "@/components/profile-avatar";
@@ -42,9 +43,43 @@ export function TopAppBar({
   unreadNotificationCount,
   notificationAction
 }: Props) {
+  const pathname = usePathname();
   const [panel, setPanel] = useState<PanelMode>(null);
   const [navTab, setNavTab] = useState<"main" | "more">("main");
   const [profileTab, setProfileTab] = useState<"account" | "settings">("account");
+  const isKo = locale === "ko";
+
+  const ui = useMemo(
+    () => ({
+      mainTabs: isKo ? "Main" : "Main Tabs",
+      more: isKo ? "More" : "More",
+      workspace: isKo ? "Secondary" : "Secondary",
+      profile: isKo ? "Profile" : "Profile",
+      settings: isKo ? "Settings" : "Settings",
+      currentRole: isKo ? "Current Role" : "Current Role",
+      manager: isKo ? "Manager" : "Manager",
+      language: isKo ? "Language" : "Language",
+      applyLanguage: isKo ? "Apply Language" : "Apply language",
+      signOut: isKo ? "Sign out" : "Sign out",
+      quickWellness: isKo ? "Wellness" : "Wellness"
+    }),
+    [isKo]
+  );
+
+  const mainTabs = [
+    { href: "/app/welcome", label: labels.questions, icon: House },
+    { href: "/app/record", label: labels.record, icon: BarChart3 },
+    { href: "/app/rewards", label: labels.rewards, icon: Gift },
+    { href: "/app/score", label: labels.score, icon: Star },
+    { href: "/app/rules", label: labels.rules, icon: Shield }
+  ] as const;
+
+  const moreTabs = [
+    { href: "/app/food", label: "Food", icon: Utensils },
+    { href: "/app/workout", label: "Workout", icon: Dumbbell },
+    { href: "/app/sleep", label: "Sleep", icon: Moon },
+    { href: "/account", label: labels.account, icon: CircleUserRound }
+  ] as const;
 
   function openNav() {
     setNavTab("main");
@@ -60,18 +95,12 @@ export function TopAppBar({
     setPanel(null);
   }
 
-  const ui = {
-    mainTabs: "Main Tabs",
-    more: "More",
-    workspace: "Workspace",
-    profile: "Profile",
-    settings: "Settings",
-    currentRole: "Current Role",
-    manager: "Manager",
-    language: "Language",
-    applyLanguage: "Apply language",
-    signOut: "Sign out"
-  };
+  function isSelected(href: string): boolean {
+    if (href === "/app/welcome") {
+      return pathname === "/app/welcome" || pathname.startsWith("/app/questions") || pathname.startsWith("/app/plan") || pathname.startsWith("/app/mission") || pathname.startsWith("/app/food") || pathname.startsWith("/app/workout") || pathname.startsWith("/app/sleep");
+    }
+    return pathname === href || pathname.startsWith(`${href}/`);
+  }
 
   return (
     <>
@@ -86,7 +115,7 @@ export function TopAppBar({
             >
               <Menu size={18} />
             </button>
-            <Link className="display-cute text-2xl font-bold" href="/app/welcome">
+            <Link className="display-cute text-xl font-bold" href="/app/welcome">
               {appName}
             </Link>
           </div>
@@ -119,11 +148,11 @@ export function TopAppBar({
       {panel && (
         <div className="fixed inset-0 z-50 bg-slate-950/35" onClick={closePanel}>
           <div
-            className={`h-full w-[82%] max-w-xs bg-white p-4 shadow-2xl ${panel === "profile" ? "ml-auto" : ""}`}
+            className={`anim-pop h-full w-[84%] max-w-[20rem] bg-white p-4 shadow-2xl ${panel === "profile" ? "ml-auto" : ""}`}
             onClick={(event) => event.stopPropagation()}
           >
             <div className="mb-4 flex items-center justify-between">
-              <p className="display-cute text-2xl text-indigo-900">{panel === "nav" ? appName : labels.account}</p>
+              <p className="display-cute text-xl text-indigo-900">{panel === "nav" ? appName : labels.account}</p>
               <button
                 aria-label="Close panel"
                 className="rounded-full bg-slate-100 p-2"
@@ -155,43 +184,47 @@ export function TopAppBar({
 
                 {navTab === "main" ? (
                   <nav className="space-y-2">
-                    <Link href="/app/welcome" className="flex items-center gap-2 rounded-xl bg-slate-100 px-3 py-2 text-sm font-medium" onClick={closePanel}>
-                      <House size={16} />
-                      {labels.questions}
-                    </Link>
-                    <Link href="/app/food" className="block rounded-xl bg-slate-100 px-3 py-2 text-sm font-medium" onClick={closePanel}>
-                      Food
-                    </Link>
-                    <Link href="/app/workout" className="block rounded-xl bg-slate-100 px-3 py-2 text-sm font-medium" onClick={closePanel}>
-                      Workout
-                    </Link>
-                    <Link href="/app/sleep" className="block rounded-xl bg-slate-100 px-3 py-2 text-sm font-medium" onClick={closePanel}>
-                      Sleep
-                    </Link>
-                    <Link href="/app/record" className="block rounded-xl bg-slate-100 px-3 py-2 text-sm font-medium" onClick={closePanel}>
-                      {labels.record}
-                    </Link>
-                    <Link href="/app/rewards" className="block rounded-xl bg-slate-100 px-3 py-2 text-sm font-medium" onClick={closePanel}>
-                      {labels.rewards}
-                    </Link>
-                    <Link href="/app/score" className="block rounded-xl bg-slate-100 px-3 py-2 text-sm font-medium" onClick={closePanel}>
-                      {labels.score}
-                    </Link>
-                    <Link href="/app/rules" className="block rounded-xl bg-slate-100 px-3 py-2 text-sm font-medium" onClick={closePanel}>
-                      {labels.rules}
-                    </Link>
+                    {mainTabs.map((tab) => {
+                      const Icon = tab.icon;
+                      const selected = isSelected(tab.href);
+                      return (
+                        <Link
+                          className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium ${selected ? "bg-indigo-100 text-indigo-900" : "bg-slate-100 text-slate-700"}`}
+                          href={tab.href}
+                          key={tab.href}
+                          onClick={closePanel}
+                        >
+                          <Icon size={16} />
+                          {tab.label}
+                        </Link>
+                      );
+                    })}
                   </nav>
                 ) : (
                   <div className="space-y-2">
                     <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">{ui.workspace}</p>
-                    {role === "manager" && (
-                      <Link href="/manager" className="block rounded-xl bg-slate-100 px-3 py-2 text-sm font-medium" onClick={closePanel}>
-                        {ui.manager}
-                      </Link>
-                    )}
-                    <Link href="/account" className="block rounded-xl bg-slate-100 px-3 py-2 text-sm font-medium" onClick={closePanel}>
-                      {labels.account}
-                    </Link>
+                    <nav className="space-y-2">
+                      {moreTabs.map((tab) => {
+                        const Icon = tab.icon;
+                        const selected = isSelected(tab.href);
+                        return (
+                          <Link
+                            className={`flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium ${selected ? "bg-indigo-100 text-indigo-900" : "bg-slate-100 text-slate-700"}`}
+                            href={tab.href}
+                            key={tab.href}
+                            onClick={closePanel}
+                          >
+                            <Icon size={16} />
+                            {tab.label}
+                          </Link>
+                        );
+                      })}
+                      {role === "manager" && (
+                        <Link className="block rounded-xl bg-slate-100 px-3 py-2 text-sm font-medium" href="/manager" onClick={closePanel}>
+                          {ui.manager}
+                        </Link>
+                      )}
+                    </nav>
                   </div>
                 )}
               </>
@@ -254,6 +287,12 @@ export function TopAppBar({
                         {ui.applyLanguage}
                       </button>
                     </form>
+                    <button className="btn btn-muted w-full text-sm" disabled type="button">
+                      <span className="inline-flex items-center gap-2">
+                        <Settings2 size={15} />
+                        {ui.quickWellness}
+                      </span>
+                    </button>
                     <form action={logoutAction}>
                       <button className="btn btn-primary w-full text-sm" type="submit">
                         {ui.signOut}

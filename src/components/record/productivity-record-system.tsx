@@ -371,7 +371,14 @@ function buildAnalyticsModel(
   const fallbackByDate = buildFallbackTasksByDate(submissions);
 
   const submissionPointsByDate = submissions.reduce<Map<string, number>>((acc, submission) => {
-    if (submission.status === "pending") return acc;
+    if (
+      submission.status === "pending"
+      || submission.status === "submitted"
+      || submission.status === "in_review"
+      || submission.status === "draft"
+    ) {
+      return acc;
+    }
     const current = acc.get(submission.date) ?? 0;
     acc.set(submission.date, current + Math.round(safeNumber(submission.points_awarded, 0)));
     return acc;

@@ -21,16 +21,25 @@ function statusLabel(status: Submission["status"], locale: Locale): string {
   if (locale === "ko") {
     if (status === "approved") return "승인됨";
     if (status === "rejected") return "반려됨";
+    if (status === "needs_revision") return "수정 필요";
+    if (status === "draft") return "임시 저장";
+    if (status === "in_review") return "검토 중";
     return "검토 대기";
   }
   if (status === "approved") return "approved";
   if (status === "rejected") return "rejected";
-  return "pending";
+  if (status === "needs_revision") return "needs revision";
+  if (status === "draft") return "draft";
+  if (status === "in_review") return "in review";
+  return "submitted";
 }
 
 function statusTone(status: Submission["status"]): string {
   if (status === "approved") return "text-emerald-700";
   if (status === "rejected") return "text-rose-700";
+  if (status === "needs_revision") return "text-amber-700";
+  if (status === "draft") return "text-slate-600";
+  if (status === "in_review") return "text-blue-700";
   return "text-amber-700";
 }
 

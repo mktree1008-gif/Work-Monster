@@ -17,7 +17,6 @@ type SectionKey =
   | "sleep"
   | "checklist"
   | "missions"
-  | "points"
   | "rewards"
   | "penalties";
 
@@ -35,7 +34,6 @@ const SECTIONS: Array<{ key: SectionKey; label: string }> = [
   { key: "sleep", label: "Sleep" },
   { key: "checklist", label: "Checklist" },
   { key: "missions", label: "Missions" },
-  { key: "points", label: "Points" },
   { key: "rewards", label: "Rewards" },
   { key: "penalties", label: "Penalties" }
 ];
@@ -96,18 +94,8 @@ export function WellnessRecordSections({ initialSection, submissions, rewardClai
       })),
     [dates, sleepLogs]
   );
-  const pointSeries = useMemo(
-    () =>
-      dates.map((date) => ({
-        date,
-        value: submissions.filter((item) => item.date === date && item.status !== "pending").reduce((sum, item) => sum + item.points_awarded, 0)
-      })),
-    [dates, submissions]
-  );
-
   const maxFood = Math.max(1, ...foodSeries.map((item) => item.value));
   const maxWorkout = Math.max(1, ...workoutSeries.map((item) => item.value));
-  const maxPoints = Math.max(1, ...pointSeries.map((item) => Math.abs(item.value)));
   const avgRecovery = sleepSeries.length > 0 ? Math.round(sleepSeries.reduce((sum, item) => sum + item.value, 0) / sleepSeries.length) : 0;
   const avgFood = foodSeries.length > 0 ? Math.round(foodSeries.reduce((sum, item) => sum + item.value, 0) / foodSeries.length) : 0;
   const avgWorkout = workoutSeries.length > 0 ? Math.round(workoutSeries.reduce((sum, item) => sum + item.value, 0) / workoutSeries.length) : 0;
@@ -189,18 +177,13 @@ export function WellnessRecordSections({ initialSection, submissions, rewardClai
             </article>
           </div>
           <article className="rounded-xl bg-slate-50 p-3">
-            <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Points line</p>
-            <div className="mt-3 flex h-24 items-end gap-1">
-              {pointSeries.map((item) => (
-                <div className="flex flex-1 flex-col items-center" key={item.date}>
-                  <div
-                    className={`w-full rounded-t-md ${item.value >= 0 ? "bg-emerald-500" : "bg-rose-500"}`}
-                    style={{ height: `${Math.max(8, Math.round((Math.abs(item.value) / maxPoints) * 100))}%` }}
-                  />
-                  <span className="mt-1 text-[10px] text-slate-500">{item.date.slice(8)}</span>
-                </div>
-              ))}
-            </div>
+            <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Wellness Insight</p>
+            <p className="mt-2 text-sm text-slate-700">
+              Recovery {avgRecovery}% • Food {avgFood} kcal • Workout {avgWorkout} min
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              Points calendar moved to the Score tab for a single source of truth.
+            </p>
           </article>
         </div>
       )}
@@ -279,22 +262,6 @@ export function WellnessRecordSections({ initialSection, submissions, rewardClai
           ))}
           {missionRows.length === 0 && <p className="text-sm text-slate-500">No mission answers found yet.</p>}
         </div>
-      )}
-
-      {section === "points" && (
-        <article className="rounded-xl bg-slate-50 p-3">
-          <p className="text-sm font-bold text-slate-700">Points by day</p>
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            {pointSeries.slice().reverse().slice(0, 10).map((row) => (
-              <div className="rounded-lg bg-white p-2 text-sm" key={row.date}>
-                <p className="text-slate-500">{row.date}</p>
-                <p className={`font-bold ${row.value >= 0 ? "text-emerald-700" : "text-rose-700"}`}>
-                  {row.value >= 0 ? `+${row.value}` : row.value}
-                </p>
-              </div>
-            ))}
-          </div>
-        </article>
       )}
 
       {section === "rewards" && (

@@ -26,7 +26,9 @@ export default async function QuestionsPage({ searchParams }: Props) {
   const firstRewardRemaining = firstReward ? Math.max(0, firstReward.required_points - bundle.score.total_points) : 0;
   const latestSubmission = bundle.submissions[0];
   const displayName = (bundle.user.name ?? "").trim() || bundle.user.login_id;
-  const pendingSubmission = latestSubmission?.status === "pending";
+  const waitingReview = latestSubmission
+    ? latestSubmission.status === "pending" || latestSubmission.status === "submitted" || latestSubmission.status === "in_review"
+    : false;
   const pendingCue = getManagerCue("upload_saved_pending", bundle.user.locale);
   const successCue = getManagerCue("submission_success", bundle.user.locale);
   const milestoneUnlocked =
@@ -53,7 +55,7 @@ export default async function QuestionsPage({ searchParams }: Props) {
         pointsAwarded={submissionPointsAwarded}
         updatedMode={updated}
       />
-      <CharacterToast cue={pendingCue} openOnMount={saved || pendingSubmission} role="manager" />
+      <CharacterToast cue={pendingCue} openOnMount={saved || waitingReview} role="manager" />
       <CharacterToast cue={tiredCue} openOnMount={saved && !latestSubmission?.productive} role="user" tone="warning" />
 
       {saved && (
@@ -75,8 +77,8 @@ export default async function QuestionsPage({ searchParams }: Props) {
       <section className="card anim-pop mb-4 overflow-hidden bg-gradient-to-br from-blue-700 via-indigo-700 to-indigo-900 p-5 text-white">
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-blue-100/90">Current Momentum</p>
         <div className="mt-2 flex items-end gap-2">
-          <p className="text-5xl font-black leading-none">{bundle.score.total_points.toLocaleString()}</p>
-          <p className="mb-1 text-3xl font-bold text-blue-100">pts</p>
+          <p className="text-[clamp(1.95rem,9vw,2.8rem)] font-black leading-none">{bundle.score.total_points.toLocaleString()}</p>
+          <p className="mb-1 text-[clamp(1.15rem,5vw,1.65rem)] font-bold text-blue-100">pts</p>
         </div>
         <div className="mt-4 flex items-center justify-between gap-3">
           {bundle.score.multiplier_active ? (
@@ -170,12 +172,12 @@ export default async function QuestionsPage({ searchParams }: Props) {
           <p className="mt-1 font-bold text-indigo-900">{latestSubmission.status.toUpperCase()}</p>
           <p className="text-xs text-slate-500">Date: {latestSubmission.date}</p>
           <p className="text-sm text-slate-600">
-            {latestSubmission.status === "pending"
+            {waitingReview
               ? `${bundle.rules.success_message} Waiting for manager review. Points update only after manager approval.`
               : latestSubmission.manager_note ?? "No manager note yet."}
           </p>
-          {pendingSubmission && <div className="mt-3"><CharacterAlert role="manager" cue={pendingCue} compact tone="warning" /></div>}
-          {!pendingSubmission && (
+          {waitingReview && <div className="mt-3"><CharacterAlert role="manager" cue={pendingCue} compact tone="warning" /></div>}
+          {!waitingReview && (
             <div className="mt-3">
               <CharacterAlert role="manager" cue={{ ...successCue, message: bundle.rules.success_message }} compact tone="success" />
             </div>

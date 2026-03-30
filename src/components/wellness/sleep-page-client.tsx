@@ -12,7 +12,15 @@ import {
   upsertSleepLog,
   weeklyDates
 } from "@/lib/wellness-storage";
-import { WellnessBottomNav } from "@/components/wellness-bottom-nav";
+import { BottomTabs } from "@/components/bottom-tabs";
+
+type Labels = {
+  questions: string;
+  record: string;
+  rewards: string;
+  score: string;
+  rules: string;
+};
 
 function qualityFromRecovery(recovery: number): SleepQuality {
   if (recovery >= 85) return "High Quality";
@@ -20,7 +28,7 @@ function qualityFromRecovery(recovery: number): SleepQuality {
   return "Low";
 }
 
-export function SleepPageClient() {
+export function SleepPageClient({ labels }: { labels: Labels }) {
   const [selectedDate, setSelectedDate] = useState(todayLocalISO());
   const [logs, setLogs] = useState<ReturnType<typeof getSleepLogs>>([]);
   const [mounted, setMounted] = useState(false);
@@ -295,7 +303,7 @@ export function SleepPageClient() {
       >
         +
       </button>
-      <WellnessBottomNav active="sleep" />
+      <BottomTabs active="questions" labels={labels} />
     </section>
   );
 }

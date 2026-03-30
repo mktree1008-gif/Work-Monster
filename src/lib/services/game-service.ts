@@ -55,6 +55,8 @@ type SubmitDailyCheckInResult = {
   submissionPointsAwarded: number;
 };
 
+type DailyCheckInSaveMode = "draft" | "submit";
+
 type StreakSummary = {
   current_streak: number;
   longest_streak: number;
@@ -295,7 +297,8 @@ async function awardSubmissionBasePointsOnce(params: {
 export async function submitDailyCheckIn(
   userId: string,
   draft: Omit<SubmissionDraft, "user_id">,
-  meta?: CheckInClientMeta
+  meta?: CheckInClientMeta,
+  saveMode: DailyCheckInSaveMode = "submit"
 ): Promise<SubmitDailyCheckInResult> {
   const repo = getGameRepository();
   const targetDate = resolveSubmissionDate(meta);
@@ -316,39 +319,88 @@ export async function submitDailyCheckIn(
     );
   }
 
-  const pendingSameDate = sameDateSubmissions.find((item) => item.status === "pending");
-  if (pendingSameDate) {
+  const editableSameDate = sameDateSubmissions.find(
+    (item) =>
+      item.status === "pending"
+      || item.status === "submitted"
+      || item.status === "draft"
+      || item.status === "in_review"
+      || item.status === "needs_revision"
+  );
+  if (editableSameDate) {
+    const nextStatus = saveMode === "draft" ? "draft" : "submitted";
+    const submittedAt = saveMode === "submit" ? nowISO() : editableSameDate.submitted_at;
     const updatedPending: Submission = {
-      ...pendingSameDate,
+      ...editableSameDate,
       mood: draft.mood,
       feeling: draft.feeling,
       calories: draft.calories,
       productive: draft.productive,
       custom_answers: draft.custom_answers,
       task_list: draft.task_list,
-      file_url: draft.file_url ?? ""
+      file_url: draft.file_url ?? "",
+      checkin_date: targetDate,
+      status: nextStatus,
+      step_index: draft.step_index ?? editableSameDate.step_index,
+      feeling_state: draft.feeling_state ?? editableSameDate.feeling_state,
+      primary_productivity_factor: draft.primary_productivity_factor ?? editableSameDate.primary_productivity_factor,
+      primary_productivity_factor_note: draft.primary_productivity_factor_note ?? editableSameDate.primary_productivity_factor_note,
+      completed_top_priorities: draft.completed_top_priorities ?? editableSameDate.completed_top_priorities,
+      worked_on_high_impact: draft.worked_on_high_impact ?? editableSameDate.worked_on_high_impact,
+      avoided_low_value_work: draft.avoided_low_value_work ?? editableSameDate.avoided_low_value_work,
+      self_productivity_rating: draft.self_productivity_rating ?? editableSameDate.self_productivity_rating,
+      tomorrow_improvement_focus: draft.tomorrow_improvement_focus ?? editableSameDate.tomorrow_improvement_focus,
+      tomorrow_improvement_note: draft.tomorrow_improvement_note ?? editableSameDate.tomorrow_improvement_note,
+      completed_work_summary: draft.completed_work_summary ?? editableSameDate.completed_work_summary,
+      mission_tags: draft.mission_tags ?? editableSameDate.mission_tags ?? [],
+      evidence_files: draft.evidence_files ?? editableSameDate.evidence_files ?? [],
+      evidence_links: draft.evidence_links ?? editableSameDate.evidence_links ?? [],
+      performance_score_preview: draft.performance_score_preview ?? editableSameDate.performance_score_preview,
+      coach_insight_text: draft.coach_insight_text ?? editableSameDate.coach_insight_text,
+      top_focus_summary: draft.top_focus_summary ?? editableSameDate.top_focus_summary,
+      energy_peak_summary: draft.energy_peak_summary ?? editableSameDate.energy_peak_summary,
+      submitted_at: submittedAt,
+      submission_time: submittedAt ?? editableSameDate.submission_time,
+      updated_at: nowISO()
     };
     await repo.saveSubmission(updatedPending);
-    const rules = await repo.getRules();
-    const submissionPointsAwarded = await awardSubmissionBasePointsOnce({
-      userId,
-      submissionId: updatedPending.id,
-      submissionDate: updatedPending.date,
-      points: Math.round(rules.submission_points ?? 0)
-    });
+    let submissionPointsAwarded = 0;
+    if (saveMode === "submit") {
+      const rules = await repo.getRules();
+      submissionPointsAwarded = await awardSubmissionBasePointsOnce({
+        userId,
+        submissionId: updatedPending.id,
+        submissionDate: updatedPending.date,
+        points: Math.round(rules.submission_points ?? 0)
+      });
+    }
     return { submission: updatedPending, mode: "updated" as const, submissionPointsAwarded };
   }
 
-  const submission = makeSubmissionFromDraft({ ...draft, user_id: userId }, targetDate);
+  const createdAt = nowISO();
+  const submittedAt = saveMode === "submit" ? createdAt : undefined;
+  const submission = makeSubmissionFromDraft(
+    {
+      ...draft,
+      user_id: userId,
+      status: saveMode === "draft" ? "draft" : "submitted",
+      submitted_at: submittedAt,
+      updated_at: createdAt
+    },
+    targetDate
+  );
   await repo.saveSubmission(submission);
 
-  const rules = await repo.getRules();
-  const submissionPointsAwarded = await awardSubmissionBasePointsOnce({
-    userId,
-    submissionId: submission.id,
-    submissionDate: submission.date,
-    points: Math.round(rules.submission_points ?? 0)
-  });
+  let submissionPointsAwarded = 0;
+  if (saveMode === "submit") {
+    const rules = await repo.getRules();
+    submissionPointsAwarded = await awardSubmissionBasePointsOnce({
+      userId,
+      submissionId: submission.id,
+      submissionDate: submission.date,
+      points: Math.round(rules.submission_points ?? 0)
+    });
+  }
 
   return { submission, mode: "created" as const, submissionPointsAwarded };
 }

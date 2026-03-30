@@ -42,7 +42,7 @@ function parseMissedDaysFromPenaltyMessage(message: string): number {
 }
 
 export default async function WelcomePage({ searchParams }: Props) {
-  const { bundle } = await getViewerContext();
+  const { bundle, strings } = await getViewerContext();
   const params = (searchParams ? await searchParams : {}) as Record<string, string | string[] | undefined>;
   const saved = params.saved === "1";
   const updated = params.updated === "1";
@@ -52,11 +52,24 @@ export default async function WelcomePage({ searchParams }: Props) {
 
   const today = toISODate(new Date());
   const todaySubmission = bundle.submissions.find((item) => item.date === today) ?? null;
+  const normalizedStatus = todaySubmission?.status ?? "";
   const checkinState = !todaySubmission
     ? "none"
-    : todaySubmission.status === "pending"
-      ? "pending"
-      : "reviewed";
+    : normalizedStatus === "pending"
+      ? "submitted"
+      : normalizedStatus === "draft"
+        ? "draft"
+        : normalizedStatus === "submitted"
+          ? "submitted"
+          : normalizedStatus === "in_review"
+            ? "in_review"
+            : normalizedStatus === "approved"
+              ? "approved"
+              : normalizedStatus === "rejected"
+                ? "rejected"
+                : normalizedStatus === "needs_revision"
+                  ? "needs_revision"
+                  : "none";
 
   const missionNotification =
     bundle.notifications.find(
@@ -80,13 +93,19 @@ export default async function WelcomePage({ searchParams }: Props) {
     deadline: missionNotification ? missionDueDate : "Flexible deadline",
     bonusPoints: missionNotification ? missionBonus : 0,
     statusLabel: missionNotification
-      ? checkinState === "reviewed"
+      ? checkinState === "approved"
         ? "Completed"
-        : checkinState === "pending"
+        : checkinState === "submitted" || checkinState === "in_review"
           ? "In progress"
-          : missionNotification.is_new
-            ? "New mission"
-            : "Accepted"
+          : checkinState === "needs_revision"
+            ? "Needs revision"
+            : checkinState === "rejected"
+              ? "Rejected"
+              : checkinState === "draft"
+                ? "Draft saved"
+                : missionNotification.is_new
+                  ? "New mission"
+                  : "Accepted"
       : "No mission yet"
   };
 
@@ -136,6 +155,7 @@ export default async function WelcomePage({ searchParams }: Props) {
       )}
       <WelcomeDashboardClient
         checkinState={checkinState}
+        labels={strings}
         mission={mission}
         reward={{
           batteryPercent: Math.max(8, nextReward.progressPercent),
