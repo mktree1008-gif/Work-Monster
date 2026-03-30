@@ -227,6 +227,53 @@ function normalizeRuleVersionForLaunch<T extends RuleConfig>(rules: T): T {
   };
 }
 
+function normalizeRules(raw: Partial<RuleConfig> | null | undefined): RuleConfig {
+  const seeded: RuleConfig = {
+    ...DEFAULT_RULES,
+    ...(raw ?? {})
+  };
+
+  const penaltyThresholds = Array.isArray(raw?.penalty_thresholds)
+    ? raw.penalty_thresholds
+        .map((item) => Number(item))
+        .filter((item) => Number.isFinite(item) && item < 0)
+        .map((item) => Math.floor(item))
+    : [...DEFAULT_RULES.penalty_thresholds];
+
+  const uniqueThresholds = [...new Set(penaltyThresholds)].sort((a, b) => b - a);
+
+  const penaltyRewards = Array.isArray(raw?.penalty_rewards)
+    ? raw.penalty_rewards
+        .map((item) => ({
+          threshold: Number(item?.threshold),
+          label: String(item?.label ?? "").trim(),
+          value: String(item?.value ?? "").trim()
+        }))
+        .filter((item) => Number.isFinite(item.threshold) && item.threshold < 0)
+        .map((item) => ({
+          threshold: Math.floor(item.threshold),
+          label: item.label || "Manager reward unlocked",
+          value: item.value || "$0 equivalent"
+        }))
+    : [...DEFAULT_RULES.penalty_rewards];
+
+  const penaltyActionRules = Array.isArray((raw as { penalty_action_rules?: unknown[] } | null)?.penalty_action_rules)
+    ? ((raw as { penalty_action_rules?: unknown[] }).penalty_action_rules ?? [])
+        .map((item) => String(item ?? "").trim())
+        .filter(Boolean)
+        .slice(0, 20)
+    : [...DEFAULT_RULES.penalty_action_rules];
+
+  const normalized = normalizeRuleVersionForLaunch({
+    ...seeded,
+    penalty_thresholds: uniqueThresholds.length > 0 ? uniqueThresholds : [...DEFAULT_RULES.penalty_thresholds],
+    penalty_rewards: penaltyRewards.length > 0 ? penaltyRewards : [...DEFAULT_RULES.penalty_rewards],
+    penalty_action_rules: penaltyActionRules
+  });
+
+  return normalized;
+}
+
 class MemoryGameRepository implements GameRepository {
   private db: MemoryDB = createMemoryDB();
   private findByEmail(email: string): UserProfile | undefined {
@@ -389,14 +436,15 @@ class MemoryGameRepository implements GameRepository {
   }
 
   async getRules(): Promise<RuleConfig> {
-    const normalized = normalizeRuleVersionForLaunch(this.db.rules);
+    const normalized = normalizeRules(this.db.rules);
     this.db.rules = normalized;
     return normalized;
   }
 
   async saveRules(nextRules: RuleConfig): Promise<RuleConfig> {
-    this.db.rules = nextRules;
-    return nextRules;
+    const normalized = normalizeRules(nextRules);
+    this.db.rules = normalized;
+    return normalized;
   }
 
   async getScore(uid: string): Promise<ScoreState> {
@@ -726,11 +774,12 @@ class FirestoreGameRepository implements GameRepository {
       await this.db.collection("rules").doc("current").set(DEFAULT_RULES);
       return DEFAULT_RULES;
     }
-    const raw = snap.data() as RuleConfig;
-    const normalized = normalizeRuleVersionForLaunch(raw);
+    const raw = snap.data() as Partial<RuleConfig>;
+    const normalized = normalizeRules(raw);
     if (
       normalized.rule_version !== raw.rule_version ||
-      normalized.rule_version_pinned_at !== raw.rule_version_pinned_at
+      normalized.rule_version_pinned_at !== raw.rule_version_pinned_at ||
+      !Array.isArray((raw as { penalty_action_rules?: unknown[] }).penalty_action_rules)
     ) {
       await this.db.collection("rules").doc("current").set(normalized, { merge: true });
     }
@@ -738,8 +787,9 @@ class FirestoreGameRepository implements GameRepository {
   }
 
   async saveRules(nextRules: RuleConfig): Promise<RuleConfig> {
-    await this.db.collection("rules").doc("current").set(nextRules);
-    return nextRules;
+    const normalized = normalizeRules(nextRules);
+    await this.db.collection("rules").doc("current").set(normalized);
+    return normalized;
   }
 
   async getScore(uid: string): Promise<ScoreState> {

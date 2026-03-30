@@ -333,6 +333,8 @@ export async function updateRulesAction(formData: FormData): Promise<void> {
   const session = await getSession();
   if (!session || session.role !== "manager") redirect("/auth/login");
   await assertManagerOwner(session.uid);
+  const repo = getGameRepository();
+  const previousRules = await repo.getRules();
 
   const rowMap = new Map<number, { threshold?: number; label?: string; value?: string }>();
 
@@ -365,6 +367,18 @@ export async function updateRulesAction(formData: FormData): Promise<void> {
   }
 
   const configuredRows = [...rowMap.values()].filter((row) => Number.isFinite(row.threshold) && Number(row.threshold) < 0);
+
+  const penaltyTextRules = [...formData.entries()]
+    .filter(([key]) => key.startsWith("penalty_text_rule_"))
+    .sort(([left], [right]) => {
+      const leftIndex = Number(left.replace("penalty_text_rule_", ""));
+      const rightIndex = Number(right.replace("penalty_text_rule_", ""));
+      if (!Number.isFinite(leftIndex) || !Number.isFinite(rightIndex)) return 0;
+      return leftIndex - rightIndex;
+    })
+    .map(([_key, value]) => String(value ?? "").trim())
+    .filter(Boolean)
+    .slice(0, 20);
 
   let thresholds = configuredRows
     .map((row) => Math.floor(Number(row.threshold)))
@@ -406,6 +420,7 @@ export async function updateRulesAction(formData: FormData): Promise<void> {
       rewards_blurb: String(formData.get("rewards_blurb") ?? ""),
       penalty_thresholds: thresholds,
       penalty_rewards: parsedRewards,
+      penalty_action_rules: penaltyTextRules,
       target_rule_version: targetRuleVersion,
       note: String(formData.get("note") ?? "")
     },
@@ -415,9 +430,38 @@ export async function updateRulesAction(formData: FormData): Promise<void> {
   revalidatePath("/manager");
   revalidatePath("/app/rules");
   revalidatePath("/app/score");
+  revalidatePath("/app/welcome");
+  revalidatePath("/app");
+
+  const penaltyNotice = String(formData.get("penalty_notice") ?? "").trim();
+  const beforePenaltyRules = (previousRules.penalty_action_rules ?? []).map((item) => item.trim()).filter(Boolean);
+  const afterPenaltyRules = (saved.penalty_action_rules ?? []).map((item) => item.trim()).filter(Boolean);
+  const penaltyRulesChanged = JSON.stringify(beforePenaltyRules) !== JSON.stringify(afterPenaltyRules);
   const params = new URLSearchParams();
+  const shouldSendPenaltyNotice = penaltyNotice.length > 0 || penaltyRulesChanged;
+  if (shouldSendPenaltyNotice) {
+    const autoPenaltyNotice = penaltyNotice.length > 0
+      ? penaltyNotice
+      : afterPenaltyRules.length > 0
+        ? `Penalty rules were updated: ${afterPenaltyRules.join(" | ")}`
+        : "Penalty rules were updated. Open Rules tab to review the latest version.";
+    try {
+      await createAnnouncement(session.uid, {
+        title: "Penalty Rule Update",
+        message: autoPenaltyNotice
+      });
+      params.set("penalty_notice_sent", "1");
+      revalidatePath("/manager");
+      revalidatePath("/app");
+    } catch (error) {
+      const text = error instanceof Error ? error.message : "Failed to send penalty notice popup.";
+      params.set("announce_error", text);
+    }
+  }
+
   params.set("rules_saved", "1");
   params.set("version", String(saved.rule_version));
+  params.set("manager_tab", "rules");
   redirect(`/manager?${params.toString()}`);
 }
 

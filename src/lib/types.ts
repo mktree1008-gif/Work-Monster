@@ -30,6 +30,7 @@ export interface RuleConfig {
   penalty_thresholds: number[];
   penalty_rewards: PenaltyReward[];
   penalty_description: string;
+  penalty_action_rules: string[];
   rewards_blurb: string;
   rule_version: number;
   rule_version_pinned_at?: string;

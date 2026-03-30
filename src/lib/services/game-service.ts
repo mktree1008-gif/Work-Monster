@@ -593,13 +593,20 @@ export async function getDashboard(uid: string): Promise<DashboardBundle> {
 
   const managerUpdates: ManagerUpdateNotification[] = [];
   const managerUpdateFeed: ManagerUpdateNotification[] = [];
+  const latestRuleChange = bundle.rules.changelog[0] ?? null;
   const ruleUpdateItem: ManagerUpdateNotification = {
     id: `rule-${bundle.rules.rule_version}`,
     kind: "rule_update",
-    title: isKo ? `룰 v${bundle.rules.rule_version} 업데이트` : `Rules updated to v${bundle.rules.rule_version}`,
-    message: isKo
-      ? "매니저가 게임 규칙을 업데이트했어요. Rules 탭에서 변경 내용을 확인하세요."
-      : "Manager updated game rules. Open Rules tab to check details.",
+    title: latestRuleChange?.title?.trim()
+      ? latestRuleChange.title
+      : isKo
+        ? `룰 v${bundle.rules.rule_version} 업데이트`
+        : `Rules updated to v${bundle.rules.rule_version}`,
+    message: latestRuleChange?.description?.trim()
+      ? latestRuleChange.description
+      : isKo
+        ? "매니저가 게임 규칙을 업데이트했어요. Rules 탭에서 변경 내용을 확인하세요."
+        : "Manager updated game rules. Open Rules tab to check details.",
     created_at: bundle.rules.last_updated
   };
 

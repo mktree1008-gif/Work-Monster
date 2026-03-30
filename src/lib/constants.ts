@@ -24,6 +24,7 @@ export const DEFAULT_RULES: RuleConfig = {
   ],
   penalty_description:
     "Risk Zone is active when points go below zero. You can recover by earning points.",
+  penalty_action_rules: [],
   rewards_blurb: "Keep momentum. Every step unlocks better rewards.",
   rule_version: 1,
   last_updated: now,

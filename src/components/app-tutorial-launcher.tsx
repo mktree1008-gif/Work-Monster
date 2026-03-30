@@ -16,6 +16,7 @@ type Props = {
   multiplierValue: number;
   rewardHint: string;
   penaltyDescription: string;
+  penaltyActionRules: string[];
   latestChange: RuleChangeLogItem | null;
 };
 
@@ -40,6 +41,7 @@ function buildSlides({
   multiplierValue,
   rewardHint,
   penaltyDescription,
+  penaltyActionRules,
   latestChange
 }: Props): Slide[] {
   const isKo = locale === "ko";
@@ -58,6 +60,14 @@ function buildSlides({
   const riskBody = isKo
     ? `${penaltyDescription} 핵심: 앱 사용은 계속 가능하고, 점수를 다시 쌓아 언제든 회복할 수 있어요.`
     : `${penaltyDescription} Key rule: app usage is never blocked, and you can recover anytime by earning points.`;
+  const penaltyActionBody =
+    penaltyActionRules.length > 0
+      ? (isKo
+          ? `추가 패널티 액션: ${penaltyActionRules.join(" · ")}`
+          : `Extra penalty actions: ${penaltyActionRules.join(" · ")}`)
+      : (isKo
+          ? "현재 등록된 추가 패널티 액션은 없어요. Manager가 필요할 때 새 항목을 추가할 수 있어요."
+          : "No extra text penalty actions yet. Manager can add/edit/delete these anytime.");
   const updateBody = latestChange
     ? isKo
       ? `현재 버전 v${ruleVersion}의 최신 변경: ${latestChange.title}. ${latestChange.description}`
@@ -106,6 +116,14 @@ function buildSlides({
       body: riskBody,
       emoji: "⚠️",
       toneClass: "from-rose-50 to-red-50"
+    },
+    {
+      id: "penalty-actions",
+      eyebrow: isKo ? "PENALTY ACTIONS" : "PENALTY ACTIONS",
+      title: isKo ? "추가 페널티 규칙" : "Additional penalty rules",
+      body: penaltyActionBody,
+      emoji: "📌",
+      toneClass: "from-amber-50 to-orange-50"
     },
     {
       id: "update",

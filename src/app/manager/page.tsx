@@ -4,6 +4,7 @@ import { APP_NAME } from "@/lib/constants";
 import { isManagerOwnerEmail } from "@/lib/constants";
 import { ManagerClaimAlertsModal } from "@/components/manager-claim-alerts-modal";
 import { ManagerPenaltyEditor } from "@/components/manager-penalty-editor";
+import { ManagerPenaltyTextEditor } from "@/components/manager-penalty-text-editor";
 import { ManagerReviewResultPopup } from "@/components/manager-review-result-popup";
 import { ManagerRulesSavedPopup } from "@/components/manager-rules-saved-popup";
 import { ManagerUserAnalytics } from "@/components/manager-user-analytics";
@@ -87,6 +88,7 @@ export default async function ManagerPage({ searchParams }: Props) {
   const reviewedBonusMessage = typeof params.bonus_message === "string" ? params.bonus_message : "";
   const reviewedNote = typeof params.note === "string" ? params.note : "";
   const rulesSaved = params.rules_saved === "1";
+  const penaltyNoticeSent = params.penalty_notice_sent === "1";
   const announced = params.announce === "1";
   const announceError = typeof params.announce_error === "string" ? params.announce_error : "";
   const rulesVersion = Number(params.version ?? data.rules.rule_version);
@@ -489,7 +491,28 @@ export default async function ManagerPage({ searchParams }: Props) {
                     Penalty description
                     <textarea className="input mt-1 h-20 resize-none" defaultValue={data.rules.penalty_description} name="penalty_description" />
                   </label>
+                  <article className="rounded-xl border border-slate-200 bg-indigo-50 p-3">
+                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-indigo-700">Text penalty rules</p>
+                    <p className="mt-1 text-xs text-slate-600">
+                      Add/edit/delete penalty actions such as &quot;Phone in the locked box&quot; or &quot;Laptop in the office&quot;.
+                    </p>
+                    <div className="mt-2">
+                      <ManagerPenaltyTextEditor initialRules={data.rules.penalty_action_rules ?? []} />
+                    </div>
+                  </article>
                   <ManagerPenaltyEditor initialRows={penaltyRows} />
+                  <article className="rounded-xl border border-slate-200 bg-amber-50 p-3">
+                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-amber-700">Penalty notice popup (optional)</p>
+                    <p className="mt-1 text-xs text-amber-800">
+                      If filled, this exact message is sent to all users as a bell popup announcement right after save.
+                      If left empty, a default penalty update notice is auto-sent whenever penalty text rules change.
+                    </p>
+                    <textarea
+                      className="input mt-2 h-20 resize-none bg-white"
+                      name="penalty_notice"
+                      placeholder="Example: New penalty rule active today: Phone in the locked box after 11PM."
+                    />
+                  </article>
                 </div>
               </article>
 
@@ -512,6 +535,16 @@ export default async function ManagerPage({ searchParams }: Props) {
                 <button className="btn btn-primary mt-3 w-full" type="submit">
                   Save rules and bump version
                 </button>
+                {penaltyNoticeSent && (
+                  <p className="mt-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">
+                    Penalty notice popup sent to users.
+                  </p>
+                )}
+                {announceError && (
+                  <p className="mt-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">
+                    {announceError}
+                  </p>
+                )}
                 <button className="btn btn-muted mt-2 w-full" name="reset_version_to_one" type="submit" value="1">
                   Reset version label to 1 (keep content)
                 </button>
@@ -539,6 +572,14 @@ export default async function ManagerPage({ searchParams }: Props) {
                 <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Penalty thresholds</p>
                 <p className="font-bold text-indigo-900">
                   {data.rules.penalty_thresholds.length > 0 ? data.rules.penalty_thresholds.join(", ") : "None"}
+                </p>
+              </div>
+              <div className="rounded-xl bg-slate-100 p-3 text-sm">
+                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Penalty text rules</p>
+                <p className="font-bold text-indigo-900">
+                  {(data.rules.penalty_action_rules ?? []).length > 0
+                    ? `${(data.rules.penalty_action_rules ?? []).length} active`
+                    : "None"}
                 </p>
               </div>
               <div className="rounded-xl bg-slate-100 p-3 text-sm">

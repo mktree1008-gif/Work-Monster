@@ -32,6 +32,7 @@ export default async function RulesPage() {
             multiplierValue={rules.multiplier_value}
             nonProductivePenalty={rules.non_productive_penalty}
             penaltyDescription={localizedPenaltyDescription}
+            penaltyActionRules={rules.penalty_action_rules ?? []}
             productivePoints={rules.productive_points}
             rewardHint={localizedRewardsBlurb}
             ruleVersion={rules.rule_version}
@@ -95,6 +96,18 @@ export default async function RulesPage() {
               </li>
             ))}
           </ul>
+          <div className="mt-3 rounded-xl bg-slate-100 p-3">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">Text penalty actions</p>
+            {(rules.penalty_action_rules ?? []).length > 0 ? (
+              <ul className="mt-2 space-y-1 text-sm text-slate-700">
+                {(rules.penalty_action_rules ?? []).map((item, index) => (
+                  <li key={`${item}-${index}`}>- {item}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-2 text-sm text-slate-600">No additional text penalty actions yet.</p>
+            )}
+          </div>
         </article>
 
         <article className="card p-4">
