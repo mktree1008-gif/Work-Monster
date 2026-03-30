@@ -95,7 +95,7 @@ function readJSON<T>(key: string, fallback: T): T {
   if (!raw) return fallback;
   try {
     return JSON.parse(raw) as T;
-  } catch (_error) {
+  } catch {
     return fallback;
   }
 }

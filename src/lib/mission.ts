@@ -68,7 +68,7 @@ export function parseMissionAnnouncement(rawMessage: string): EncodedMissionPayl
       deadline,
       bonus_points
     };
-  } catch (_error) {
+  } catch {
     return null;
   }
 }

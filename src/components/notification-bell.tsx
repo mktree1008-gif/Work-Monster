@@ -222,7 +222,7 @@ export function NotificationBell({ notifications, unreadCount, action, role, loc
           router.push(`${url.pathname}${url.search}${url.hash}`);
           return;
         }
-      } catch (_error) {
+      } catch {
         // fallthrough
       }
       window.location.href = trimmed;

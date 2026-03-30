@@ -42,7 +42,7 @@ export function MissionAddButton({ locale, missionId, title, objective, startDat
       try {
         const value = JSON.parse(raw) as Array<Record<string, unknown>>;
         parsed = Array.isArray(value) ? value : [];
-      } catch (_error) {
+      } catch {
         parsed = [];
       }
     }

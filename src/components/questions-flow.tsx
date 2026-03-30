@@ -364,7 +364,7 @@ export function QuestionsFlow({ locale, readOnly = false, initialSubmission = nu
       const day = parts.find((part) => part.type === "day")?.value;
       setClientTimeZone(timeZone);
       setClientLocalDate(year && month && day ? `${year}-${month}-${day}` : "");
-    } catch (_error) {
+    } catch {
       setClientTimeZone("UTC");
       setClientLocalDate("");
     }
@@ -393,7 +393,7 @@ export function QuestionsFlow({ locale, readOnly = false, initialSubmission = nu
           savedStep = Math.max(0, Math.min(TOTAL_STEPS - 1, Math.round(parsed.step ?? 0)));
         }
       }
-    } catch (_error) {
+    } catch {
       // ignore broken local storage payload
     }
 
@@ -516,7 +516,7 @@ export function QuestionsFlow({ locale, readOnly = false, initialSubmission = nu
           draft
         })
       );
-    } catch (_error) {
+    } catch {
       // ignore storage error
     }
 
@@ -529,7 +529,7 @@ export function QuestionsFlow({ locale, readOnly = false, initialSubmission = nu
       try {
         setSavingDraft(true);
         await persist("draft");
-      } catch (_error) {
+      } catch {
         // autosave failures should not block UX
       } finally {
         setSavingDraft(false);

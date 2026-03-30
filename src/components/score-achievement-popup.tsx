@@ -31,7 +31,7 @@ function safeParseSnapshot(raw: string | null): Snapshot | null {
   if (!raw) return null;
   try {
     return JSON.parse(raw) as Snapshot;
-  } catch (_error) {
+  } catch {
     return null;
   }
 }

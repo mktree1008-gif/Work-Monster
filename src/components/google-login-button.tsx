@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Chrome } from "lucide-react";
 import { FirebaseError } from "firebase/app";
@@ -28,7 +28,7 @@ export function GoogleLoginButton({ role, locale, onSuccessRedirect, onError }: 
   const router = useRouter();
   const canonicalHost = normalizeHost(process.env.NEXT_PUBLIC_APP_CANONICAL_HOST) || "workmonster.vercel.app";
 
-  async function completeGoogleLogin(idToken: string, email: string, name: string) {
+  const completeGoogleLogin = useCallback(async (idToken: string, email: string, name: string) => {
     const response = await fetch("/api/auth/google", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -57,7 +57,7 @@ export function GoogleLoginButton({ role, locale, onSuccessRedirect, onError }: 
       router.push(payload.redirectTo);
       router.refresh();
     }
-  }
+  }, [locale, onSuccessRedirect, role, router]);
 
   useEffect(() => {
     let mounted = true;
@@ -91,7 +91,7 @@ export function GoogleLoginButton({ role, locale, onSuccessRedirect, onError }: 
     return () => {
       mounted = false;
     };
-  }, [locale, onError, onSuccessRedirect, role, router]);
+  }, [completeGoogleLogin, onError]);
 
   async function onSignIn() {
     setPending(true);

@@ -18,7 +18,6 @@ export async function POST(request: NextRequest) {
     const loginId = body.loginId?.trim().toLowerCase() ?? "";
     const password = body.password ?? "";
     const requestedManager = body.role === "manager";
-    const role = requestedManager ? "manager" : "user";
     const locale = body.locale === "ko" ? "ko" : "en";
 
     if (!loginId) {

@@ -13,7 +13,7 @@ export async function getViewerContext() {
   let bundle: DashboardBundle | null = null;
   try {
     bundle = await getDashboard(session.uid);
-  } catch (_error) {
+  } catch {
     redirect("/auth/login");
   }
   if (!bundle) {

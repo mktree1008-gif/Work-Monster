@@ -34,7 +34,7 @@ export function InactivityPenaltyPopup({
       if (window.sessionStorage.getItem(key) === "1") return;
       window.sessionStorage.setItem(key, "1");
       setOpen(true);
-    } catch (_error) {
+    } catch {
       setOpen(true);
     }
   }, [notificationId, openOnMount]);

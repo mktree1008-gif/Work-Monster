@@ -205,7 +205,7 @@ function readTasksForDate(userId: string, dateISO: string): PlannerTask[] {
     return parsed
       .map((item) => normalizeTask(item, userId))
       .filter((item): item is PlannerTask => Boolean(item));
-  } catch (_error) {
+  } catch {
     return [];
   }
 }
@@ -245,7 +245,7 @@ function parseLocalMission(raw: string): ActiveMission | null {
       dueDate: String(parsed.deadline ?? parsed.dueDate ?? "").trim() || undefined,
       bonusPoints: Number.isFinite(Number(parsed.bonusPoints)) ? Math.max(0, Math.round(Number(parsed.bonusPoints))) : 0
     };
-  } catch (_error) {
+  } catch {
     return null;
   }
 }

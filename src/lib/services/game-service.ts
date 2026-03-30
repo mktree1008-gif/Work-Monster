@@ -252,7 +252,7 @@ function resolveSubmissionDate(meta?: CheckInClientMeta): string {
   if (rawTimeZone) {
     try {
       return toISODateInTimeZone(rawTimeZone);
-    } catch (_error) {
+    } catch {
       return toISODate();
     }
   }

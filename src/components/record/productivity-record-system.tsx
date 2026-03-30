@@ -283,7 +283,7 @@ function parsePlanTaskArray(raw: string | null, userId: string, dateISO: string)
       });
     }
     return tasks;
-  } catch (_error) {
+  } catch {
     return [];
   }
 }

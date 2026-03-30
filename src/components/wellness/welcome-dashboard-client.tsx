@@ -89,7 +89,7 @@ function todayPlanCount() {
   try {
     const parsed = JSON.parse(raw) as Array<{ id: string }>;
     return Array.isArray(parsed) ? parsed.length : 0;
-  } catch (_error) {
+  } catch {
     return 0;
   }
 }
@@ -126,7 +126,7 @@ function addMissionTaskToToday(mission: MissionCard) {
     try {
       const parsed = JSON.parse(raw) as PlanStorageTask[];
       currentTasks = Array.isArray(parsed) ? parsed : [];
-    } catch (_error) {
+    } catch {
       currentTasks = [];
     }
   }
@@ -213,7 +213,7 @@ export function WelcomeDashboardClient({ mission, checkinState, labels, score, r
       const matchedById = mission.id && parsed.id && mission.id === parsed.id;
       const matchedByTitle = mission.title.trim().length > 0 && mission.title.trim() === String(parsed.title ?? "").trim();
       setMissionAccepted(Boolean(matchedById || matchedByTitle));
-    } catch (_error) {
+    } catch {
       setMissionAccepted(false);
     }
   }, [mission.id, mission.title]);
