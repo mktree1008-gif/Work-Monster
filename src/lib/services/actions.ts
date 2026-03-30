@@ -441,6 +441,8 @@ export async function createAnnouncementAction(formData: FormData): Promise<void
   if (!session || session.role !== "manager") redirect("/auth/login");
   await assertManagerOwner(session.uid);
 
+  const params = new URLSearchParams();
+  params.set("manager_tab", "inbox");
   const title = String(formData.get("title") ?? "").trim();
   const message = String(formData.get("message") ?? "").trim();
   const rawUrl = String(formData.get("image_url") ?? "").trim();
@@ -449,24 +451,33 @@ export async function createAnnouncementAction(formData: FormData): Promise<void
   let imageUrl = rawUrl;
   if (file instanceof File && file.size > 0) {
     if (!file.type.startsWith("image/")) {
-      throw new Error("Please upload an image file.");
+      params.set("announce_error", "Please upload an image file.");
+      redirect(`/manager?${params.toString()}`);
     }
-    if (file.size > 3 * 1024 * 1024) {
-      throw new Error("Please upload an image under 3MB.");
+    // Firestore document size limit is ~1MB.
+    // Since base64 expands payload (~33%), keep uploaded image safely below that limit.
+    if (file.size > 700 * 1024) {
+      params.set("announce_error", "Please upload an image under 700KB.");
+      redirect(`/manager?${params.toString()}`);
     }
     const bytes = new Uint8Array(await file.arrayBuffer());
     imageUrl = `data:${file.type};base64,${bytesToBase64(bytes)}`;
   }
 
-  await createAnnouncement(session.uid, {
-    title,
-    message,
-    image_url: imageUrl
-  });
+  try {
+    await createAnnouncement(session.uid, {
+      title,
+      message,
+      image_url: imageUrl
+    });
+  } catch (error) {
+    const text = error instanceof Error ? error.message : "Failed to create announcement.";
+    params.set("announce_error", text);
+    redirect(`/manager?${params.toString()}`);
+  }
 
   revalidatePath("/manager");
   revalidatePath("/app");
-  const params = new URLSearchParams();
   params.set("announce", "1");
   redirect(`/manager?${params.toString()}`);
 }

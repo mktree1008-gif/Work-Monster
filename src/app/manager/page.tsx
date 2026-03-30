@@ -87,6 +87,8 @@ export default async function ManagerPage({ searchParams }: Props) {
   const reviewedBonusMessage = typeof params.bonus_message === "string" ? params.bonus_message : "";
   const reviewedNote = typeof params.note === "string" ? params.note : "";
   const rulesSaved = params.rules_saved === "1";
+  const announced = params.announce === "1";
+  const announceError = typeof params.announce_error === "string" ? params.announce_error : "";
   const rulesVersion = Number(params.version ?? data.rules.rule_version);
   const safeRulesVersion = Number.isFinite(rulesVersion) && rulesVersion > 0 ? Math.floor(rulesVersion) : data.rules.rule_version;
 
@@ -195,12 +197,22 @@ export default async function ManagerPage({ searchParams }: Props) {
             <p className="mt-1 text-sm text-slate-600">
               Send a message/photo to all users. It will appear in each user&apos;s bell notifications.
             </p>
+            {announced && (
+              <p className="mt-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">
+                Announcement sent successfully.
+              </p>
+            )}
+            {announceError && (
+              <p className="mt-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">
+                {announceError}
+              </p>
+            )}
             <form action={createAnnouncementAction} className="mt-3 space-y-2" encType="multipart/form-data">
               <input className="input" name="title" placeholder="Announcement title (optional)" />
               <textarea className="input h-24 resize-none" name="message" placeholder="Announcement message" required />
               <input className="input" name="image_url" placeholder="Image URL (optional)" type="url" />
               <label className="block">
-                <span className="mb-1 block text-xs font-semibold text-slate-600">Or upload photo (max 3MB)</span>
+                <span className="mb-1 block text-xs font-semibold text-slate-600">Or upload photo (max 700KB)</span>
                 <input accept="image/*" className="input cursor-pointer" name="image_file" type="file" />
               </label>
               <button className="btn btn-primary w-full" type="submit">
