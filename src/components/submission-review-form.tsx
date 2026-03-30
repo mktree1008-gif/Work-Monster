@@ -85,9 +85,10 @@ export function SubmissionReviewForm({ submissionId, defaultPoints, mood, produc
             Adjustment points
             <input
               className="input mt-1"
-              disabled={submitting}
+              aria-disabled={submitting}
               name="points"
               onChange={(event) => setPointsInput(event.target.value)}
+              readOnly={submitting}
               type="number"
               value={pointsInput}
             />
@@ -96,11 +97,12 @@ export function SubmissionReviewForm({ submissionId, defaultPoints, mood, produc
             Bonus points
             <input
               className="input mt-1"
-              disabled={submitting}
+              aria-disabled={submitting}
               min={0}
               name="bonus_points"
               onChange={(event) => setBonusInput(event.target.value)}
               placeholder="0"
+              readOnly={submitting}
               type="number"
               value={bonusInput}
             />
@@ -109,18 +111,24 @@ export function SubmissionReviewForm({ submissionId, defaultPoints, mood, produc
 
         <label className="block rounded-xl bg-slate-50 p-2 text-xs font-semibold text-slate-600">
           Reason / short comment
-          <input className="input mt-1" disabled={submitting} name="note" placeholder="Reason / short comment" />
+          <input
+            className="input mt-1"
+            name="note"
+            placeholder="Reason / short comment"
+            readOnly={submitting}
+          />
         </label>
 
         <label className="block rounded-xl bg-slate-50 p-2 text-xs font-semibold text-slate-600">
           Bonus message (only when bonus &gt; 0)
           <input
             className="input mt-1"
-            disabled={submitting}
+            aria-disabled={submitting}
             maxLength={180}
             name="bonus_message"
             onChange={(event) => setBonusMessageInput(event.target.value)}
             placeholder="Bonus message (optional)"
+            readOnly={submitting}
             type="text"
             value={bonusMessageInput}
           />

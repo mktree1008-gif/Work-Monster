@@ -49,6 +49,69 @@ type SubmitDailyCheckInResult = {
   submissionPointsAwarded: number;
 };
 
+type StreakSummary = {
+  current_streak: number;
+  longest_streak: number;
+  last_approved_at?: string;
+};
+
+function toSafeInt(value: unknown): number {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? Math.round(parsed) : 0;
+}
+
+function sortISODateAsc(values: string[]): string[] {
+  return [...values].sort((a, b) => (a > b ? 1 : -1));
+}
+
+function dayDiff(fromISODate: string, toISODateValue: string): number {
+  const from = new Date(`${fromISODate}T00:00:00.000Z`).getTime();
+  const to = new Date(`${toISODateValue}T00:00:00.000Z`).getTime();
+  if (!Number.isFinite(from) || !Number.isFinite(to)) return 0;
+  return Math.round((to - from) / 86_400_000);
+}
+
+function summarizeApprovedStreak(approvedDates: string[]): StreakSummary {
+  const uniqueSorted = sortISODateAsc([...new Set(approvedDates.filter(isISODateString))]);
+  if (uniqueSorted.length === 0) {
+    return {
+      current_streak: 0,
+      longest_streak: 0
+    };
+  }
+
+  let current = 1;
+  let longest = 1;
+
+  for (let i = 1; i < uniqueSorted.length; i += 1) {
+    const prev = uniqueSorted[i - 1];
+    const now = uniqueSorted[i];
+    if (dayDiff(prev, now) === 1) {
+      current += 1;
+    } else {
+      current = 1;
+    }
+    if (current > longest) {
+      longest = current;
+    }
+  }
+
+  let tail = 1;
+  for (let i = uniqueSorted.length - 1; i > 0; i -= 1) {
+    if (dayDiff(uniqueSorted[i - 1], uniqueSorted[i]) === 1) {
+      tail += 1;
+      continue;
+    }
+    break;
+  }
+
+  return {
+    current_streak: tail,
+    longest_streak: longest,
+    last_approved_at: uniqueSorted[uniqueSorted.length - 1]
+  };
+}
+
 export class DailyCheckInAlreadySubmittedError extends Error {
   readonly code = "already_submitted" as const;
   readonly submissionId?: string;
@@ -301,6 +364,8 @@ export async function approveSubmission(
     })
   );
 
+  await rebuildUserScoreFromHistory(submission.user_id);
+
   return reviewed;
 }
 
@@ -346,6 +411,14 @@ export async function recalculateScore(userId: string): Promise<ScoreState> {
     await Promise.all(newEvents.map((event) => repo.savePenaltyEvent(event)));
   }
 
+  const needsScorePatch =
+    score.penalty_active !== penaltyState.penalty_active
+    || score.negative_balance !== penaltyState.negative_balance;
+
+  if (!needsScorePatch) {
+    return score;
+  }
+
   const patched: ScoreState = {
     ...score,
     penalty_active: penaltyState.penalty_active,
@@ -354,6 +427,126 @@ export async function recalculateScore(userId: string): Promise<ScoreState> {
   };
 
   return repo.saveScore(patched);
+}
+
+export async function rebuildUserScoreFromHistory(userId: string): Promise<ScoreState> {
+  const repo = getGameRepository();
+  const [existingScore, rules, submissions, logs] = await Promise.all([
+    repo.getScore(userId),
+    repo.getRules(),
+    repo.listSubmissionsByUser(userId),
+    repo.listAuditLogs(5000)
+  ]);
+
+  const submissionMap = new Map(submissions.map((submission) => [submission.id, submission] as const));
+  const reviewedLogBySubmission = new Map<string, { created_at: string; points: number }>();
+  const awardedSubmissionBase = new Set<string>();
+
+  let totalPoints = 0;
+  let lifetimePoints = 0;
+
+  const addDelta = (delta: number) => {
+    totalPoints += delta;
+    if (delta > 0) {
+      lifetimePoints += delta;
+    }
+  };
+
+  for (const log of logs) {
+    if (log.action === "login.base_points_awarded" && log.actor_user_id === userId) {
+      addDelta(toSafeInt(log.details.points));
+      continue;
+    }
+
+    if (
+      log.action === "submission.base_points_awarded"
+      && log.actor_user_id === userId
+      && submissionMap.has(log.target_id)
+      && !awardedSubmissionBase.has(log.target_id)
+    ) {
+      awardedSubmissionBase.add(log.target_id);
+      addDelta(toSafeInt(log.details.points));
+      continue;
+    }
+
+    if (log.action === "submission.reviewed" && submissionMap.has(log.target_id)) {
+      const parsedPoints = Number(log.details.points);
+      const points = Number.isFinite(parsedPoints)
+        ? Math.round(parsedPoints)
+        : toSafeInt(log.details.base_points) + Math.max(0, toSafeInt(log.details.bonus_points));
+      const found = reviewedLogBySubmission.get(log.target_id);
+      if (!found || log.created_at > found.created_at) {
+        reviewedLogBySubmission.set(log.target_id, { created_at: log.created_at, points });
+      }
+    }
+  }
+
+  const reflectedReviewSubmissionIds = new Set<string>();
+  for (const [submissionId, item] of reviewedLogBySubmission.entries()) {
+    reflectedReviewSubmissionIds.add(submissionId);
+    addDelta(item.points);
+  }
+
+  for (const submission of submissions) {
+    const isReviewed = submission.status === "approved" || submission.status === "rejected";
+    if (!isReviewed) continue;
+    if (reflectedReviewSubmissionIds.has(submission.id)) continue;
+    addDelta(toSafeInt(submission.points_awarded));
+  }
+
+  const streakSummary = summarizeApprovedStreak(
+    submissions
+      .filter((submission) => submission.status === "approved")
+      .map((submission) => submission.date)
+  );
+  const multiplier = computeMultiplier(
+    streakSummary.current_streak,
+    rules.multiplier_trigger_days,
+    rules.multiplier_value
+  );
+
+  const rebuiltScore: ScoreState = {
+    ...existingScore,
+    user_id: userId,
+    total_points: totalPoints,
+    lifetime_points: lifetimePoints,
+    current_streak: streakSummary.current_streak,
+    longest_streak: streakSummary.longest_streak,
+    multiplier_active: multiplier.multiplier_active,
+    multiplier_value: multiplier.multiplier_value,
+    updated_at: nowISO(),
+    last_approved_at: streakSummary.last_approved_at
+  };
+
+  if (!rebuiltScore.last_approved_at) {
+    delete rebuiltScore.last_approved_at;
+  }
+
+  const normalizedExistingLastApproved = (existingScore.last_approved_at ?? "").trim();
+  const normalizedRebuiltLastApproved = (rebuiltScore.last_approved_at ?? "").trim();
+  const scoreNeedsSync =
+    existingScore.total_points !== rebuiltScore.total_points
+    || existingScore.lifetime_points !== rebuiltScore.lifetime_points
+    || existingScore.current_streak !== rebuiltScore.current_streak
+    || existingScore.longest_streak !== rebuiltScore.longest_streak
+    || existingScore.multiplier_active !== rebuiltScore.multiplier_active
+    || existingScore.multiplier_value !== rebuiltScore.multiplier_value
+    || normalizedExistingLastApproved !== normalizedRebuiltLastApproved;
+
+  if (scoreNeedsSync) {
+    await repo.saveScore(rebuiltScore);
+  }
+
+  return recalculateScore(userId);
+}
+
+export async function rebuildAllUserScores(): Promise<void> {
+  const repo = getGameRepository();
+  const users = await repo.listUsers();
+  const userIds = users.filter((user) => user.role === "user").map((user) => user.id);
+  for (const userId of userIds) {
+    await rebuildUserScoreFromHistory(userId);
+  }
 }
 
 export async function updateRules(
@@ -737,6 +930,7 @@ export async function getDashboard(uid: string): Promise<DashboardBundle> {
 }
 
 export async function getManagerOverview(managerId: string) {
+  await rebuildAllUserScores();
   const repo = getGameRepository();
   const [managerUser, pendingSubmissions, rules, rewards, openPenaltyEvents, auditLogs, rewardClaimAlerts, announcements] = await Promise.all([
     repo.getUser(managerId),
