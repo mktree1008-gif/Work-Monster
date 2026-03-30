@@ -440,6 +440,7 @@ export function NotificationBell({ notifications, unreadCount, action, role, loc
             </div>
             <p className="rounded-2xl bg-slate-100 p-3 text-sm text-slate-700">{selected.message}</p>
             {selected.image_url && (
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 alt="Manager announcement attachment"
                 className="mt-3 max-h-60 w-full rounded-xl object-cover"

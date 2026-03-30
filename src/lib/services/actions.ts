@@ -232,7 +232,7 @@ export async function acknowledgeRulesAction(): Promise<void> {
   revalidatePath("/app");
 }
 
-export async function acknowledgeManagerUpdatesAction(_formData: FormData): Promise<void> {
+export async function acknowledgeManagerUpdatesAction(): Promise<void> {
   const session = await getSession();
   if (!session) redirect("/auth/login");
 
@@ -241,7 +241,7 @@ export async function acknowledgeManagerUpdatesAction(_formData: FormData): Prom
   revalidatePath("/app");
 }
 
-export async function acknowledgeNotificationsAction(_formData: FormData): Promise<void> {
+export async function acknowledgeNotificationsAction(): Promise<void> {
   const session = await getSession();
   if (!session) redirect("/auth/login");
 
@@ -445,7 +445,7 @@ export async function updateRulesAction(formData: FormData): Promise<void> {
       if (!Number.isFinite(leftIndex) || !Number.isFinite(rightIndex)) return 0;
       return leftIndex - rightIndex;
     })
-    .map(([_key, value]) => String(value ?? "").trim())
+    .map(([, value]) => String(value ?? "").trim())
     .filter(Boolean)
     .slice(0, 20);
 

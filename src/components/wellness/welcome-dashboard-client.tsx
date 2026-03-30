@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   BatteryCharging,
@@ -163,38 +163,23 @@ function statusBadgeText(checkinState: Props["checkinState"]): string {
 
 export function WelcomeDashboardClient({ mission, checkinState, labels, score, reward }: Props) {
   const router = useRouter();
-  const [localTrigger, setLocalTrigger] = useState(0);
+  const [, setLocalTrigger] = useState(0);
   const [mounted, setMounted] = useState(false);
   const [missionAccepted, setMissionAccepted] = useState(false);
   const [mode, setMode] = useState<HomeMode>("productivity");
   const [fabOpen, setFabOpen] = useState(false);
   const today = todayLocalISO();
-  const planCount = useMemo(() => (mounted ? todayPlanCount() : 0), [localTrigger, mounted]);
-  const food = useMemo(
-    () =>
-      mounted
-        ? getFoodSummary(today)
-        : { calories: 0, protein: 0, waterCups: 0, goal: 2100, remaining: 2100, percent: 0 },
-    [localTrigger, mounted, today]
-  );
-  const workout = useMemo(
-    () =>
-      mounted
-        ? getWorkoutSummary(today)
-        : { minutes: 0, calories: 0, steps: 0, type: "No workout", percent: 0, goal: 60 },
-    [localTrigger, mounted, today]
-  );
-  const sleep = useMemo(
-    () =>
-      mounted
-        ? getSleepSummary(today)
-        : { totalMinutes: 0, recovery: 0, quality: "Medium", percent: 0, goalMinutes: 480, latest: null },
-    [localTrigger, mounted, today]
-  );
-  const focusSessions = useMemo(
-    () => (mounted ? getFocusSessions().filter((item) => item.date === today) : []),
-    [localTrigger, mounted, today]
-  );
+  const planCount = mounted ? todayPlanCount() : 0;
+  const food = mounted
+    ? getFoodSummary(today)
+    : { calories: 0, protein: 0, waterCups: 0, goal: 2100, remaining: 2100, percent: 0 };
+  const workout = mounted
+    ? getWorkoutSummary(today)
+    : { minutes: 0, calories: 0, steps: 0, type: "No workout", percent: 0, goal: 60 };
+  const sleep = mounted
+    ? getSleepSummary(today)
+    : { totalMinutes: 0, recovery: 0, quality: "Medium", percent: 0, goalMinutes: 480, latest: null };
+  const focusSessions = mounted ? getFocusSessions().filter((item) => item.date === today) : [];
   const missionDday = missionDdayLabel(mission.deadline);
 
   useEffect(() => {

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -413,7 +413,7 @@ export function QuestionsFlow({ locale, readOnly = false, initialSubmission = nu
     };
   }, [attachmentPreviews]);
 
-  async function persist(mode: "draft" | "submit"): Promise<ApiResponse | null> {
+  const persist = useCallback(async (mode: "draft" | "submit"): Promise<ApiResponse | null> => {
     if (!canEdit) return null;
 
     const selectedFlags = {
@@ -502,7 +502,18 @@ export function QuestionsFlow({ locale, readOnly = false, initialSubmission = nu
     }
 
     return result;
-  }
+  }, [
+    canEdit,
+    clientLocalDate,
+    clientTimeZone,
+    coachInsightText,
+    currentStep,
+    draft,
+    energyPeakSummary,
+    isKo,
+    previewScore,
+    topFocusSummary
+  ]);
 
   useEffect(() => {
     if (!hydrated || !storageKey || !canEdit) return;
@@ -542,7 +553,7 @@ export function QuestionsFlow({ locale, readOnly = false, initialSubmission = nu
         autosaveTimerRef.current = null;
       }
     };
-  }, [canEdit, currentStep, draft, hydrated, storageKey]);
+  }, [canEdit, currentStep, draft, hydrated, persist, storageKey]);
 
   function patchDraft(next: Partial<CheckInDraft>) {
     setDraft((prev) => ({ ...prev, ...next }));
@@ -1027,6 +1038,7 @@ export function QuestionsFlow({ locale, readOnly = false, initialSubmission = nu
                         </button>
                       </div>
                       {preview?.isImage && preview.previewUrl && (
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img alt={name} className="mt-2 h-24 w-full rounded-lg object-cover" src={preview.previewUrl} />
                       )}
                     </li>
@@ -1065,7 +1077,7 @@ export function QuestionsFlow({ locale, readOnly = false, initialSubmission = nu
           <article className="rounded-[1.8rem] bg-white p-5 shadow-[0_10px_24px_rgba(24,70,180,0.1)] ring-1 ring-black/[0.03]">
             <div className="flex items-end justify-between gap-2">
               <div>
-                <p className="text-caption font-bold uppercase tracking-[0.16em] text-slate-500">Today's Performance</p>
+                <p className="text-caption font-bold uppercase tracking-[0.16em] text-slate-500">Today&apos;s Performance</p>
                 <p className="mt-1 text-5xl font-black text-blue-700">
                   {previewScore}
                   <span className="text-2xl text-blue-300">/100</span>
@@ -1094,7 +1106,7 @@ export function QuestionsFlow({ locale, readOnly = false, initialSubmission = nu
                 <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">AI Generated Analysis</p>
               </div>
             </div>
-            <p className="mt-3 text-sm italic leading-relaxed text-slate-700">"{coachInsightText}"</p>
+            <p className="mt-3 text-sm italic leading-relaxed text-slate-700">&ldquo;{coachInsightText}&rdquo;</p>
             <div className="mt-3 flex gap-2">
               <span className="rounded-full bg-blue-100 px-3 py-1 text-[11px] font-bold text-blue-700">#Momentum</span>
               <span className="rounded-full bg-amber-100 px-3 py-1 text-[11px] font-bold text-amber-700">#Execution</span>
