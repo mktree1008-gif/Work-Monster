@@ -254,36 +254,35 @@ function parsePlanTaskArray(raw: string | null, userId: string, dateISO: string)
   try {
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return [];
+    const tasks: AnalyticsTask[] = [];
+    for (const item of parsed) {
+      const source = item as Record<string, unknown>;
+      const title = String(source.title ?? source.text ?? "").trim();
+      if (!title) continue;
 
-    return parsed
-      .map((item) => {
-        const source = item as Record<string, unknown>;
-        const title = String(source.title ?? source.text ?? "").trim();
-        if (!title) return null;
+      const missionLinked = Boolean(source.is_mission_linked ?? source.linkedToMission ?? source.missionLinked);
+      const priority = normalizePriority(source.priority);
+      const isHighImpact = Boolean(source.is_high_impact ?? (priority === "high" || missionLinked));
+      const durationRaw = source.duration ?? source.estimatedMinutes ?? 30;
+      const duration = Math.max(5, Math.round(safeNumber(durationRaw, 30)));
+      const category = mapPlanCategory(String(source.category ?? "custom"), missionLinked, title);
 
-        const missionLinked = Boolean(source.is_mission_linked ?? source.linkedToMission ?? source.missionLinked);
-        const priority = normalizePriority(source.priority);
-        const isHighImpact = Boolean(source.is_high_impact ?? priority === "high" || missionLinked);
-        const durationRaw = source.duration ?? source.estimatedMinutes ?? 30;
-        const duration = Math.max(5, Math.round(safeNumber(durationRaw, 30)));
-        const category = mapPlanCategory(String(source.category ?? "custom"), missionLinked, title);
-
-        return {
-          id: String(source.id ?? `${dateISO}-${title}`),
-          date: dateISO,
-          user_id: String(source.user_id ?? userId),
-          title,
-          category,
-          priority,
-          duration,
-          is_high_impact: isHighImpact,
-          is_completed: Boolean(source.is_completed ?? source.completed),
-          is_mission_linked: missionLinked,
-          mission_id: typeof source.mission_id === "string" ? source.mission_id : undefined,
-          source: "plan" as const
-        } satisfies AnalyticsTask;
-      })
-      .filter((item): item is AnalyticsTask => Boolean(item));
+      tasks.push({
+        id: String(source.id ?? `${dateISO}-${title}`),
+        date: dateISO,
+        user_id: String(source.user_id ?? userId),
+        title,
+        category,
+        priority,
+        duration,
+        is_high_impact: isHighImpact,
+        is_completed: Boolean(source.is_completed ?? source.completed),
+        is_mission_linked: missionLinked,
+        mission_id: typeof source.mission_id === "string" ? source.mission_id : undefined,
+        source: "plan"
+      });
+    }
+    return tasks;
   } catch (_error) {
     return [];
   }
@@ -695,11 +694,12 @@ export function ProductivityRecordSystem({ mode, locale, userId, score, submissi
     };
 
     const schedule = () => {
-      if (typeof window !== "undefined" && "requestIdleCallback" in window) {
-        (window as Window & { requestIdleCallback: (cb: () => void) => number }).requestIdleCallback(load);
-      } else {
-        window.setTimeout(load, 0);
+      const idle = (globalThis as unknown as { requestIdleCallback?: (cb: () => void) => number }).requestIdleCallback;
+      if (typeof idle === "function") {
+        idle(load);
+        return;
       }
+      setTimeout(load, 0);
     };
 
     schedule();

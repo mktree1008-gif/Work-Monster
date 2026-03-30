@@ -7,8 +7,8 @@ import {
   Cookie,
   Droplets,
   Lightbulb,
-  Lunchbox,
   Plus,
+  Sandwich,
   ScanLine,
   Soup,
   UtensilsCrossed
@@ -38,7 +38,7 @@ const QUICK_PRESETS: Record<MealType, { title: string; calories: number; protein
 
 function mealIcon(type: MealType) {
   if (type === "Breakfast") return <UtensilsCrossed size={18} />;
-  if (type === "Lunch") return <Lunchbox size={18} />;
+  if (type === "Lunch") return <Sandwich size={18} />;
   if (type === "Dinner") return <Soup size={18} />;
   return <Cookie size={18} />;
 }
