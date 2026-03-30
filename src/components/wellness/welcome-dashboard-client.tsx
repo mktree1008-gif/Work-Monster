@@ -10,6 +10,7 @@ import {
   ClipboardList,
   Dumbbell,
   Flame,
+  LineChart,
   Mail,
   MoonStar,
   Plus,
@@ -389,8 +390,12 @@ export function WelcomeDashboardClient({ mission, checkinState, labels, score, r
               <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1">⚡ Productivity</span>
               <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1">🧾 Summary</span>
             </div>
-            <Link className="mt-4 inline-flex w-full items-center justify-center rounded-full bg-blue-600 px-4 py-3 text-sm font-bold text-white" href="/app/questions/check-in">
-              Start check-in
+            <Link
+              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-blue-700 to-blue-500 px-4 py-3 text-sm font-black !text-white shadow-[0_12px_24px_rgba(37,99,235,0.32)]"
+              href="/app/questions/check-in"
+            >
+              <Target size={15} />
+              <span className="!text-white">Start check-in</span>
             </Link>
             {checkinState !== "none" && (
               <p className="mt-3 inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
@@ -416,8 +421,12 @@ export function WelcomeDashboardClient({ mission, checkinState, labels, score, r
               <p className="mt-2 text-sm text-slate-700">
                 {focusSessions.length} focus session(s) today. Longest block: {Math.max(...focusSessions.map((session) => session.minutes))}m.
               </p>
-              <Link className="mt-3 inline-flex items-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-sm font-bold text-white" href="/app/record">
-                View analytics
+              <Link
+                className="mt-3 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-slate-900 to-indigo-700 px-4 py-2 text-sm font-black !text-white shadow-[0_10px_20px_rgba(15,23,42,0.22)]"
+                href="/app/record"
+              >
+                <LineChart size={14} />
+                <span className="!text-white">View analytics</span>
               </Link>
             </section>
           )}
