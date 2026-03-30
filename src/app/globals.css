@@ -62,7 +62,7 @@ h3,
 
 .card {
   border-radius: var(--radius-xl);
-  background: var(--surface);
+  background-color: var(--surface);
   box-shadow: var(--shadow-soft);
   transition: transform 110ms ease, box-shadow 140ms ease;
   overflow-wrap: anywhere;

@@ -1,8 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { ProductivityRecordSystem } from "@/components/record/productivity-record-system";
-import { RecordSubmissionHistory } from "@/components/record-submission-history";
 import { WellnessRecordSections } from "@/components/wellness/wellness-record-sections";
 import type { AppNotification, Locale, PenaltyEvent, RewardClaim, ScoreState, Submission } from "@/lib/types";
 
@@ -32,8 +31,6 @@ export function RecordHubTabs({
   focusSubmissionId
 }: Props) {
   const [view, setView] = useState<ViewMode>(initialWellnessSection || focusSubmissionId ? "wellness" : "productivity");
-
-  const recentSubmissions = useMemo(() => submissions.slice(0, 6), [submissions]);
 
   return (
     <div className="space-y-4">
@@ -70,19 +67,12 @@ export function RecordHubTabs({
           userId={userId}
         />
       ) : (
-        <>
-          <RecordSubmissionHistory
-            focusSubmissionId={focusSubmissionId}
-            locale={locale}
-            submissions={recentSubmissions}
-          />
-          <WellnessRecordSections
-            initialSection={initialWellnessSection}
-            penaltyHistory={penaltyHistory}
-            rewardClaims={rewardClaims}
-            submissions={submissions}
-          />
-        </>
+        <WellnessRecordSections
+          initialSection={initialWellnessSection}
+          penaltyHistory={penaltyHistory}
+          rewardClaims={rewardClaims}
+          submissions={submissions}
+        />
       )}
     </div>
   );

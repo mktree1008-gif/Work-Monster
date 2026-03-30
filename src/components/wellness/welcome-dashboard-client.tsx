@@ -427,7 +427,13 @@ export function WelcomeDashboardClient({ mission, checkinState, labels, score, r
           <section className="space-y-3">
             <Link className="card card-standard block p-4" href="/app/food" onClick={refreshLiveCards}>
               <div className="flex items-center justify-between">
-                <p className="inline-flex items-center gap-2 text-sm font-bold text-slate-900"><Utensils className="text-amber-600" size={15} /> Food</p>
+                <p className="inline-flex items-center gap-2 text-sm font-bold text-slate-900">
+                  <Utensils className="text-amber-600" size={15} />
+                  Food
+                  <span className="anim-bounce-soft text-base leading-none" role="img" aria-label="food">
+                    🥗
+                  </span>
+                </p>
                 <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-700">Consumed</span>
               </div>
               <p className="mt-2 text-[clamp(1.45rem,7.1vw,1.95rem)] font-black text-slate-900">{food.calories} kcal</p>
@@ -438,7 +444,13 @@ export function WelcomeDashboardClient({ mission, checkinState, labels, score, r
 
             <Link className="card card-standard block p-4" href="/app/workout" onClick={refreshLiveCards}>
               <div className="flex items-center justify-between">
-                <p className="inline-flex items-center gap-2 text-sm font-bold text-slate-900"><Dumbbell className="text-blue-600" size={15} /> Workout</p>
+                <p className="inline-flex items-center gap-2 text-sm font-bold text-slate-900">
+                  <Dumbbell className="text-blue-600" size={15} />
+                  Workout
+                  <span className="anim-bounce-soft text-base leading-none" role="img" aria-label="workout">
+                    💪
+                  </span>
+                </p>
                 <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-bold text-blue-700">Active</span>
               </div>
               <p className="mt-2 text-[clamp(1.45rem,7.1vw,1.95rem)] font-black text-slate-900">{workout.minutes} mins</p>
@@ -449,7 +461,13 @@ export function WelcomeDashboardClient({ mission, checkinState, labels, score, r
 
             <Link className="card card-standard block p-4" href="/app/sleep" onClick={refreshLiveCards}>
               <div className="flex items-center justify-between">
-                <p className="inline-flex items-center gap-2 text-sm font-bold text-slate-900"><MoonStar className="text-indigo-600" size={15} /> Sleep</p>
+                <p className="inline-flex items-center gap-2 text-sm font-bold text-slate-900">
+                  <MoonStar className="text-indigo-600" size={15} />
+                  Sleep
+                  <span className="anim-bounce-soft text-base leading-none" role="img" aria-label="sleep">
+                    😴
+                  </span>
+                </p>
                 <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-bold text-slate-700">Recovery</span>
               </div>
               <p className="mt-2 text-[clamp(1.45rem,7.1vw,1.95rem)] font-black text-slate-900">{sleep.recovery}%</p>

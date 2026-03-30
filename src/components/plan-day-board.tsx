@@ -37,6 +37,7 @@ type PlannerTask = {
   is_completed: boolean;
   is_mission_linked: boolean;
   mission_id?: string;
+  due_date?: string;
   note?: string;
   created_at: string;
 };
@@ -57,6 +58,7 @@ type QuickTaskForm = {
   duration: number;
   is_high_impact: boolean;
   is_mission_linked: boolean;
+  due_date: string;
   note: string;
 };
 
@@ -73,6 +75,7 @@ type Suggestion = {
     priority: Priority;
     duration: number;
     highImpact?: boolean;
+    dueDate?: string;
     note?: string;
     missionLinked?: boolean;
   };
@@ -187,6 +190,12 @@ function normalizeTask(raw: unknown, userId: string): PlannerTask | null {
     is_completed: Boolean(source.is_completed ?? source.completed),
     is_mission_linked: missionLinked,
     mission_id: typeof source.mission_id === "string" && source.mission_id.trim().length > 0 ? source.mission_id.trim() : undefined,
+    due_date:
+      typeof source.due_date === "string" && source.due_date.trim().length > 0
+        ? source.due_date.trim()
+        : typeof source.dueDate === "string" && source.dueDate.trim().length > 0
+          ? source.dueDate.trim()
+          : undefined,
     note: typeof source.note === "string" && source.note.trim().length > 0 ? source.note.trim() : undefined,
     created_at: typeof source.created_at === "string" ? source.created_at : typeof source.createdAt === "string" ? source.createdAt : nowISO()
   };
@@ -222,6 +231,7 @@ function writeTasksForDate(userId: string, dateISO: string, tasks: PlannerTask[]
     priority: task.priority,
     estimatedMinutes: task.duration,
     note: task.note ?? "",
+    dueDate: task.due_date ?? "",
     linkedToMission: task.is_mission_linked,
     completed: task.is_completed,
     createdAt: task.created_at
@@ -267,7 +277,7 @@ function categoryLabel(category: Category, locale: "en" | "ko"): string {
     study: "STUDY",
     personal: "PERSONAL",
     admin: "ADMIN",
-    mission: "MISSION",
+    mission: "MANAGER MISSION",
     custom: "CUSTOM"
   };
   const labelsKo: Record<Category, string> = {
@@ -276,7 +286,7 @@ function categoryLabel(category: Category, locale: "en" | "ko"): string {
     study: "학습",
     personal: "개인",
     admin: "관리",
-    mission: "미션",
+    mission: "매니저 미션",
     custom: "사용자"
   };
 
@@ -293,6 +303,15 @@ function prettyDate(dateISO: string, locale: "en" | "ko"): string {
   const date = new Date(`${dateISO}T00:00:00.000Z`);
   return date.toLocaleDateString(locale === "ko" ? "ko-KR" : "en-US", {
     weekday: "long",
+    month: "short",
+    day: "numeric"
+  });
+}
+
+function formatDueDateLabel(dueDate: string, locale: "en" | "ko"): string {
+  const date = new Date(`${dueDate}T00:00:00.000Z`);
+  if (!Number.isFinite(date.getTime())) return dueDate;
+  return date.toLocaleDateString(locale === "ko" ? "ko-KR" : "en-US", {
     month: "short",
     day: "numeric"
   });
@@ -363,6 +382,7 @@ function ensureMissionTask(tasks: PlannerTask[], mission: ActiveMission | null, 
     is_completed: false,
     is_mission_linked: true,
     mission_id: mission.id,
+    due_date: parseDateToISO(mission.dueDate ?? undefined) ?? undefined,
     note: `${mission.title}${mission.bonusPoints > 0 ? ` • +${mission.bonusPoints} pts` : ""}${mission.dueDate ? ` • ${missionDday(mission.dueDate)}` : ""}`,
     created_at: nowISO()
   };
@@ -378,6 +398,7 @@ function defaultQuickTaskForm(): QuickTaskForm {
     duration: 45,
     is_high_impact: true,
     is_mission_linked: false,
+    due_date: "",
     note: ""
   };
 }
@@ -653,6 +674,7 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
       is_completed: false,
       is_mission_linked: Boolean(template.missionLinked),
       mission_id: template.missionLinked ? activeMission?.id : undefined,
+      due_date: parseDateToISO(template.dueDate ?? undefined) ?? undefined,
       note: template.note,
       created_at: nowISO()
     };
@@ -685,6 +707,7 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
       is_completed: false,
       is_mission_linked: true,
       mission_id: activeMission.id,
+      due_date: parseDateToISO(activeMission.dueDate ?? undefined) ?? undefined,
       note: `${activeMission.title}${activeMission.bonusPoints > 0 ? ` • +${activeMission.bonusPoints} pts` : ""}${missionDdayLabel ? ` • ${missionDdayLabel}` : ""}`,
       created_at: nowISO()
     };
@@ -730,6 +753,7 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
         is_mission_linked: true,
         mission_id: activeMission.id,
         note: template.note,
+        due_date: parseDateToISO(activeMission.dueDate ?? undefined) ?? undefined,
         created_at: nowISO()
       }));
 
@@ -774,11 +798,12 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
       setEditingTaskId(task.id);
       setQuickForm({
         title: task.title,
-        category: task.category,
+        category: task.category === "mission" ? "work" : task.category,
         priority: task.priority,
         duration: task.duration,
         is_high_impact: task.is_high_impact,
         is_mission_linked: task.is_mission_linked,
+        due_date: task.due_date ?? "",
         note: task.note ?? ""
       });
     } else {
@@ -811,6 +836,7 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
           is_high_impact: quickForm.is_high_impact || quickForm.priority === "high" || quickForm.is_mission_linked,
           is_mission_linked: quickForm.is_mission_linked,
           mission_id: quickForm.is_mission_linked ? activeMission?.id : undefined,
+          due_date: parseDateToISO(quickForm.due_date) ?? undefined,
           note: quickForm.note.trim() || undefined
         };
       });
@@ -830,6 +856,7 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
       is_completed: false,
       is_mission_linked: quickForm.is_mission_linked,
       mission_id: quickForm.is_mission_linked ? activeMission?.id : undefined,
+      due_date: parseDateToISO(quickForm.due_date) ?? undefined,
       note: quickForm.note.trim() || undefined,
       created_at: nowISO()
     };
@@ -939,7 +966,16 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
 
       <section>
         <div className="mb-3 flex items-center justify-between px-1">
-          <h2 className="text-3xl font-black text-slate-900">{sectionTitleChecklist}</h2>
+          <div>
+            <h2 className="text-3xl font-black text-slate-900">{sectionTitleChecklist}</h2>
+            <p className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-slate-500">
+              <GripVertical size={13} />
+              {isKo ? "드래그로 우선순위를 바꿀 수 있어요." : "Drag rows to reorder priority."}
+            </p>
+            <p className="mt-1 text-[11px] font-semibold text-slate-500">
+              {isKo ? "Mission = 매니저 지정, Task = 내가 직접 추가" : "Mission = manager assigned, Task = self-created"}
+            </p>
+          </div>
           <button
             className="text-sm font-bold text-blue-700 hover:underline"
             onClick={() => showSaveMessage(isKo ? "개별 작업은 스와이프해서 수정할 수 있어요." : "Swipe a task row to edit quickly.")}
@@ -963,7 +999,7 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
                     onClick={addMissionMainTask}
                     type="button"
                   >
-                    {isKo ? "미션 추가" : "Add mission"}
+                    {isKo ? "매니저 미션 추가" : "Add manager mission"}
                   </button>
                 )}
                 {activeMission && missionOpenTaskCount > 0 && (
@@ -972,7 +1008,7 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
                     onClick={splitMissionIntoTasks}
                     type="button"
                   >
-                    {isKo ? "미션 분해" : "Split mission"}
+                    {isKo ? "매니저 미션 분해" : "Split manager mission"}
                   </button>
                 )}
                 <Star className="text-blue-600" size={16} />
@@ -1040,10 +1076,16 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
                               <Clock3 size={12} />
                               {formatTaskMinutes(task.duration, locale)}
                             </span>
+                            {task.due_date && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-700">
+                                <CalendarClock size={11} />
+                                {isKo ? "마감" : "Due"} {formatDueDateLabel(task.due_date, locale)}
+                              </span>
+                            )}
                             {task.is_mission_linked && (
                               <span className="inline-flex items-center gap-1 rounded-full bg-fuchsia-100 px-2 py-0.5 text-[10px] font-black text-fuchsia-700">
                                 <Target size={12} />
-                                MISSION
+                                {isKo ? "매니저 미션" : "MANAGER MISSION"}
                               </span>
                             )}
                           </div>
@@ -1130,6 +1172,12 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
                             <Clock3 size={12} />
                             {formatTaskMinutes(task.duration, locale)}
                           </span>
+                          {task.due_date && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-700">
+                              <CalendarClock size={11} />
+                              {isKo ? "마감" : "Due"} {formatDueDateLabel(task.due_date, locale)}
+                            </span>
+                          )}
                           <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-slate-500">
                             {priorityLabel(task.priority, locale)}
                           </span>
@@ -1171,10 +1219,22 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
                 {completedTasks.length > 0 ? (
                   completedTasks.map((task) => (
                     <div className="flex items-center gap-3 rounded-xl bg-white/70 px-3 py-2" key={task.id}>
-                      <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-blue-100 text-blue-600">
+                      <button
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-blue-100 text-blue-600 transition hover:bg-blue-200"
+                        onClick={() => toggleCompleted(task.id)}
+                        type="button"
+                      >
                         <Check size={14} />
-                      </span>
-                      <p className="flex-1 text-sm font-semibold text-slate-400 line-through">{task.title}</p>
+                      </button>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-semibold text-slate-400 line-through">{task.title}</p>
+                        {task.due_date && (
+                          <p className="mt-0.5 text-[11px] font-semibold text-slate-400">
+                            {isKo ? "마감" : "Due"} {formatDueDateLabel(task.due_date, locale)}
+                          </p>
+                        )}
+                      </div>
+                      <span className="text-[10px] font-bold text-blue-700">{isKo ? "다시 활성화" : "Re-open"}</span>
                     </div>
                   ))
                 ) : (
@@ -1324,7 +1384,6 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
                   <option value="study">{categoryLabel("study", locale)}</option>
                   <option value="personal">{categoryLabel("personal", locale)}</option>
                   <option value="admin">{categoryLabel("admin", locale)}</option>
-                  <option value="mission">{categoryLabel("mission", locale)}</option>
                   <option value="custom">{categoryLabel("custom", locale)}</option>
                 </select>
 
@@ -1351,24 +1410,34 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
                   />
                 </label>
 
-                <div className="space-y-2 rounded-2xl bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600">
-                  <label className="flex items-center gap-2">
-                    <input
-                      checked={quickForm.is_mission_linked}
-                      onChange={(event) => setQuickForm((prev) => ({ ...prev, is_mission_linked: event.target.checked }))}
-                      type="checkbox"
-                    />
-                    {isKo ? "Mission linked" : "Mission linked"}
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input
-                      checked={quickForm.is_high_impact}
-                      onChange={(event) => setQuickForm((prev) => ({ ...prev, is_high_impact: event.target.checked }))}
-                      type="checkbox"
-                    />
-                    {isKo ? "High Impact" : "High Impact"}
-                  </label>
-                </div>
+                <label className="rounded-2xl bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600">
+                  {isKo ? "마감일" : "Due date"}
+                  <input
+                    className="mt-1 w-full rounded-xl border-none bg-white px-2 py-1 text-sm"
+                    onChange={(event) => setQuickForm((prev) => ({ ...prev, due_date: event.target.value }))}
+                    type="date"
+                    value={quickForm.due_date}
+                  />
+                </label>
+              </div>
+
+              <div className="space-y-2 rounded-2xl bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600">
+                <label className="flex items-center gap-2">
+                  <input
+                    checked={quickForm.is_mission_linked}
+                    onChange={(event) => setQuickForm((prev) => ({ ...prev, is_mission_linked: event.target.checked }))}
+                    type="checkbox"
+                  />
+                  {isKo ? "매니저 미션 연결" : "Link to manager mission"}
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    checked={quickForm.is_high_impact}
+                    onChange={(event) => setQuickForm((prev) => ({ ...prev, is_high_impact: event.target.checked }))}
+                    type="checkbox"
+                  />
+                  {isKo ? "High Impact" : "High Impact"}
+                </label>
               </div>
 
               <textarea

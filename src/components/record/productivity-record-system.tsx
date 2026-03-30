@@ -6,6 +6,7 @@ import {
   ArrowRight,
   Brain,
   CalendarDays,
+  Medal,
   Flame,
   Gauge,
   RefreshCcw,
@@ -778,11 +779,19 @@ export function ProductivityRecordSystem({ mode, locale, userId, score, submissi
 
         <section className="card p-5">
           <p className="text-center text-[11px] font-bold uppercase tracking-[0.22em] text-slate-500">{locale === "ko" ? "누적 포인트" : "Total Career Points"}</p>
-          <div className="mt-2 flex items-end justify-center gap-3">
-            <p className="text-6xl font-extrabold tracking-tighter text-blue-700">{score.total_points.toLocaleString()}</p>
-            <div className="pb-2 text-sm font-semibold text-slate-700">
-              <p>{locale === "ko" ? "Monster Level" : "Monster Level"} {model.level}</p>
-              <p className="text-slate-500">{model.tier} Tier</p>
+          <div className="mt-3 flex items-center justify-between gap-3">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-100 to-indigo-100 text-blue-700 shadow-inner">
+              <span className="anim-bounce-soft text-2xl leading-none" role="img" aria-label="career reward">
+                🏆
+              </span>
+              <Medal className="ml-1 h-4 w-4 text-indigo-600" />
+            </div>
+            <div className="min-w-0 flex-1 text-right">
+              <p className="text-5xl font-extrabold tracking-tight text-blue-700">{score.total_points.toLocaleString()}</p>
+              <div className="mt-1 text-sm font-semibold text-slate-700">
+                <p>{locale === "ko" ? "Monster Level" : "Monster Level"} {model.level}</p>
+                <p className="text-slate-500">{model.tier} Tier</p>
+              </div>
             </div>
           </div>
           <p className="mt-1 text-center text-xs text-slate-500">{locale === "ko" ? `상위 ${model.topPercent}% 성과권` : `Top ${model.topPercent}% performer`}</p>
