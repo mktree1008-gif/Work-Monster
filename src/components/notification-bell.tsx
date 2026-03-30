@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { createPortal } from "react-dom";
 import {
   Bell,
   CheckCircle2,
@@ -125,6 +126,7 @@ export function NotificationBell({ notifications, unreadCount, action, role, loc
   const [selectedBonus, setSelectedBonus] = useState<AppNotification | null>(null);
   const [bonusStep, setBonusStep] = useState<"teaser" | "detail">("teaser");
   const [activeTab, setActiveTab] = useState<NotificationTabId>("all");
+  const [portalReady, setPortalReady] = useState(false);
   const hasNew = unreadCount > 0;
   const isKo = locale === "ko";
 
@@ -187,6 +189,10 @@ export function NotificationBell({ notifications, unreadCount, action, role, loc
 
     window.addEventListener("workmonster:open-notifications", handleOpenNotifications);
     return () => window.removeEventListener("workmonster:open-notifications", handleOpenNotifications);
+  }, []);
+
+  useEffect(() => {
+    setPortalReady(true);
   }, []);
 
   useEffect(() => {
@@ -265,15 +271,16 @@ export function NotificationBell({ notifications, unreadCount, action, role, loc
         {hasNew && <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-rose-500 ring-2 ring-white" />}
       </button>
 
-      {open && (
-        <div
-          className="fixed inset-0 z-[80] flex items-start justify-center overflow-hidden bg-slate-950/62 px-2 pb-[calc(0.75rem+var(--safe-bottom))] pt-[calc(0.75rem+var(--safe-top))] backdrop-blur-[3px] sm:items-center sm:px-6 sm:py-6"
-          onClick={() => setOpen(false)}
-        >
-          <section
-            className="anim-pop flex w-full max-w-3xl max-h-[calc(100dvh-var(--safe-top)-var(--safe-bottom)-1.5rem)] flex-col overflow-hidden rounded-[1.55rem] border border-indigo-100 bg-[#f8faff] shadow-[0_36px_80px_rgba(15,23,42,0.45)] sm:h-[88dvh] sm:max-h-[760px] sm:rounded-[1.75rem]"
-            onClick={(event) => event.stopPropagation()}
+      {portalReady && open
+        ? createPortal(
+          <div
+            className="fixed inset-0 z-[80] flex items-center justify-center overflow-hidden bg-slate-950/62 p-3 backdrop-blur-[3px] sm:p-6"
+            onClick={() => setOpen(false)}
           >
+            <section
+              className="anim-pop flex h-[min(90dvh,760px)] w-full max-w-3xl flex-col overflow-hidden rounded-[1.55rem] border border-indigo-100 bg-[#f8faff] shadow-[0_36px_80px_rgba(15,23,42,0.45)] sm:rounded-[1.75rem]"
+              onClick={(event) => event.stopPropagation()}
+            >
             <div className="border-b border-indigo-100 bg-white/95 px-4 pb-3 pt-4 sm:px-5">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -424,13 +431,16 @@ export function NotificationBell({ notifications, unreadCount, action, role, loc
                 </button>
               </form>
             </div>
-          </section>
-        </div>
-      )}
+            </section>
+          </div>,
+          document.body
+        )
+        : null}
 
-      {selected && (
-        <div className="fixed inset-0 z-[72] flex items-center justify-center bg-slate-950/45 p-4">
-          <div className="container-mobile card anim-pop p-5">
+      {portalReady && selected
+        ? createPortal(
+          <div className="fixed inset-0 z-[72] flex items-center justify-center bg-slate-950/45 p-4">
+            <div className="container-mobile card anim-pop p-5">
             <div className="mb-3 flex items-center gap-3">
               <ChibiAvatar className="anim-float" emotion="encouraging" role="manager" size={60} />
               <div className="rounded-2xl bg-indigo-50 px-3 py-2 text-sm text-indigo-900">
@@ -450,14 +460,17 @@ export function NotificationBell({ notifications, unreadCount, action, role, loc
             <button className="btn btn-primary mt-4 w-full" onClick={() => setSelected(null)} type="button">
               {isKo ? "확인" : "Close"}
             </button>
-          </div>
-        </div>
-      )}
+            </div>
+          </div>,
+          document.body
+        )
+        : null}
 
-      {selectedBonus && (
-        <div className="fixed inset-0 z-[73] flex items-center justify-center bg-slate-950/45 p-4">
-          {bonusStep === "teaser" ? (
-            <div className="container-mobile card anim-pop relative overflow-hidden p-5 text-center">
+      {portalReady && selectedBonus
+        ? createPortal(
+          <div className="fixed inset-0 z-[73] flex items-center justify-center bg-slate-950/45 p-4">
+            {bonusStep === "teaser" ? (
+              <div className="container-mobile card anim-pop relative overflow-hidden p-5 text-center">
               <span className="anim-confetti absolute left-[16%] top-6 text-xl">🎁</span>
               <span className="anim-confetti-delay absolute left-[78%] top-8 text-lg">✨</span>
               <span className="anim-confetti absolute left-[24%] top-16 text-lg">⭐</span>
@@ -489,9 +502,9 @@ export function NotificationBell({ notifications, unreadCount, action, role, loc
                   {isKo ? "확인하기" : "Check it out!"}
                 </button>
               </div>
-            </div>
-          ) : (
-            <div className="container-mobile card anim-pop p-5">
+              </div>
+            ) : (
+              <div className="container-mobile card anim-pop p-5">
               <p className="text-xs font-bold uppercase tracking-[0.16em] text-indigo-600">
                 {isKo ? "보너스 상세" : "Bonus Details"}
               </p>
@@ -522,10 +535,12 @@ export function NotificationBell({ notifications, unreadCount, action, role, loc
                   {isKo ? "점수 확인으로 이동" : "Open score review"}
                 </button>
               </div>
-            </div>
-          )}
-        </div>
-      )}
+              </div>
+            )}
+          </div>,
+          document.body
+        )
+        : null}
     </>
   );
 }
