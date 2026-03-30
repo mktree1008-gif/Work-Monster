@@ -439,7 +439,7 @@ export function getFoodLogs(): FoodLog[] {
     const fat = Math.max(0, roundOne(Number(item.fat ?? 0)));
     const carbs = Math.max(0, roundOne(Number(item.carbs ?? 0)));
     const grams = Math.max(1, Math.round(Number(item.grams ?? 0) || 100));
-    const ingredientsRaw = item.ingredients;
+    const ingredientsRaw = (item as { ingredients?: unknown }).ingredients;
     const ingredients = Array.isArray(ingredientsRaw)
       ? ingredientsRaw.map((token) => String(token).trim()).filter(Boolean)
       : typeof ingredientsRaw === "string"
@@ -468,10 +468,11 @@ export function saveFoodLogs(next: FoodLog[]) {
 
 export function upsertFoodLog(input: Partial<FoodLog> & { date: string; meal_type: MealType; food_name: string }): FoodLog {
   const logs = getFoodLogs();
-  const normalizedIngredients = Array.isArray(input.ingredients)
-    ? input.ingredients.map((token) => String(token).trim()).filter(Boolean)
-    : typeof input.ingredients === "string"
-      ? input.ingredients
+  const ingredientsRaw = (input as { ingredients?: unknown }).ingredients;
+  const normalizedIngredients = Array.isArray(ingredientsRaw)
+    ? ingredientsRaw.map((token) => String(token).trim()).filter(Boolean)
+    : typeof ingredientsRaw === "string"
+      ? ingredientsRaw
           .split(/[,\n]/g)
           .map((token) => token.trim())
           .filter(Boolean)
