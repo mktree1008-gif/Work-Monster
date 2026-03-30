@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, FormEvent, PointerEvent, useMemo, useRef, useState } from "react";
+import { ChangeEvent, FormEvent, PointerEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Camera, CheckCircle2, Image as ImageIcon, Loader2, Smile } from "lucide-react";
 
 type Props = {
@@ -36,6 +36,11 @@ function copyByLocale(locale: Props["locale"]) {
       saving: "저장 중...",
       success: "프로필 이미지가 저장되었어요.",
       failed: "저장에 실패했어요.",
+      noChanges: "저장할 변경사항이 없어요.",
+      confirmTitle: "프로필 이미지를 저장할까요?",
+      confirmDesc: "현재 편집 상태(크기/위치/모드)가 반영됩니다.",
+      confirmYes: "예, 저장할게요",
+      confirmNo: "아니요",
       fileTooLarge: "50MB 이하 이미지 파일만 업로드할 수 있어요.",
       fileType: "이미지 파일만 업로드할 수 있어요.",
       noImage: "먼저 사진을 선택해 주세요.",
@@ -58,6 +63,11 @@ function copyByLocale(locale: Props["locale"]) {
     saving: "Saving...",
     success: "Profile image saved.",
     failed: "Failed to save profile image.",
+    noChanges: "No changes to save yet.",
+    confirmTitle: "Save profile image changes?",
+    confirmDesc: "Your current zoom/position/mode edits will be applied.",
+    confirmYes: "Yes, save",
+    confirmNo: "No",
     fileTooLarge: "Please upload an image under 50MB.",
     fileType: "Please upload an image file.",
     noImage: "Please choose an image first.",
@@ -128,9 +138,15 @@ export function ProfileAvatarEditor({
   const [offsetY, setOffsetY] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const [pending, setPending] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const initialStateRef = useRef({
+    mode: initialMode,
+    emoji: (initialEmoji || "😺").trim() || "😺",
+    imageSrc: initialImageUrl || ""
+  });
   const gestureRef = useRef<{
     mode: "drag" | "pinch";
     startCenterX: number;
@@ -149,6 +165,34 @@ export function ProfileAvatarEditor({
       height: imgMeta.height * scale
     };
   }, [imgMeta]);
+
+  const normalizedEmoji = (emoji || "").trim() || "😺";
+  const hasImageTransform =
+    Math.abs(zoom - 1) > 0.001 || Math.abs(offsetX) > 0.5 || Math.abs(offsetY) > 0.5;
+  const hasChanges =
+    mode !== initialStateRef.current.mode ||
+    normalizedEmoji !== initialStateRef.current.emoji ||
+    imageSrc !== initialStateRef.current.imageSrc ||
+    (mode === "image" && hasImageTransform);
+
+  useEffect(() => {
+    let mounted = true;
+    async function ensureMeta() {
+      if (mode !== "image" || !imageSrc || imgMeta) return;
+      try {
+        const temp = await loadImage(imageSrc);
+        if (!mounted) return;
+        setImgMeta({ width: temp.naturalWidth || temp.width, height: temp.naturalHeight || temp.height });
+      } catch {
+        if (!mounted) return;
+        setMessage({ type: "error", text: copy.failed });
+      }
+    }
+    ensureMeta();
+    return () => {
+      mounted = false;
+    };
+  }, [copy.failed, imageSrc, imgMeta, mode]);
 
   function clampOffset(nextX: number, nextY: number, zoomValue = zoom) {
     const limitX = Math.max(0, ((baseSize.width * zoomValue) - PREVIEW_SIZE) / 2);
@@ -313,26 +357,35 @@ export function ProfileAvatarEditor({
     setMessage(null);
   }
 
-  async function saveAvatar(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function persistAvatar() {
     setPending(true);
+    setConfirmOpen(false);
     setMessage(null);
 
     try {
       const body = new FormData();
       body.set("avatar_mode", mode);
-      body.set("avatar_emoji", emoji.trim() || "😺");
+      body.set("avatar_emoji", normalizedEmoji);
 
       if (mode === "image") {
-        if (!imageSrc || !imgMeta) throw new Error(copy.noImage);
-        const cropped = await renderCroppedAvatar({
-          src: imageSrc,
-          zoom,
-          offsetX,
-          offsetY,
-          meta: imgMeta
-        });
-        body.set("avatar_url", cropped);
+        if (imageSrc) {
+          let safeMeta = imgMeta;
+          if (!safeMeta) {
+            const temp = await loadImage(imageSrc);
+            safeMeta = { width: temp.naturalWidth || temp.width, height: temp.naturalHeight || temp.height };
+            setImgMeta(safeMeta);
+          }
+          const cropped = await renderCroppedAvatar({
+            src: imageSrc,
+            zoom,
+            offsetX,
+            offsetY,
+            meta: safeMeta
+          });
+          body.set("avatar_url", cropped);
+        } else {
+          body.set("avatar_url", "");
+        }
       } else {
         body.set("avatar_url", "");
       }
@@ -357,6 +410,16 @@ export function ProfileAvatarEditor({
     } finally {
       setPending(false);
     }
+  }
+
+  function saveAvatar(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMessage(null);
+    if (!hasChanges) {
+      setMessage({ type: "success", text: copy.noChanges });
+      return;
+    }
+    setConfirmOpen(true);
   }
 
   return (
@@ -490,6 +553,35 @@ export function ProfileAvatarEditor({
           )}
         </button>
       </form>
+
+      {confirmOpen && (
+        <div className="fixed inset-0 z-[95] flex items-center justify-center bg-slate-950/45 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-4 shadow-2xl">
+            <p className="text-lg font-black text-indigo-900">{copy.confirmTitle}</p>
+            <p className="mt-1 text-sm text-slate-600">{copy.confirmDesc}</p>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <button
+                className="btn btn-muted w-full"
+                disabled={pending}
+                onClick={() => setConfirmOpen(false)}
+                type="button"
+              >
+                {copy.confirmNo}
+              </button>
+              <button
+                className="btn btn-primary w-full"
+                disabled={pending}
+                onClick={() => {
+                  void persistAvatar();
+                }}
+                type="button"
+              >
+                {copy.confirmYes}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {message && (
         <div className="fixed inset-x-0 bottom-24 z-[90] mx-auto w-[min(100%,24rem)] px-4">
