@@ -551,6 +551,14 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
     return isKo ? `최근 7일 완료율 ${rate}%` : `7-day completion rate ${rate}%`;
   }, [previousWeekStats, isKo, tasks.length, completedTasks.length]);
 
+  const quickFocusTemplates = useMemo(
+    () =>
+      isKo
+        ? ["매니저 미션 1개 완료", "High Impact 2개 완료", "90분 집중 블록"]
+        : ["Finish one manager mission", "Complete 2 high-impact tasks", "Focus block 90 mins"],
+    [isKo]
+  );
+
   function showSaveMessage(message: string, duration = 1600) {
     setSaveMessage(message);
     if (toastTimerRef.current) window.clearTimeout(toastTimerRef.current);
@@ -916,8 +924,22 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
 
   function saveFocus() {
     if (!canUseStorage()) return;
-    window.localStorage.setItem(focusStorageKey(userId, todayISO), focusText.trim());
+    const trimmed = focusText.trim();
+    if (!trimmed) {
+      window.localStorage.removeItem(focusStorageKey(userId, todayISO));
+      showSaveMessage(isKo ? "오늘의 포커스를 비웠어요." : "Focus was cleared for today.");
+      return;
+    }
+    window.localStorage.setItem(focusStorageKey(userId, todayISO), trimmed);
     showSaveMessage(isKo ? "오늘의 포커스를 저장했어요." : "Focus of the day saved.");
+  }
+
+  function clearFocus() {
+    setFocusText("");
+    if (canUseStorage()) {
+      window.localStorage.removeItem(focusStorageKey(userId, todayISO));
+    }
+    showSaveMessage(isKo ? "오늘은 포커스 없이 진행해요." : "Skipped focus for today.");
   }
 
   function reorderTask(dragId: string, dropId: string) {
@@ -975,6 +997,11 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
             <p className="mt-1 text-[11px] font-semibold text-slate-500">
               {isKo ? "Mission = 매니저 지정, Task = 내가 직접 추가" : "Mission = manager assigned, Task = self-created"}
             </p>
+            {focusText.trim().length > 0 && (
+              <p className="mt-1 max-w-[20rem] truncate text-xs font-bold text-blue-700">
+                {isKo ? "오늘의 포커스:" : "Today focus:"} {focusText.trim()}
+              </p>
+            )}
           </div>
           <button
             className="text-sm font-bold text-blue-700 hover:underline"
@@ -1296,17 +1323,43 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
           <Zap className="text-violet-600" size={18} />
           {isKo ? "오늘의 포커스" : "Focus of the Day"}
         </h3>
+        <p className="mt-1 text-xs font-semibold text-slate-500">
+          {isKo
+            ? "선택 기능이에요. 오늘 가장 중요한 한 줄 목표를 적어두면 체크리스트 상단에 계속 보여줘서 우선순위를 잃지 않게 도와줘요."
+            : "Optional. Add one key intention and we keep it visible above your checklist so priorities stay clear."}
+        </p>
         <div className="mt-3 rounded-2xl bg-slate-100 p-3">
           <input
             className="input bg-white"
             maxLength={120}
             onChange={(event) => setFocusText(event.target.value)}
-            placeholder={isKo ? "오늘 가장 중요한 의도를 한 줄로 적어보세요..." : "Define your main intention..."}
+            placeholder={
+              isKo
+                ? "예: High Impact 2개 완료 후 미션 마감..."
+                : "e.g. Finish 2 high-impact tasks before mission deadline"
+            }
             value={focusText}
           />
-          <button className="btn btn-muted mt-2 w-full text-sm" onClick={saveFocus} type="button">
-            {isKo ? "포커스 저장" : "Save focus"}
-          </button>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {quickFocusTemplates.map((template) => (
+              <button
+                className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-600 transition hover:bg-blue-50 hover:text-blue-700"
+                key={template}
+                onClick={() => setFocusText(template)}
+                type="button"
+              >
+                {template}
+              </button>
+            ))}
+          </div>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <button className="btn btn-primary w-full text-sm" onClick={saveFocus} type="button">
+              {isKo ? "포커스 저장" : "Save focus"}
+            </button>
+            <button className="btn btn-muted w-full text-sm" onClick={clearFocus} type="button">
+              {isKo ? "건너뛰기" : "Skip today"}
+            </button>
+          </div>
         </div>
       </section>
 
