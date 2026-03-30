@@ -49,9 +49,6 @@ export default async function RewardsPage({ searchParams }: Props) {
             status === "Claimed"
               ? 100
               : Math.max(0, Math.min(100, Math.round((Math.max(bundle.score.total_points, 0) / safeRequired) * 100)));
-          const tone = (["sunset", "gold", "mint", "violet"] as const)[
-            Math.min(3, Math.max(0, Math.floor((reward.required_points / 40) % 4)))
-          ];
 
           return (
             <article key={reward.id} className="card overflow-hidden p-4">
@@ -80,7 +77,6 @@ export default async function RewardsPage({ searchParams }: Props) {
                   progressPercent={progressPercent}
                   requiredPoints={reward.required_points}
                   status={status}
-                  tone={tone}
                 />
               </div>
 

@@ -9,15 +9,8 @@ type Props = {
   progressPercent: number;
   currentPoints: number;
   requiredPoints: number;
-  tone: BatteryTone;
+  tone?: BatteryTone;
   status: RewardStatus;
-};
-
-const TONE_FILL: Record<BatteryTone, string> = {
-  sunset: "linear-gradient(180deg, #ffe760 0%, #ffb733 42%, #ff8b4f 100%)",
-  gold: "linear-gradient(180deg, #fff59e 0%, #ffd84a 50%, #ffb520 100%)",
-  mint: "linear-gradient(180deg, #b5f28f 0%, #74df8a 45%, #49cdb1 100%)",
-  violet: "linear-gradient(180deg, #c49cff 0%, #8a5cf7 45%, #5938df 100%)"
 };
 
 function clampPercent(value: number): number {
@@ -25,7 +18,15 @@ function clampPercent(value: number): number {
   return Math.max(0, Math.min(100, Math.round(value)));
 }
 
-export function RewardProgressBattery({ progressPercent, currentPoints, requiredPoints, tone, status }: Props) {
+function fillGradientByPercent(percent: number): string {
+  const safe = clampPercent(percent);
+  const hue = Math.round(8 + (safe / 100) * 118);
+  const top = `hsl(${hue} 94% 66%)`;
+  const bottom = `hsl(${hue} 88% 52%)`;
+  return `linear-gradient(180deg, ${top} 0%, ${bottom} 100%)`;
+}
+
+export function RewardProgressBattery({ progressPercent, currentPoints, requiredPoints, status }: Props) {
   const target = useMemo(() => clampPercent(progressPercent), [progressPercent]);
   const [animatedPercent, setAnimatedPercent] = useState(0);
   const safeCurrent = Math.max(0, Math.round(currentPoints));
@@ -62,7 +63,7 @@ export function RewardProgressBattery({ progressPercent, currentPoints, required
               className="absolute bottom-0 left-0 right-0 transition-[height] duration-500 ease-out"
               style={{
                 height: `${animatedPercent}%`,
-                background: TONE_FILL[tone]
+                background: fillGradientByPercent(animatedPercent)
               }}
             />
             <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(120deg,rgba(255,255,255,0.45)_0%,rgba(255,255,255,0)_48%,rgba(255,255,255,0.38)_100%)]" />
@@ -84,4 +85,3 @@ export function RewardProgressBattery({ progressPercent, currentPoints, required
     </div>
   );
 }
-
