@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Bell, X } from "lucide-react";
 import { AppNotification, Locale } from "@/lib/types";
 import { ChibiAvatar } from "@/components/chibi-avatar";
@@ -33,10 +33,20 @@ export function NotificationBell({ notifications, unreadCount, action, role, loc
     [isKo, role]
   );
 
+  useEffect(() => {
+    function handleOpenNotifications() {
+      setOpen(true);
+    }
+
+    window.addEventListener("workmonster:open-notifications", handleOpenNotifications);
+    return () => window.removeEventListener("workmonster:open-notifications", handleOpenNotifications);
+  }, []);
+
   return (
     <>
       <button
         aria-label="Open notifications"
+        id="global-notification-bell-trigger"
         className="relative rounded-full bg-indigo-100 p-2 text-indigo-900"
         onClick={() => setOpen(true)}
         type="button"

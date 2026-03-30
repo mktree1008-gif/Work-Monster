@@ -1,7 +1,6 @@
 import Link from "next/link";
 import {
   BatteryFull,
-  BellRing,
   CalendarClock,
   CheckCircle2,
   ClipboardList,
@@ -14,6 +13,7 @@ import {
   Zap
 } from "lucide-react";
 import { CharacterAlert } from "@/components/character-alert";
+import { NotificationShortcutChip } from "@/components/notification-shortcut-chip";
 import { QuestionsSaveCelebration } from "@/components/questions-save-celebration";
 import { LiveTimeChip } from "@/components/live-time-chip";
 import { UserPageShell } from "@/components/user-page-shell";
@@ -175,14 +175,7 @@ export default async function WelcomePage({ searchParams }: Props) {
 
       <section className="mb-3 flex items-center justify-between">
         <LiveTimeChip locale={locale} />
-        <p className="inline-flex items-center gap-1 rounded-full bg-white/80 px-3 py-1 text-xs font-semibold text-indigo-700 shadow-sm">
-          <BellRing size={14} />
-          {bundle.unread_notification_count > 0
-            ? `${bundle.unread_notification_count} new`
-            : isKo
-              ? "No new"
-              : "No new"}
-        </p>
+        <NotificationShortcutChip locale={locale} unreadCount={bundle.unread_notification_count} />
       </section>
 
       <section className="card anim-pop mb-4 overflow-hidden p-5">
