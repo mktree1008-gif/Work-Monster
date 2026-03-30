@@ -1,11 +1,8 @@
-import { CalendarDays } from "lucide-react";
-import { RecordPointsCalendar } from "@/components/record-points-calendar";
+import { RecordHubTabs } from "@/components/record/record-hub-tabs";
 import type { RecordPointDay, RecordPointEvent } from "@/components/record-points-calendar";
-import { RecordSubmissionHistory } from "@/components/record-submission-history";
-import { WellnessRecordSections } from "@/components/wellness/wellness-record-sections";
 import { getGameRepository } from "@/lib/repositories/game-repository";
 import { UserPageShell } from "@/components/user-page-shell";
-import { formatDateLabel, isISODateString, toISODate } from "@/lib/utils";
+import { isISODateString, toISODate } from "@/lib/utils";
 import { getViewerContext } from "@/lib/view-model";
 
 type Props = {
@@ -63,21 +60,6 @@ export default async function RecordPage({ searchParams }: Props) {
   const params = (searchParams ? await searchParams : {}) as Record<string, string | string[] | undefined>;
   const focusSubmissionId = typeof params.focus === "string" ? params.focus : "";
   const isKo = bundle.user.locale === "ko";
-  const latestSubmissionByDate = new Map<string, (typeof bundle.submissions)[number]>();
-  for (const submission of bundle.submissions) {
-    if (!latestSubmissionByDate.has(submission.date)) {
-      latestSubmissionByDate.set(submission.date, submission);
-    }
-  }
-  const productivityBars = [...latestSubmissionByDate.values()]
-    .sort((a, b) => (a.date > b.date ? 1 : -1))
-    .slice(-7);
-
-  const approved = productivityBars.filter((item) => item.status === "approved");
-  const avgCalories =
-    productivityBars.length > 0
-      ? Math.round(productivityBars.reduce((sum, item) => sum + item.calories, 0) / productivityBars.length)
-      : 0;
   const todayISO = toISODate();
   const submissionById = new Map(bundle.submissions.map((submission) => [submission.id, submission]));
   const submissionIdSet = new Set(bundle.submissions.map((submission) => submission.id));
@@ -226,62 +208,19 @@ export default async function RecordPage({ searchParams }: Props) {
     };
   });
 
-  const baseRecentSubmissions = bundle.submissions.slice(0, 5);
-  const focusedSubmission = focusSubmissionId
-    ? bundle.submissions.find((submission) => submission.id === focusSubmissionId) ?? null
-    : null;
-  const recentSubmissions =
-    focusedSubmission && !baseRecentSubmissions.some((submission) => submission.id === focusedSubmission.id)
-      ? [focusedSubmission, ...baseRecentSubmissions].slice(0, 5)
-      : baseRecentSubmissions;
-
   return (
     <UserPageShell activeTab="record" labels={strings} subtitle="Your momentum map" title="Record">
-      <section className="grid grid-cols-2 gap-3">
-        <article className="card p-4">
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">💰 Avg calories</p>
-          <p className="mt-2 text-3xl font-black text-indigo-900">{avgCalories}</p>
-        </article>
-        <article className="card p-4">
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">🔥 Approved this week</p>
-          <p className="mt-2 text-3xl font-black text-indigo-900">{approved.length}</p>
-        </article>
-      </section>
-
-      <section className="card mt-4 p-4">
-        <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Productivity bars</p>
-        <div className="mt-3 flex items-end gap-2">
-          {productivityBars.map((item) => (
-            <div key={item.id} className="flex flex-1 flex-col items-center gap-1">
-              <div
-                className={`w-full rounded-t-xl ${item.productive ? "bg-emerald-500" : "bg-amber-400"}`}
-                style={{ height: `${item.productive ? 80 : 45}px` }}
-              />
-              <span className="text-[10px] text-slate-500">{formatDateLabel(item.date)}</span>
-            </div>
-          ))}
-          {productivityBars.length === 0 && <p className="text-sm text-slate-500">No check-in history yet.</p>}
-        </div>
-      </section>
-
-      <section className="card mt-4 p-4">
-        <div className="flex items-center gap-2">
-          <CalendarDays className="text-indigo-600" size={18} />
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Points calendar</p>
-        </div>
-        <RecordPointsCalendar days={recordCalendarDays} locale={bundle.user.locale} />
-      </section>
-
-      <RecordSubmissionHistory
+      <RecordHubTabs
         focusSubmissionId={focusSubmissionId}
+        initialWellnessSection={typeof params.section === "string" ? params.section : undefined}
         locale={bundle.user.locale}
-        submissions={recentSubmissions}
-      />
-      <WellnessRecordSections
-        initialSection={typeof params.section === "string" ? params.section : undefined}
+        notifications={bundle.notifications}
         penaltyHistory={bundle.penaltyHistory}
+        recordCalendarDays={recordCalendarDays}
         rewardClaims={bundle.rewardClaims}
+        score={bundle.score}
         submissions={bundle.submissions}
+        userId={bundle.user.id}
       />
     </UserPageShell>
   );
