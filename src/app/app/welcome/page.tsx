@@ -364,29 +364,31 @@ export default async function WelcomePage({ searchParams }: Props) {
       {latestSubmission && (
         <section className="card mb-4 p-5">
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">Daily summary snapshot</p>
-          <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
-            <div className="rounded-xl bg-slate-100 p-3">
+          <div className="mt-3 grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
+            <div className="flex min-h-[96px] flex-col justify-center rounded-xl bg-slate-100 p-3">
               <p className="text-xs uppercase tracking-[0.12em] text-slate-500">Checklist</p>
               <p className="mt-1 font-bold text-indigo-900">{latestSubmission.task_list.length} tasks</p>
             </div>
-            <div className="rounded-xl bg-slate-100 p-3">
+            <div className="flex min-h-[96px] flex-col justify-center rounded-xl bg-slate-100 p-3">
               <p className="text-xs uppercase tracking-[0.12em] text-slate-500">Mission</p>
               <p className="mt-1 font-bold text-indigo-900">{hasMission ? missionStatus : "Self-led day"}</p>
             </div>
-            <div className="rounded-xl bg-slate-100 p-3">
+            <div className="flex min-h-[96px] flex-col justify-center rounded-xl bg-slate-100 p-3">
               <p className="text-xs uppercase tracking-[0.12em] text-slate-500">Health logs</p>
               <p className="mt-1 font-bold text-indigo-900">
                 {foodCalories} cal / {workoutMinutes} min / {sleepRecovery}%
               </p>
             </div>
-            <div className="rounded-xl bg-slate-100 p-3">
+            <div className="flex min-h-[96px] flex-col justify-center rounded-xl bg-slate-100 p-3">
               <p className="text-xs uppercase tracking-[0.12em] text-slate-500">Review status</p>
               <p className="mt-1 font-bold text-indigo-900">{latestSubmission.status.toUpperCase()}</p>
             </div>
           </div>
-          <Link className="btn btn-muted mt-3 w-full" href="/app/record">
-            Open full record
-          </Link>
+          <div className="mt-4">
+            <Link className="btn btn-muted block w-full text-center" href="/app/record">
+              Open full record
+            </Link>
+          </div>
         </section>
       )}
 
