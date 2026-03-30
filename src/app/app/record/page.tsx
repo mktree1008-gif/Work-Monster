@@ -1,8 +1,7 @@
 import { CalendarDays } from "lucide-react";
-import { CharacterAlert } from "@/components/character-alert";
 import { RecordPointsCalendar } from "@/components/record-points-calendar";
 import type { RecordPointDay, RecordPointEvent } from "@/components/record-points-calendar";
-import { getManagerCue } from "@/lib/character-system";
+import { RecordSubmissionHistory } from "@/components/record-submission-history";
 import { getGameRepository } from "@/lib/repositories/game-repository";
 import { UserPageShell } from "@/components/user-page-shell";
 import { formatDateLabel, isISODateString, toISODate } from "@/lib/utils";
@@ -78,7 +77,6 @@ export default async function RecordPage({ searchParams }: Props) {
     productivityBars.length > 0
       ? Math.round(productivityBars.reduce((sum, item) => sum + item.calories, 0) / productivityBars.length)
       : 0;
-  const managerCue = getManagerCue("record_approval", bundle.user.locale);
   const todayISO = toISODate();
   const submissionById = new Map(bundle.submissions.map((submission) => [submission.id, submission]));
   const submissionIdSet = new Set(bundle.submissions.map((submission) => submission.id));
@@ -207,6 +205,15 @@ export default async function RecordPage({ searchParams }: Props) {
     };
   });
 
+  const baseRecentSubmissions = bundle.submissions.slice(0, 5);
+  const focusedSubmission = focusSubmissionId
+    ? bundle.submissions.find((submission) => submission.id === focusSubmissionId) ?? null
+    : null;
+  const recentSubmissions =
+    focusedSubmission && !baseRecentSubmissions.some((submission) => submission.id === focusedSubmission.id)
+      ? [focusedSubmission, ...baseRecentSubmissions].slice(0, 5)
+      : baseRecentSubmissions;
+
   return (
     <UserPageShell activeTab="record" labels={strings} subtitle="Your momentum map" title="Record">
       <section className="grid grid-cols-2 gap-3">
@@ -244,40 +251,11 @@ export default async function RecordPage({ searchParams }: Props) {
         <RecordPointsCalendar days={recordCalendarDays} locale={bundle.user.locale} />
       </section>
 
-      <section className="card mt-4 p-4">
-        <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Submission history</p>
-        <ul className="mt-3 space-y-2">
-          {bundle.submissions.slice(0, 10).map((item) => (
-            <li
-              className={`rounded-xl bg-slate-100 px-3 py-2 text-sm ${focusSubmissionId === item.id ? "ring-2 ring-indigo-400" : ""}`}
-              id={`submission-${item.id}`}
-              key={item.id}
-            >
-              <div className="flex items-center justify-between">
-                <span>{formatDateLabel(item.date)}</span>
-                <span className="font-semibold">
-                  {item.status === "pending"
-                    ? "pending"
-                    : item.points_awarded !== 0
-                      ? `${item.points_awarded > 0 ? `+${item.points_awarded}` : item.points_awarded} pts`
-                      : `${item.status} • 0 pts`}
-                </span>
-              </div>
-              {item.status !== "pending" && (
-                <div className="mt-2">
-                  <CharacterAlert role="manager" cue={managerCue} compact tone={item.points_awarded < 0 ? "warning" : "success"} />
-                  {(item.bonus_points_awarded ?? 0) > 0 && (
-                    <p className="mt-1 rounded-lg bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">
-                      🎁 Bonus +{item.bonus_points_awarded} {item.bonus_message?.trim() ? `• ${item.bonus_message}` : ""}
-                    </p>
-                  )}
-                </div>
-              )}
-            </li>
-          ))}
-          {bundle.submissions.length === 0 && <li className="text-sm text-slate-500">No submissions yet.</li>}
-        </ul>
-      </section>
+      <RecordSubmissionHistory
+        focusSubmissionId={focusSubmissionId}
+        locale={bundle.user.locale}
+        submissions={recentSubmissions}
+      />
     </UserPageShell>
   );
 }
