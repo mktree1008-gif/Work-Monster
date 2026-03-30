@@ -396,6 +396,7 @@ export default async function ManagerPage({ searchParams }: Props) {
 
       {activeTab === "analytics" && (
         <ManagerUserAnalytics
+          auditLogs={data.auditLogs}
           score={selectedAnalyticsScore}
           selectedRange={analyticsRange}
           selectedUserId={selectedAnalyticsUser?.id ?? ""}

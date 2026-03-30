@@ -938,7 +938,7 @@ export async function getManagerOverview(managerId: string) {
     repo.getRules(),
     repo.listRewards(),
     repo.listOpenPenaltyEventsAll(),
-    repo.listAuditLogs(20),
+    repo.listAuditLogs(2000),
     repo.listPendingRewardClaimAlerts(20),
     repo.listAnnouncements(12)
   ]);
