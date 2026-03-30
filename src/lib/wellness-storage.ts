@@ -27,6 +27,7 @@ export type WorkoutLog = {
   id: string;
   date: string;
   workout_type: WorkoutType;
+  routine_id?: string;
   title: string;
   start_time: string;
   duration: number;
@@ -37,6 +38,21 @@ export type WorkoutLog = {
   fatigue: number;
   note: string;
   mission_linked: boolean;
+  created_at: string;
+};
+
+export type WorkoutRoutine = {
+  id: string;
+  title: string;
+  workout_type: WorkoutType;
+  duration: number;
+  intensity: WorkoutIntensity;
+  location: string;
+  steps: number;
+  calories_hint: number;
+  is_favorite: boolean;
+  use_count: number;
+  last_used_at: string;
   created_at: string;
 };
 
@@ -83,6 +99,7 @@ type WaterMap = Record<string, number>;
 const STORAGE_KEYS = {
   food: "wm-food-logs-v1",
   workout: "wm-workout-logs-v1",
+  workoutRoutines: "wm-workout-routines-v1",
   sleep: "wm-sleep-logs-v1",
   focus: "wm-focus-sessions-v1",
   goals: "wm-wellness-goals-v1",
@@ -326,6 +343,53 @@ function seedSleepLogs(): SleepLog[] {
   ];
 }
 
+function seedWorkoutRoutines(): WorkoutRoutine[] {
+  return [
+    {
+      id: createId("routine"),
+      title: "Gym Strength",
+      workout_type: "Gym",
+      duration: 45,
+      intensity: "high",
+      location: "Gym",
+      steps: 1800,
+      calories_hint: 320,
+      is_favorite: true,
+      use_count: 6,
+      last_used_at: nowISO(),
+      created_at: nowISO()
+    },
+    {
+      id: createId("routine"),
+      title: "Lunch Walk",
+      workout_type: "Walk",
+      duration: 30,
+      intensity: "medium",
+      location: "Outdoor",
+      steps: 3600,
+      calories_hint: 140,
+      is_favorite: true,
+      use_count: 9,
+      last_used_at: nowISO(),
+      created_at: nowISO()
+    },
+    {
+      id: createId("routine"),
+      title: "Evening Stretch",
+      workout_type: "Stretch",
+      duration: 18,
+      intensity: "low",
+      location: "Home",
+      steps: 400,
+      calories_hint: 70,
+      is_favorite: false,
+      use_count: 3,
+      last_used_at: nowISO(),
+      created_at: nowISO()
+    }
+  ];
+}
+
 function seedFocusSessions(): FocusSession[] {
   const today = todayLocalISO();
   return [
@@ -448,7 +512,95 @@ export function duplicateFoodLog(id: string): FoodLog | null {
 
 export function getWorkoutLogs(): WorkoutLog[] {
   const seeded = ensureSeeded<WorkoutLog[]>(STORAGE_KEYS.workout, seedWorkoutLogs());
-  return [...seeded].sort((a, b) => (a.created_at > b.created_at ? -1 : 1));
+  const normalized = seeded.map((item) => ({
+    ...item,
+    routine_id: typeof item.routine_id === "string" && item.routine_id.trim() ? item.routine_id.trim() : undefined,
+    title: String(item.title ?? "Workout").trim() || "Workout",
+    start_time: String(item.start_time ?? "07:00").trim() || "07:00",
+    duration: Math.max(5, Math.round(item.duration ?? 20)),
+    intensity: item.intensity ?? "medium",
+    calories_burned: Math.max(0, Math.round(item.calories_burned ?? 0)),
+    steps: Math.max(0, Math.round(item.steps ?? 0)),
+    location: String(item.location ?? "").trim() || "Custom",
+    fatigue: Math.max(0, Math.min(5, Math.round(item.fatigue ?? 2))),
+    note: String(item.note ?? "").trim(),
+    mission_linked: Boolean(item.mission_linked),
+    created_at: String(item.created_at ?? nowISO())
+  }));
+  return [...normalized].sort((a, b) => (a.created_at > b.created_at ? -1 : 1));
+}
+
+export function getWorkoutRoutines(): WorkoutRoutine[] {
+  const seeded = ensureSeeded<WorkoutRoutine[]>(STORAGE_KEYS.workoutRoutines, seedWorkoutRoutines());
+  const normalized = seeded.map((item) => ({
+    id: item.id?.trim() || createId("routine"),
+    title: String(item.title ?? "Custom Routine").trim() || "Custom Routine",
+    workout_type: item.workout_type ?? "Custom",
+    duration: Math.max(5, Math.round(item.duration ?? 20)),
+    intensity: item.intensity ?? "medium",
+    location: String(item.location ?? "").trim() || "Custom",
+    steps: Math.max(0, Math.round(item.steps ?? 0)),
+    calories_hint: Math.max(0, Math.round(item.calories_hint ?? 0)),
+    is_favorite: Boolean(item.is_favorite),
+    use_count: Math.max(0, Math.round(item.use_count ?? 0)),
+    last_used_at: String(item.last_used_at ?? item.created_at ?? nowISO()),
+    created_at: String(item.created_at ?? nowISO())
+  }));
+  return [...normalized].sort((a, b) => {
+    if (a.is_favorite !== b.is_favorite) return a.is_favorite ? -1 : 1;
+    if (a.use_count !== b.use_count) return b.use_count - a.use_count;
+    return a.last_used_at > b.last_used_at ? -1 : 1;
+  });
+}
+
+export function saveWorkoutRoutines(next: WorkoutRoutine[]) {
+  writeJSON(STORAGE_KEYS.workoutRoutines, next);
+}
+
+export function upsertWorkoutRoutine(input: Partial<WorkoutRoutine> & { title: string; workout_type: WorkoutType }): WorkoutRoutine {
+  const routines = getWorkoutRoutines();
+  const next: WorkoutRoutine = {
+    id: input.id?.trim() || createId("routine"),
+    title: String(input.title ?? "").trim() || "Custom Routine",
+    workout_type: input.workout_type,
+    duration: Math.max(5, Math.round(input.duration ?? 20)),
+    intensity: input.intensity ?? "medium",
+    location: String(input.location ?? "").trim() || "Custom",
+    steps: Math.max(0, Math.round(input.steps ?? 0)),
+    calories_hint: Math.max(0, Math.round(input.calories_hint ?? 0)),
+    is_favorite: Boolean(input.is_favorite),
+    use_count: Math.max(0, Math.round(input.use_count ?? 0)),
+    last_used_at: input.last_used_at ?? nowISO(),
+    created_at: input.created_at ?? nowISO()
+  };
+  const filtered = routines.filter((item) => item.id !== next.id);
+  saveWorkoutRoutines([next, ...filtered]);
+  return next;
+}
+
+export function toggleWorkoutRoutineFavorite(id: string) {
+  const routines = getWorkoutRoutines();
+  const next = routines.map((item) => (item.id === id ? { ...item, is_favorite: !item.is_favorite } : item));
+  saveWorkoutRoutines(next);
+}
+
+export function touchWorkoutRoutineUsage(id: string) {
+  const routines = getWorkoutRoutines();
+  const next = routines.map((item) =>
+    item.id === id
+      ? {
+          ...item,
+          use_count: item.use_count + 1,
+          last_used_at: nowISO()
+        }
+      : item
+  );
+  saveWorkoutRoutines(next);
+}
+
+export function removeWorkoutRoutine(id: string) {
+  const routines = getWorkoutRoutines();
+  saveWorkoutRoutines(routines.filter((item) => item.id !== id));
 }
 
 export function saveWorkoutLogs(next: WorkoutLog[]) {
@@ -461,6 +613,7 @@ export function upsertWorkoutLog(input: Partial<WorkoutLog> & { date: string; wo
     id: input.id?.trim() || createId("workout"),
     date: input.date,
     workout_type: input.workout_type,
+    routine_id: input.routine_id?.trim() || undefined,
     title: input.title,
     start_time: String(input.start_time ?? "07:00").trim() || "07:00",
     duration: Math.max(5, Math.round(input.duration ?? 20)),
