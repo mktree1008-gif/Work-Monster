@@ -186,9 +186,13 @@ export function LoginForm({ initialRole = "user", initialLocale = "en" }: Props)
         }
         onClose={continueToApp}
         open={showWelcome}
-        pointsLabel={loginBonusAwarded ? `💃 +${loginBonusPoints} points! Daily login bonus` : "Login Complete"}
-        progressCaption="Login Bonus"
-        progressTarget={loginBonusAwarded ? 100 : 82}
+        pointsLabel={
+          loginBonusAwarded
+            ? `💃 +${loginBonusPoints} points! Daily login bonus`
+            : "No login bonus this time"
+        }
+        progressCaption={loginBonusAwarded ? "Daily bonus applied" : "Login completed"}
+        progressTarget={100}
         title={loginBonusAwarded ? "Welcome Back, Bonus Added!" : "Welcome Work Monster!"}
         userEmotion="excited"
       />
