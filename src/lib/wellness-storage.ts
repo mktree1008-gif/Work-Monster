@@ -8,9 +8,13 @@ export type FoodLog = {
   date: string;
   meal_type: MealType;
   food_name: string;
+  grams: number;
   calories: number;
   protein: number;
+  fat: number;
+  carbs: number;
   water: number;
+  ingredients: string[];
   note: string;
   appetite_level: string;
   balanced_meal_rating: number;
@@ -127,6 +131,10 @@ function nowISO(): string {
   return new Date().toISOString();
 }
 
+function roundOne(value: number): number {
+  return Math.round(value * 10) / 10;
+}
+
 function createId(prefix: string): string {
   return `${prefix}_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
 }
@@ -139,9 +147,13 @@ function seedFoodLogs(): FoodLog[] {
       date: today,
       meal_type: "Breakfast",
       food_name: "Avocado Toast",
+      grams: 180,
       calories: 340,
       protein: 18,
+      fat: 18,
+      carbs: 28,
       water: 1,
+      ingredients: ["Bread", "Avocado", "Egg", "Olive oil"],
       note: "Light and balanced",
       appetite_level: "Good",
       balanced_meal_rating: 4,
@@ -154,9 +166,13 @@ function seedFoodLogs(): FoodLog[] {
       date: today,
       meal_type: "Lunch",
       food_name: "Salmon Salad",
+      grams: 320,
       calories: 520,
       protein: 34,
+      fat: 28,
+      carbs: 29,
       water: 1,
+      ingredients: ["Salmon", "Lettuce", "Tomato", "Quinoa", "Olive oil"],
       note: "Protein-focused",
       appetite_level: "Normal",
       balanced_meal_rating: 5,
@@ -169,9 +185,13 @@ function seedFoodLogs(): FoodLog[] {
       date: today,
       meal_type: "Snack",
       food_name: "Almonds (30g)",
+      grams: 30,
       calories: 170,
       protein: 6,
+      fat: 14,
+      carbs: 6,
       water: 0,
+      ingredients: ["Almonds", "Sea salt"],
       note: "Afternoon snack",
       appetite_level: "Low",
       balanced_meal_rating: 3,
@@ -184,9 +204,13 @@ function seedFoodLogs(): FoodLog[] {
       date: shiftDate(today, -1),
       meal_type: "Dinner",
       food_name: "Chicken Bowl",
+      grams: 420,
       calories: 640,
       protein: 42,
+      fat: 20,
+      carbs: 62,
       water: 1,
+      ingredients: ["Chicken breast", "Brown rice", "Broccoli", "Sauce"],
       note: "Late dinner",
       appetite_level: "High",
       balanced_meal_rating: 3,
@@ -345,7 +369,33 @@ export function setWellnessGoals(next: Partial<WellnessGoals>) {
 
 export function getFoodLogs(): FoodLog[] {
   const seeded = ensureSeeded<FoodLog[]>(STORAGE_KEYS.food, seedFoodLogs());
-  return [...seeded].sort((a, b) => (a.created_at > b.created_at ? -1 : 1));
+  const normalized = seeded.map((item) => {
+    const calories = Math.max(0, Math.round(Number(item.calories ?? 0)));
+    const protein = Math.max(0, roundOne(Number(item.protein ?? 0)));
+    const fat = Math.max(0, roundOne(Number(item.fat ?? 0)));
+    const carbs = Math.max(0, roundOne(Number(item.carbs ?? 0)));
+    const grams = Math.max(1, Math.round(Number(item.grams ?? 0) || 100));
+    const ingredientsRaw = item.ingredients;
+    const ingredients = Array.isArray(ingredientsRaw)
+      ? ingredientsRaw.map((token) => String(token).trim()).filter(Boolean)
+      : typeof ingredientsRaw === "string"
+        ? ingredientsRaw
+            .split(/[,\n]/g)
+            .map((token) => token.trim())
+            .filter(Boolean)
+        : [];
+
+    return {
+      ...item,
+      grams,
+      calories,
+      protein,
+      fat,
+      carbs,
+      ingredients
+    };
+  });
+  return [...normalized].sort((a, b) => (a.created_at > b.created_at ? -1 : 1));
 }
 
 export function saveFoodLogs(next: FoodLog[]) {
@@ -354,14 +404,26 @@ export function saveFoodLogs(next: FoodLog[]) {
 
 export function upsertFoodLog(input: Partial<FoodLog> & { date: string; meal_type: MealType; food_name: string }): FoodLog {
   const logs = getFoodLogs();
+  const normalizedIngredients = Array.isArray(input.ingredients)
+    ? input.ingredients.map((token) => String(token).trim()).filter(Boolean)
+    : typeof input.ingredients === "string"
+      ? input.ingredients
+          .split(/[,\n]/g)
+          .map((token) => token.trim())
+          .filter(Boolean)
+      : [];
   const next: FoodLog = {
     id: input.id?.trim() || createId("food"),
     date: input.date,
     meal_type: input.meal_type,
     food_name: input.food_name,
+    grams: Math.max(1, Math.round(input.grams ?? 100)),
     calories: Math.max(0, Math.round(input.calories ?? 0)),
-    protein: Math.max(0, Math.round(input.protein ?? 0)),
+    protein: Math.max(0, roundOne(input.protein ?? 0)),
+    fat: Math.max(0, roundOne(input.fat ?? 0)),
+    carbs: Math.max(0, roundOne(input.carbs ?? 0)),
     water: Math.max(0, Math.round(input.water ?? 0)),
+    ingredients: normalizedIngredients,
     note: String(input.note ?? "").trim(),
     appetite_level: String(input.appetite_level ?? "Normal").trim() || "Normal",
     balanced_meal_rating: Math.max(1, Math.min(5, Math.round(input.balanced_meal_rating ?? 3))),
@@ -509,16 +571,38 @@ export function getFoodSummary(date: string) {
   const waterMap = getWaterMap();
   const calories = logs.reduce((sum, item) => sum + item.calories, 0);
   const protein = logs.reduce((sum, item) => sum + item.protein, 0);
+  const fat = logs.reduce((sum, item) => sum + item.fat, 0);
+  const carbs = logs.reduce((sum, item) => sum + item.carbs, 0);
   const cups = Math.max(0, Math.round(waterMap[date] ?? logs.reduce((sum, item) => sum + item.water, 0)));
   const percent = goals.calorie_goal <= 0 ? 0 : Math.max(0, Math.min(100, Math.round((calories / goals.calorie_goal) * 100)));
   return {
     calories,
     protein,
+    fat,
+    carbs,
     waterCups: cups,
     goal: goals.calorie_goal,
     remaining: Math.max(0, goals.calorie_goal - calories),
     percent
   };
+}
+
+export function getFoodMealBreakdown(date: string) {
+  const logs = getFoodLogs().filter((item) => item.date === date);
+  const meals: MealType[] = ["Breakfast", "Lunch", "Dinner", "Snack"];
+  return meals.map((meal) => {
+    const entries = logs.filter((item) => item.meal_type === meal);
+    return {
+      meal_type: meal,
+      entries,
+      count: entries.length,
+      calories: entries.reduce((sum, item) => sum + item.calories, 0),
+      grams: entries.reduce((sum, item) => sum + item.grams, 0),
+      protein: entries.reduce((sum, item) => sum + item.protein, 0),
+      fat: entries.reduce((sum, item) => sum + item.fat, 0),
+      carbs: entries.reduce((sum, item) => sum + item.carbs, 0)
+    };
+  });
 }
 
 export function getWorkoutSummary(date: string) {
