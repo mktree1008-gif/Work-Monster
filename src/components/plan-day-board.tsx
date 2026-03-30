@@ -1047,30 +1047,6 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
               {highImpactTasks.length > 0 ? (
                 highImpactTasks.map((task) => (
                   <div className="relative overflow-hidden rounded-2xl" key={task.id}>
-                    <div className="absolute inset-y-0 right-0 flex items-center gap-1 pr-2">
-                      <button
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-600"
-                        onClick={() => openQuickTaskSheet(task)}
-                        type="button"
-                      >
-                        <Pencil size={14} />
-                      </button>
-                      <button
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-amber-100 text-amber-700"
-                        onClick={() => moveTaskToTomorrow(task.id)}
-                        type="button"
-                      >
-                        <CornerDownRight size={14} />
-                      </button>
-                      <button
-                        className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-rose-100 text-rose-700"
-                        onClick={() => deleteTask(task.id)}
-                        type="button"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
-
                     <div
                       className={`relative rounded-2xl bg-white/80 p-3 transition-transform duration-200 ${swipedTaskId === task.id ? SWIPE_REVEAL_CLASS : "translate-x-0"}`}
                       draggable
@@ -1120,8 +1096,33 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
                           {task.note && <p className="mt-1 text-xs text-slate-500">{task.note}</p>}
                         </div>
 
-                        <div className="pt-1 text-slate-300">
-                          <GripVertical size={18} />
+                        <div className="flex flex-col items-end gap-2">
+                          <div className="flex items-center gap-1">
+                            <button
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-100"
+                              onClick={() => openQuickTaskSheet(task)}
+                              type="button"
+                            >
+                              <Pencil size={14} />
+                            </button>
+                            <button
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-amber-200 bg-amber-50 text-amber-700 shadow-sm transition hover:bg-amber-100"
+                              onClick={() => moveTaskToTomorrow(task.id)}
+                              type="button"
+                            >
+                              <CornerDownRight size={14} />
+                            </button>
+                            <button
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-rose-200 bg-rose-50 text-rose-700 shadow-sm transition hover:bg-rose-100"
+                              onClick={() => deleteTask(task.id)}
+                              type="button"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                          <div className="pt-0.5 text-slate-300">
+                            <GripVertical size={18} />
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1143,30 +1144,6 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
             {otherTasks.length > 0 ? (
               otherTasks.map((task) => (
                 <div className="relative overflow-hidden rounded-2xl" key={task.id}>
-                  <div className="absolute inset-y-0 right-0 flex items-center gap-1 pr-2">
-                    <button
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 text-slate-600"
-                      onClick={() => openQuickTaskSheet(task)}
-                      type="button"
-                    >
-                      <Pencil size={14} />
-                    </button>
-                    <button
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-amber-100 text-amber-700"
-                      onClick={() => moveTaskToTomorrow(task.id)}
-                      type="button"
-                    >
-                      <CornerDownRight size={14} />
-                    </button>
-                    <button
-                      className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-rose-100 text-rose-700"
-                      onClick={() => deleteTask(task.id)}
-                      type="button"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-
                   <div
                     className={`relative rounded-2xl bg-slate-50 p-3 transition-transform duration-200 ${swipedTaskId === task.id ? SWIPE_REVEAL_CLASS : "translate-x-0"}`}
                     draggable
@@ -1213,8 +1190,33 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
                         {task.note && <p className="mt-1 text-xs text-slate-500">{task.note}</p>}
                       </div>
 
-                      <div className="pt-1 text-slate-300">
-                        <GripVertical size={18} />
+                      <div className="flex flex-col items-end gap-2">
+                        <div className="flex items-center gap-1">
+                          <button
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-100"
+                            onClick={() => openQuickTaskSheet(task)}
+                            type="button"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          <button
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-amber-200 bg-amber-50 text-amber-700 shadow-sm transition hover:bg-amber-100"
+                            onClick={() => moveTaskToTomorrow(task.id)}
+                            type="button"
+                          >
+                            <CornerDownRight size={14} />
+                          </button>
+                          <button
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-rose-200 bg-rose-50 text-rose-700 shadow-sm transition hover:bg-rose-100"
+                            onClick={() => deleteTask(task.id)}
+                            type="button"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                        <div className="pt-0.5 text-slate-300">
+                          <GripVertical size={18} />
+                        </div>
                       </div>
                     </div>
                   </div>
