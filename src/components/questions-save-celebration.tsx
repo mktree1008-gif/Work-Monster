@@ -26,21 +26,25 @@ export function QuestionsSaveCelebration({ openOnMount, updatedMode = false, poi
       closeLabel="Continue Quest"
       message={
         updatedMode
-          ? "Updated! Your pending check-in was refreshed for manager review."
-          : "Saved! Your check-in is now waiting for manager approval."
+          ? pointsAwarded > 0
+            ? `Updated! Your latest pending check-in is synced and +${pointsAwarded} points were added.`
+            : "Updated! Your pending check-in was refreshed for manager review."
+          : pointsAwarded > 0
+            ? "Saved! Your check-in is now pending manager review, and points were added."
+            : "Saved! Your check-in is now waiting for manager approval."
       }
       onClose={closePopup}
       open={open}
       pointsLabel={
-        updatedMode
-          ? "Pending Submission Updated"
-          : pointsAwarded > 0
-            ? `💃 +${pointsAwarded} points! Submission bonus added`
+        pointsAwarded > 0
+          ? `💃 +${pointsAwarded} points! Check-in submit bonus added`
+          : updatedMode
+            ? "Pending Submission Updated"
             : "Submission Complete"
       }
       progressCaption="Check-in"
       progressTarget={100}
-      title={updatedMode ? "Update Complete!" : "Great Work Today!"}
+      title={pointsAwarded > 0 ? "Check-in Bonus Added!" : updatedMode ? "Update Complete!" : "Great Work Today!"}
     />
   );
 }

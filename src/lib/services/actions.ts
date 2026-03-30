@@ -208,11 +208,15 @@ export async function submitCheckInAction(formData: FormData): Promise<void> {
 
   revalidatePath("/app/welcome");
   revalidatePath("/app/record");
-  redirect(
-    mode === "updated"
-      ? "/app/welcome?saved=1&updated=1"
-      : `/app/welcome?saved=1&submission_points=${encodeURIComponent(String(submissionPointsAwarded))}`
-  );
+  const redirectParams = new URLSearchParams();
+  redirectParams.set("saved", "1");
+  if (mode === "updated") {
+    redirectParams.set("updated", "1");
+  }
+  if (submissionPointsAwarded !== 0) {
+    redirectParams.set("submission_points", String(submissionPointsAwarded));
+  }
+  redirect(`/app/welcome?${redirectParams.toString()}`);
 }
 
 export async function acknowledgeRulesAction(): Promise<void> {

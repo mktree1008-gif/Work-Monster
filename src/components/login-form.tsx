@@ -136,7 +136,7 @@ export function LoginForm({ initialRole = "user", initialLocale = "en" }: Props)
           <Mail className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
           <input
             autoComplete="username"
-            className="input mb-4 pl-12"
+            className="input input-with-icon mb-4"
             onChange={(event) => setLoginId(event.target.value)}
             placeholder="monster_id or alex@work.com"
             type="text"
@@ -149,7 +149,7 @@ export function LoginForm({ initialRole = "user", initialLocale = "en" }: Props)
           <LockKeyhole className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
           <input
             autoComplete="current-password"
-            className="input pl-12"
+            className="input input-with-icon"
             onChange={(event) => setPassword(event.target.value)}
             placeholder="••••••••"
             type="password"

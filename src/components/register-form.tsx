@@ -137,7 +137,7 @@ export function RegisterForm({ initialRole = "user", initialLocale = "en" }: Pro
           <MailPlus className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
           <input
             autoComplete="username"
-            className="input pl-12"
+            className="input input-with-icon"
             onChange={(event) => setLoginId(event.target.value)}
             placeholder="monster_id or alex@work.com"
             type="text"
@@ -151,7 +151,7 @@ export function RegisterForm({ initialRole = "user", initialLocale = "en" }: Pro
           <LockKeyhole className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
           <input
             autoComplete="new-password"
-            className="input pl-12"
+            className="input input-with-icon"
             onChange={(event) => setPassword(event.target.value)}
             placeholder="••••••••"
             type="password"
@@ -164,7 +164,7 @@ export function RegisterForm({ initialRole = "user", initialLocale = "en" }: Pro
           <LockKeyhole className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
           <input
             autoComplete="new-password"
-            className="input pl-12"
+            className="input input-with-icon"
             onChange={(event) => setConfirmPassword(event.target.value)}
             placeholder="••••••••"
             type="password"
@@ -200,7 +200,7 @@ export function RegisterForm({ initialRole = "user", initialLocale = "en" }: Pro
                 <UserRound className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                 <input
                   autoComplete="nickname"
-                  className="input pl-12"
+                  className="input input-with-icon"
                   onChange={(event) => setNickname(event.target.value)}
                   placeholder="e.g. Focus Rider"
                   type="text"

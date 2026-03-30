@@ -53,14 +53,20 @@ export async function POST(request: NextRequest) {
       }
     );
 
+    const redirectParams = new URLSearchParams();
+    redirectParams.set("saved", "1");
+    if (result.mode === "updated") {
+      redirectParams.set("updated", "1");
+    }
+    if (result.submissionPointsAwarded !== 0) {
+      redirectParams.set("submission_points", String(result.submissionPointsAwarded));
+    }
+
     return NextResponse.json({
       ok: true,
       updated: result.mode === "updated",
       submissionPointsAwarded: result.submissionPointsAwarded,
-      redirectTo:
-        result.mode === "updated"
-          ? "/app/welcome?saved=1&updated=1"
-          : `/app/welcome?saved=1&submission_points=${encodeURIComponent(String(result.submissionPointsAwarded))}`
+      redirectTo: `/app/welcome?${redirectParams.toString()}`
     });
   } catch (error) {
     if (error instanceof DailyCheckInAlreadySubmittedError) {

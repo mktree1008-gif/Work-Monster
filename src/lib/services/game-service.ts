@@ -78,6 +78,40 @@ function resolveSubmissionDate(meta?: CheckInClientMeta): string {
   return toISODate();
 }
 
+async function awardSubmissionBasePointsOnce(params: {
+  userId: string;
+  submissionId: string;
+  submissionDate: string;
+  points: number;
+}): Promise<number> {
+  const repo = getGameRepository();
+  const safePoints = Math.round(params.points);
+  if (safePoints === 0) return 0;
+
+  const logs = await repo.listAuditLogs(500);
+  const alreadyAwarded = logs.some(
+    (log) => log.action === "submission.base_points_awarded" && log.target_id === params.submissionId
+  );
+  if (alreadyAwarded) return 0;
+
+  const score = await repo.getScore(params.userId);
+  await repo.saveScore({
+    ...score,
+    total_points: score.total_points + safePoints,
+    lifetime_points: score.lifetime_points + Math.max(0, safePoints),
+    updated_at: nowISO()
+  });
+  await recalculateScore(params.userId);
+  await repo.saveAuditLog(
+    createAuditLog(params.userId, "submission.base_points_awarded", params.submissionId, {
+      points: safePoints,
+      date: params.submissionDate
+    })
+  );
+
+  return safePoints;
+}
+
 export async function submitDailyCheckIn(
   userId: string,
   draft: Omit<SubmissionDraft, "user_id">,
@@ -115,29 +149,26 @@ export async function submitDailyCheckIn(
       file_url: draft.file_url ?? ""
     };
     await repo.saveSubmission(updatedPending);
-    return { submission: updatedPending, mode: "updated" as const, submissionPointsAwarded: 0 };
+    const rules = await repo.getRules();
+    const submissionPointsAwarded = await awardSubmissionBasePointsOnce({
+      userId,
+      submissionId: updatedPending.id,
+      submissionDate: updatedPending.date,
+      points: Math.round(rules.submission_points ?? 0)
+    });
+    return { submission: updatedPending, mode: "updated" as const, submissionPointsAwarded };
   }
 
   const submission = makeSubmissionFromDraft({ ...draft, user_id: userId }, targetDate);
   await repo.saveSubmission(submission);
 
-  const [rules, score] = await Promise.all([repo.getRules(), repo.getScore(userId)]);
-  const submissionPointsAwarded = Math.round(rules.submission_points ?? 0);
-
-  if (submissionPointsAwarded !== 0) {
-    await repo.saveScore({
-      ...score,
-      total_points: score.total_points + submissionPointsAwarded,
-      lifetime_points: score.lifetime_points + Math.max(0, submissionPointsAwarded),
-      updated_at: nowISO()
-    });
-    await recalculateScore(userId);
-    await repo.saveAuditLog(
-      createAuditLog(userId, "submission.base_points_awarded", submission.id, {
-        points: submissionPointsAwarded
-      })
-    );
-  }
+  const rules = await repo.getRules();
+  const submissionPointsAwarded = await awardSubmissionBasePointsOnce({
+    userId,
+    submissionId: submission.id,
+    submissionDate: submission.date,
+    points: Math.round(rules.submission_points ?? 0)
+  });
 
   return { submission, mode: "created" as const, submissionPointsAwarded };
 }
