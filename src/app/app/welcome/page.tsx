@@ -4,7 +4,8 @@ import { QuestionsSaveCelebration } from "@/components/questions-save-celebratio
 import { WelcomeDashboardClient } from "@/components/wellness/welcome-dashboard-client";
 import { computeNextReward } from "@/lib/logic/scoring";
 import { getViewerContext } from "@/lib/view-model";
-import { toISODate } from "@/lib/utils";
+import { headers } from "next/headers";
+import { toISODate, toISODateInTimeZone } from "@/lib/utils";
 
 type Props = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -50,7 +51,16 @@ export default async function WelcomePage({ searchParams }: Props) {
   const submissionPointsRaw = typeof params.submission_points === "string" ? Number(params.submission_points) : 0;
   const submissionPointsAwarded = Number.isFinite(submissionPointsRaw) ? submissionPointsRaw : 0;
 
-  const today = toISODate(new Date());
+  const requestHeaders = await headers();
+  const requestTimeZone = (requestHeaders.get("x-vercel-ip-timezone") ?? "").trim();
+  const today = (() => {
+    if (!requestTimeZone) return toISODate(new Date());
+    try {
+      return toISODateInTimeZone(requestTimeZone, new Date());
+    } catch {
+      return toISODate(new Date());
+    }
+  })();
   const todaySubmission = bundle.submissions.find((item) => item.date === today) ?? null;
   const normalizedStatus = todaySubmission?.status ?? "";
   const checkinState = !todaySubmission
