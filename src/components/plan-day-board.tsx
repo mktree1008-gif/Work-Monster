@@ -1014,7 +1014,7 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
             <h2 className="text-3xl font-black text-slate-900">{sectionTitleChecklist}</h2>
             <p className="mt-1 inline-flex items-center gap-1 whitespace-nowrap text-xs font-semibold text-slate-500">
               <GripVertical size={13} />
-              {isKo ? "드래그로 우선순위를 바꿀 수 있어요." : "Drag rows to reorder priority."}
+              {isKo ? "드래그 또는 ↑↓ 버튼으로 우선순위를 바꿀 수 있어요." : "Drag rows or use ↑↓ buttons to reorder priority."}
             </p>
             <p className="mt-1 text-[11px] font-semibold text-slate-500">
               {isKo ? "Mission = 매니저 지정, Task = 내가 직접 추가" : "Mission = manager assigned, Task = self-created"}
@@ -1066,7 +1066,7 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
 
             <div className="space-y-2">
               {highImpactTasks.length > 0 ? (
-                highImpactTasks.map((task) => (
+                highImpactTasks.map((task, index) => (
                   <div className="relative overflow-hidden rounded-2xl" key={task.id}>
                     <div
                       className={`relative rounded-2xl bg-white/80 p-3 transition-transform duration-200 ${swipedTaskId === task.id ? SWIPE_REVEAL_CLASS : "translate-x-0"}`}
@@ -1120,6 +1120,32 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
                         <div className="flex flex-col items-end gap-2">
                           <div className="flex items-center gap-1">
                             <button
+                              aria-label={isKo ? "위로 이동" : "Move up"}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-35"
+                              disabled={index === 0}
+                              onClick={() => {
+                                const prev = highImpactTasks[index - 1];
+                                if (!prev) return;
+                                reorderTask(task.id, prev.id);
+                              }}
+                              type="button"
+                            >
+                              <ChevronUp size={14} />
+                            </button>
+                            <button
+                              aria-label={isKo ? "아래로 이동" : "Move down"}
+                              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-35"
+                              disabled={index === highImpactTasks.length - 1}
+                              onClick={() => {
+                                const next = highImpactTasks[index + 1];
+                                if (!next) return;
+                                reorderTask(task.id, next.id);
+                              }}
+                              type="button"
+                            >
+                              <ChevronDown size={14} />
+                            </button>
+                            <button
                               className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-100"
                               onClick={() => openQuickTaskSheet(task)}
                               type="button"
@@ -1163,7 +1189,7 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
               <span className="text-xs font-bold text-slate-400">{otherTasks.length}</span>
             </div>
             {otherTasks.length > 0 ? (
-              otherTasks.map((task) => (
+              otherTasks.map((task, index) => (
                 <div className="relative overflow-hidden rounded-2xl" key={task.id}>
                   <div
                     className={`relative rounded-2xl bg-slate-50 p-3 transition-transform duration-200 ${swipedTaskId === task.id ? SWIPE_REVEAL_CLASS : "translate-x-0"}`}
@@ -1213,6 +1239,32 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
 
                       <div className="flex flex-col items-end gap-2">
                         <div className="flex items-center gap-1">
+                          <button
+                            aria-label={isKo ? "위로 이동" : "Move up"}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-35"
+                            disabled={index === 0}
+                            onClick={() => {
+                              const prev = otherTasks[index - 1];
+                              if (!prev) return;
+                              reorderTask(task.id, prev.id);
+                            }}
+                            type="button"
+                          >
+                            <ChevronUp size={14} />
+                          </button>
+                          <button
+                            aria-label={isKo ? "아래로 이동" : "Move down"}
+                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-35"
+                            disabled={index === otherTasks.length - 1}
+                            onClick={() => {
+                              const next = otherTasks[index + 1];
+                              if (!next) return;
+                              reorderTask(task.id, next.id);
+                            }}
+                            type="button"
+                          >
+                            <ChevronDown size={14} />
+                          </button>
                           <button
                             className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-100"
                             onClick={() => openQuickTaskSheet(task)}
