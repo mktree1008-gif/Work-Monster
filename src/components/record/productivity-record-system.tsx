@@ -645,14 +645,14 @@ function metricTone(value: number): string {
 function heatCellClass(scoreValue: number, pointsDelta: number): string {
   if (pointsDelta < 0) {
     if (pointsDelta <= -8) return "bg-rose-500";
-    if (pointsDelta <= -3) return "bg-rose-300";
-    return "bg-rose-200";
+    if (pointsDelta <= -3) return "bg-pink-400";
+    return "bg-pink-300";
   }
   if (scoreValue >= 85) return "bg-blue-700";
-  if (scoreValue >= 65) return "bg-blue-500";
-  if (scoreValue >= 40) return "bg-blue-300";
-  if (scoreValue >= 15) return "bg-blue-100";
-  return "bg-slate-200";
+  if (scoreValue >= 65) return "bg-sky-500";
+  if (scoreValue >= 45) return "bg-sky-300";
+  if (scoreValue >= 25) return "bg-pink-300";
+  return "bg-rose-400";
 }
 
 function categoryColor(category: Category): string {
@@ -766,11 +766,11 @@ export function ProductivityRecordSystem({ mode, locale, userId, score, submissi
             <div className="mt-3 flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-slate-500">
               <span>{locale === "ko" ? "낮음" : "Low"}</span>
               <div className="flex gap-1">
-                <div className="h-3 w-3 rounded-sm bg-blue-100" />
-                <div className="h-3 w-3 rounded-sm bg-blue-300" />
-                <div className="h-3 w-3 rounded-sm bg-blue-500" />
-                <div className="h-3 w-3 rounded-sm bg-blue-700" />
                 <div className="h-3 w-3 rounded-sm bg-rose-400" />
+                <div className="h-3 w-3 rounded-sm bg-pink-300" />
+                <div className="h-3 w-3 rounded-sm bg-sky-200" />
+                <div className="h-3 w-3 rounded-sm bg-sky-400" />
+                <div className="h-3 w-3 rounded-sm bg-blue-700" />
               </div>
               <span>{locale === "ko" ? "높음" : "High"}</span>
             </div>

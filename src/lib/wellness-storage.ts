@@ -90,6 +90,8 @@ export type FocusSession = {
 export type WellnessGoals = {
   calorie_goal: number;
   water_goal: number;
+  water_unit?: "cups" | "ml";
+  water_goal_ml?: number;
   movement_goal: number;
   sleep_goal_minutes: number;
 };
@@ -105,6 +107,8 @@ const STORAGE_KEYS = {
   goals: "wm-wellness-goals-v1",
   waterMap: "wm-water-map-v1"
 } as const;
+
+const WATER_ML_PER_CUP = 250;
 
 function canUseStorage(): boolean {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
@@ -411,21 +415,50 @@ function ensureSeeded<T>(key: string, seed: T): T {
 }
 
 export function getWellnessGoals(): WellnessGoals {
-  return ensureSeeded<WellnessGoals>(STORAGE_KEYS.goals, {
+  const seeded = ensureSeeded<WellnessGoals>(STORAGE_KEYS.goals, {
     calorie_goal: 2100,
     water_goal: 8,
+    water_unit: "cups",
+    water_goal_ml: 2000,
     movement_goal: 60,
     sleep_goal_minutes: 480
   });
+  const normalized: WellnessGoals = {
+    calorie_goal: Math.max(1000, Math.round(seeded.calorie_goal ?? 2100)),
+    water_goal: Math.max(1, Math.round(seeded.water_goal ?? 8)),
+    water_unit: seeded.water_unit === "ml" ? "ml" : "cups",
+    water_goal_ml: Math.max(
+      WATER_ML_PER_CUP,
+      Math.round(seeded.water_goal_ml ?? Math.max(1, Math.round(seeded.water_goal ?? 8)) * WATER_ML_PER_CUP)
+    ),
+    movement_goal: Math.max(10, Math.round(seeded.movement_goal ?? 60)),
+    sleep_goal_minutes: Math.max(120, Math.round(seeded.sleep_goal_minutes ?? 480))
+  };
+  writeJSON(STORAGE_KEYS.goals, normalized);
+  return normalized;
 }
 
 export function setWellnessGoals(next: Partial<WellnessGoals>) {
   const current = getWellnessGoals();
+  const nextWaterGoal = Math.max(1, Math.round(next.water_goal ?? current.water_goal));
+  const nextWaterGoalMl = Math.max(
+    WATER_ML_PER_CUP,
+    Math.round(
+      next.water_goal_ml
+      ?? (next.water_goal !== undefined
+        ? nextWaterGoal * WATER_ML_PER_CUP
+        : current.water_goal_ml ?? current.water_goal * WATER_ML_PER_CUP)
+    )
+  );
+  const nextWaterUnit = next.water_unit === "ml" ? "ml" : next.water_unit === "cups" ? "cups" : (current.water_unit ?? "cups");
+
   writeJSON(STORAGE_KEYS.goals, {
     ...current,
     ...next,
     calorie_goal: Math.max(1000, Math.round(next.calorie_goal ?? current.calorie_goal)),
-    water_goal: Math.max(1, Math.round(next.water_goal ?? current.water_goal)),
+    water_goal: nextWaterGoal,
+    water_unit: nextWaterUnit,
+    water_goal_ml: nextWaterGoalMl,
     movement_goal: Math.max(10, Math.round(next.movement_goal ?? current.movement_goal)),
     sleep_goal_minutes: Math.max(120, Math.round(next.sleep_goal_minutes ?? current.sleep_goal_minutes))
   });

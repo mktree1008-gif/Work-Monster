@@ -7,6 +7,7 @@ import {
   ChevronRight,
   Copy,
   Droplets,
+  Minus,
   Pencil,
   Plus,
   ScanLine,
@@ -16,7 +17,6 @@ import {
   X
 } from "lucide-react";
 import {
-  addWaterCup,
   deleteFoodLog,
   duplicateFoodLog,
   FoodLog,
@@ -83,6 +83,9 @@ const MEAL_META: Record<MealType, { emoji: string; subtitle: string; accent: str
     accent: "from-fuchsia-500 to-pink-500"
   }
 };
+
+const WATER_ML_PER_CUP = 250;
+const MAX_WATER_CUPS_UI = 20;
 
 function clampPositive(value: number, fallback = 0) {
   if (!Number.isFinite(value)) return fallback;
@@ -157,6 +160,22 @@ export function FoodPageClient({ labels }: { labels: Labels }) {
         remaining: 2100,
         percent: 0
       };
+
+  const waterUnit = goals.water_unit === "ml" ? "ml" : "cups";
+  const waterGoalCups = useMemo(() => {
+    const goalFromCups = Math.max(1, Math.round(goals.water_goal ?? 8));
+    const goalFromMl = Math.max(
+      1,
+      Math.round((goals.water_goal_ml ?? goalFromCups * WATER_ML_PER_CUP) / WATER_ML_PER_CUP)
+    );
+    return waterUnit === "ml" ? goalFromMl : goalFromCups;
+  }, [goals.water_goal, goals.water_goal_ml, waterUnit]);
+  const waterGoalMl = useMemo(
+    () => Math.max(WATER_ML_PER_CUP, Math.round(goals.water_goal_ml ?? waterGoalCups * WATER_ML_PER_CUP)),
+    [goals.water_goal_ml, waterGoalCups]
+  );
+  const waterDotCount = Math.min(MAX_WATER_CUPS_UI, Math.max(waterGoalCups, summary.waterCups, 1));
+  const consumedMl = summary.waterCups * WATER_ML_PER_CUP;
 
   const dayLogs = useMemo(() => logs.filter((item) => item.date === selectedDate), [logs, selectedDate]);
 
@@ -360,20 +379,82 @@ export function FoodPageClient({ labels }: { labels: Labels }) {
     setExpandedMeals((prev) => ({ ...prev, [meal]: !prev[meal] }));
   }
 
-  function addWater() {
-    addWaterCup(selectedDate);
+  function setWaterCups(nextCups: number) {
+    const normalized = Math.max(0, Math.min(MAX_WATER_CUPS_UI, Math.round(nextCups)));
+    setWaterByDate(selectedDate, normalized);
     setWaterPulse(true);
     setTimeout(() => setWaterPulse(false), 400);
     syncState();
   }
 
-  function resetWaterGoal() {
-    const next = Number(window.prompt("Set daily water goal (cups)", String(goals.water_goal)) ?? goals.water_goal);
-    if (!Number.isFinite(next)) return;
-    setWellnessGoals({ water_goal: Math.max(1, Math.round(next)) });
-    if (summary.waterCups > Math.max(1, Math.round(next))) {
-      setWaterByDate(selectedDate, Math.max(1, Math.round(next)));
+  function addWater() {
+    setWaterCups(summary.waterCups + 1);
+  }
+
+  function removeWater() {
+    setWaterCups(summary.waterCups - 1);
+  }
+
+  function setWaterUnit(unit: "cups" | "ml") {
+    if (unit === "ml") {
+      setWellnessGoals({
+        water_unit: "ml",
+        water_goal_ml: waterGoalMl,
+        water_goal: Math.max(1, Math.round(waterGoalMl / WATER_ML_PER_CUP))
+      });
+    } else {
+      setWellnessGoals({
+        water_unit: "cups",
+        water_goal: waterGoalCups,
+        water_goal_ml: Math.max(WATER_ML_PER_CUP, waterGoalCups * WATER_ML_PER_CUP)
+      });
     }
+    syncState();
+  }
+
+  function nudgeWaterGoal(delta: number) {
+    if (waterUnit === "ml") {
+      const nextMl = Math.max(WATER_ML_PER_CUP, Math.min(6000, waterGoalMl + delta * WATER_ML_PER_CUP));
+      setWellnessGoals({
+        water_unit: "ml",
+        water_goal_ml: nextMl,
+        water_goal: Math.max(1, Math.round(nextMl / WATER_ML_PER_CUP))
+      });
+      syncState();
+      return;
+    }
+
+    const nextCups = Math.max(1, Math.min(MAX_WATER_CUPS_UI, waterGoalCups + delta));
+    setWellnessGoals({
+      water_unit: "cups",
+      water_goal: nextCups,
+      water_goal_ml: Math.max(WATER_ML_PER_CUP, nextCups * WATER_ML_PER_CUP)
+    });
+    syncState();
+  }
+
+  function resetWaterGoal() {
+    if (waterUnit === "ml") {
+      const nextMl = Number(window.prompt("Set daily water goal (ml)", String(waterGoalMl)) ?? waterGoalMl);
+      if (!Number.isFinite(nextMl)) return;
+      const normalizedMl = Math.max(WATER_ML_PER_CUP, Math.round(nextMl));
+      setWellnessGoals({
+        water_unit: "ml",
+        water_goal_ml: normalizedMl,
+        water_goal: Math.max(1, Math.round(normalizedMl / WATER_ML_PER_CUP))
+      });
+      syncState();
+      return;
+    }
+
+    const nextCups = Number(window.prompt("Set daily water goal (cups)", String(waterGoalCups)) ?? waterGoalCups);
+    if (!Number.isFinite(nextCups)) return;
+    const normalizedCups = Math.max(1, Math.round(nextCups));
+    setWellnessGoals({
+      water_unit: "cups",
+      water_goal: normalizedCups,
+      water_goal_ml: normalizedCups * WATER_ML_PER_CUP
+    });
     syncState();
   }
 
@@ -581,18 +662,58 @@ export function FoodPageClient({ labels }: { labels: Labels }) {
         <article className="rounded-[2rem] bg-white p-5 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
             <h3 className="text-xl font-black text-slate-900">Water Intake</h3>
-            <button className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600" onClick={resetWaterGoal} type="button">
-              Goal {goals.water_goal}
-            </button>
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <div className="rounded-full bg-slate-100 p-0.5">
+                <button
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition ${waterUnit === "cups" ? "bg-white text-blue-700 shadow-sm" : "text-slate-600"}`}
+                  onClick={() => setWaterUnit("cups")}
+                  type="button"
+                >
+                  cups
+                </button>
+                <button
+                  className={`rounded-full px-2.5 py-1 text-[11px] font-bold transition ${waterUnit === "ml" ? "bg-white text-blue-700 shadow-sm" : "text-slate-600"}`}
+                  onClick={() => setWaterUnit("ml")}
+                  type="button"
+                >
+                  ml
+                </button>
+              </div>
+              <div className="flex items-center gap-1 rounded-full bg-slate-100 px-1 py-1">
+                <button
+                  aria-label="Decrease water goal"
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white text-slate-700 shadow-sm"
+                  onClick={() => nudgeWaterGoal(-1)}
+                  type="button"
+                >
+                  <Minus size={13} />
+                </button>
+                <button
+                  className="rounded-full px-3 py-1 text-xs font-semibold text-slate-700"
+                  onClick={resetWaterGoal}
+                  type="button"
+                >
+                  Goal {waterUnit === "ml" ? `${waterGoalMl} ml` : `${waterGoalCups} cups`}
+                </button>
+                <button
+                  aria-label="Increase water goal"
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white text-slate-700 shadow-sm"
+                  onClick={() => nudgeWaterGoal(1)}
+                  type="button"
+                >
+                  <Plus size={13} />
+                </button>
+              </div>
+            </div>
           </div>
           <div className={`grid grid-cols-8 gap-2 transition ${waterPulse ? "scale-[1.01]" : ""}`}>
-            {Array.from({ length: goals.water_goal }, (_, index) => index + 1).map((cup) => {
+            {Array.from({ length: waterDotCount }, (_, index) => index + 1).map((cup) => {
               const done = cup <= summary.waterCups;
               return (
                 <button
                   key={cup}
                   className={`flex h-10 w-10 items-center justify-center rounded-xl transition ${done ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-400"}`}
-                  onClick={() => setWaterByDate(selectedDate, cup)}
+                  onClick={() => setWaterCups(summary.waterCups === cup ? cup - 1 : cup)}
                   type="button"
                 >
                   <Droplets size={14} />
@@ -601,11 +722,29 @@ export function FoodPageClient({ labels }: { labels: Labels }) {
             })}
           </div>
           <p className="mt-3 text-sm text-slate-600">
-            {summary.waterCups} of {goals.water_goal} cups achieved today
+            {waterUnit === "ml"
+              ? `${consumedMl} ml of ${waterGoalMl} ml achieved today`
+              : `${summary.waterCups} of ${waterGoalCups} cups achieved today`}
           </p>
-          <button className="mt-3 rounded-full bg-blue-600 px-4 py-2 text-sm font-semibold text-white" onClick={addWater} type="button">
-            + Add one cup
-          </button>
+          <div className="mt-3 flex items-center gap-2">
+            <button
+              aria-label="Reduce water by one cup"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-700"
+              onClick={removeWater}
+              type="button"
+            >
+              <Minus size={16} />
+            </button>
+            <button
+              aria-label="Increase water by one cup"
+              className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 text-white"
+              onClick={addWater}
+              type="button"
+            >
+              <Plus size={16} />
+            </button>
+            <p className="text-xs font-semibold text-slate-500">Tap droplets or use +/- for quick edits.</p>
+          </div>
         </article>
       </section>
 

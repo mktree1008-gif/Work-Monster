@@ -248,7 +248,7 @@ export function WelcomeDashboardClient({ mission, checkinState, labels, score, r
       <section className="card card-standard mb-4 p-1.5">
         <div className="grid grid-cols-2 gap-1">
           <button
-            className={`rounded-2xl px-4 py-2 text-sm font-bold transition ${
+            className={`rounded-2xl px-4 py-2.5 text-[1.03rem] font-black tracking-tight transition ${
               mode === "productivity" ? "bg-blue-700 text-white shadow-sm" : "bg-transparent text-slate-600"
             }`}
             onClick={() => setMode("productivity")}
@@ -257,7 +257,7 @@ export function WelcomeDashboardClient({ mission, checkinState, labels, score, r
             Productivity
           </button>
           <button
-            className={`rounded-2xl px-4 py-2 text-sm font-bold transition ${
+            className={`rounded-2xl px-4 py-2.5 text-[1.03rem] font-black tracking-tight transition ${
               mode === "wellness" ? "bg-blue-700 text-white shadow-sm" : "bg-transparent text-slate-600"
             }`}
             onClick={() => setMode("wellness")}
@@ -279,15 +279,15 @@ export function WelcomeDashboardClient({ mission, checkinState, labels, score, r
                   {planCount > 0 ? `${planCount} checklist items ready.` : "Set top priorities and build your checklist."}
                 </p>
                 <Link
-                  className="group mt-4 inline-flex min-h-[3rem] items-center gap-2 rounded-full border border-blue-100 bg-white px-4 py-2 text-sm font-black text-slate-900 shadow-[0_8px_18px_rgba(8,42,120,0.2)] transition hover:-translate-y-0.5 hover:shadow-[0_12px_24px_rgba(8,42,120,0.28)] active:translate-y-0"
+                  className="group mt-4 inline-flex min-h-[3rem] items-center gap-2 rounded-full border border-blue-100 bg-white px-4 py-2 text-sm font-black text-blue-800 shadow-[0_8px_18px_rgba(8,42,120,0.2)] transition hover:-translate-y-0.5 hover:shadow-[0_12px_24px_rgba(8,42,120,0.28)] active:translate-y-0"
                   href="/app/plan"
                 >
                   <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-blue-700 anim-pulse-soft">
                     <ClipboardList size={13} />
                   </span>
-                  <span className="inline-flex items-center gap-1">
-                    <span className="tracking-tight text-blue-800">Open planner</span>
-                    <span className="text-[11px] font-bold text-blue-500">
+                  <span className="inline-flex items-center gap-2">
+                    <span className="tracking-tight">Open planner</span>
+                    <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-bold text-blue-700">
                       {planCount > 0 ? `${planCount} ready` : "Start now"}
                     </span>
                   </span>
@@ -389,7 +389,9 @@ export function WelcomeDashboardClient({ mission, checkinState, labels, score, r
                 <h3 className="text-card-title font-black text-slate-900">Daily Check-in</h3>
                 <p className="mt-1 text-sm text-slate-600">Guided 7-step reflection with manager review.</p>
               </div>
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold text-slate-700">{statusBadgeText(checkinState)}</span>
+              <span className="min-w-fit whitespace-nowrap rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold text-slate-700">
+                {statusBadgeText(checkinState)}
+              </span>
             </div>
             <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-semibold text-slate-600">
               <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1">💭 State</span>
@@ -398,11 +400,12 @@ export function WelcomeDashboardClient({ mission, checkinState, labels, score, r
               <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1">🧾 Summary</span>
             </div>
             <Link
-              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-blue-700 to-blue-500 px-4 py-3 text-sm font-black !text-white shadow-[0_12px_24px_rgba(37,99,235,0.32)]"
+              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-blue-700 to-blue-500 px-4 py-3 text-sm font-black text-white shadow-[0_12px_24px_rgba(37,99,235,0.32)]"
               href="/app/questions/check-in"
+              style={{ color: "#ffffff" }}
             >
               <Target size={15} />
-              <span className="!text-white">Start check-in</span>
+              Start check-in
             </Link>
             {checkinState !== "none" && (
               <p className="mt-3 inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
@@ -431,9 +434,10 @@ export function WelcomeDashboardClient({ mission, checkinState, labels, score, r
               <Link
                 className="mt-3 inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-slate-900 to-indigo-700 px-4 py-2 text-sm font-black !text-white shadow-[0_10px_20px_rgba(15,23,42,0.22)]"
                 href="/app/record"
+                style={{ color: "#ffffff" }}
               >
                 <LineChart size={14} />
-                <span className="!text-white">View analytics</span>
+                View analytics
               </Link>
             </section>
           )}

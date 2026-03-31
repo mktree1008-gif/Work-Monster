@@ -412,6 +412,7 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
   const [activeMission, setActiveMission] = useState<ActiveMission | null>(mission);
   const [focusText, setFocusText] = useState("");
   const [saveMessage, setSaveMessage] = useState("");
+  const [focusActionState, setFocusActionState] = useState<"idle" | "saved" | "skipped">("idle");
   const [quickTaskOpen, setQuickTaskOpen] = useState(false);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
@@ -421,6 +422,7 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
   const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
   const touchStartXRef = useRef(0);
   const toastTimerRef = useRef<number | null>(null);
+  const focusActionTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     const today = toLocalISODate();
@@ -465,6 +467,9 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
     return () => {
       if (toastTimerRef.current) {
         window.clearTimeout(toastTimerRef.current);
+      }
+      if (focusActionTimerRef.current) {
+        window.clearTimeout(focusActionTimerRef.current);
       }
     };
   }, []);
@@ -567,6 +572,15 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
       setSaveMessage("");
       toastTimerRef.current = null;
     }, duration);
+  }
+
+  function flashFocusAction(mode: "saved" | "skipped") {
+    setFocusActionState(mode);
+    if (focusActionTimerRef.current) window.clearTimeout(focusActionTimerRef.current);
+    focusActionTimerRef.current = window.setTimeout(() => {
+      setFocusActionState("idle");
+      focusActionTimerRef.current = null;
+    }, 1800);
   }
 
   const suggestions = useMemo<Suggestion[]>(() => {
@@ -929,10 +943,12 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
     if (!trimmed) {
       window.localStorage.removeItem(focusStorageKey(userId, todayISO));
       showSaveMessage(isKo ? "오늘의 포커스를 비웠어요." : "Focus was cleared for today.");
+      flashFocusAction("skipped");
       return;
     }
     window.localStorage.setItem(focusStorageKey(userId, todayISO), trimmed);
     showSaveMessage(isKo ? "오늘의 포커스를 저장했어요." : "Focus of the day saved.");
+    flashFocusAction("saved");
   }
 
   function clearFocus() {
@@ -941,6 +957,7 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
       window.localStorage.removeItem(focusStorageKey(userId, todayISO));
     }
     showSaveMessage(isKo ? "오늘은 포커스 없이 진행해요." : "Skipped focus for today.");
+    flashFocusAction("skipped");
   }
 
   function reorderTask(dragId: string, dropId: string) {
@@ -1281,7 +1298,7 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
         <div className="relative z-10">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h3 className="text-5xl font-black leading-none">{isKo ? "오늘의 플랜" : "Today's Plan"}</h3>
+              <h3 className="text-[clamp(2rem,8.1vw,2.7rem)] font-black leading-[1.02] tracking-tight">{isKo ? "오늘의 플랜" : "Today's Plan"}</h3>
               <p className="mt-1 text-sm font-medium text-blue-100">
                 {prettyDate(todayISO, locale)} • {tasks.length} {isKo ? "Tasks" : "Tasks"}
               </p>
@@ -1302,12 +1319,14 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
 
           <div className="mt-4 grid grid-cols-2 gap-3">
             <button
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-3 py-2.5 text-sm font-black text-blue-700"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-3 py-2.5 text-sm font-black text-blue-700 shadow-[0_8px_18px_rgba(8,42,120,0.2)]"
               onClick={() => openQuickTaskSheet()}
               type="button"
             >
-              <Plus size={16} />
-              {isKo ? "Quick Task" : "Quick Task"}
+              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-blue-700">
+                <Plus size={14} />
+              </span>
+              <span>{isKo ? "Quick Task" : "Quick Task"}</span>
             </button>
             <button
               className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/25 bg-white/15 px-3 py-2.5 text-sm font-black text-white"
@@ -1357,10 +1376,14 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
           </div>
           <div className="mt-2 grid grid-cols-2 gap-2">
             <button className="btn btn-primary w-full text-sm" onClick={saveFocus} type="button">
-              {isKo ? "포커스 저장" : "Save focus"}
+              {focusActionState === "saved"
+                ? isKo ? "저장됨 ✓" : "Saved ✓"
+                : isKo ? "포커스 저장" : "Save focus"}
             </button>
             <button className="btn btn-muted w-full text-sm" onClick={clearFocus} type="button">
-              {isKo ? "건너뛰기" : "Skip today"}
+              {focusActionState === "skipped"
+                ? isKo ? "건너뛰기 완료" : "Skipped"
+                : isKo ? "건너뛰기" : "Skip today"}
             </button>
           </div>
         </div>
@@ -1470,7 +1493,9 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
                   {isKo ? "마감일" : "Due date"}
                   <input
                     className="mt-1 w-full rounded-xl border-none bg-white px-2 py-1 text-sm"
+                    lang={isKo ? "ko-KR" : "en-US"}
                     onChange={(event) => setQuickForm((prev) => ({ ...prev, due_date: event.target.value }))}
+                    placeholder="YYYY-MM-DD"
                     type="date"
                     value={quickForm.due_date}
                   />

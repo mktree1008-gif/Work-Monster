@@ -37,7 +37,7 @@ export function RecordHubTabs({
       <section className="card p-1.5">
         <div className="grid grid-cols-2 gap-1">
           <button
-            className={`rounded-2xl px-4 py-2.5 text-sm font-bold transition ${
+            className={`rounded-2xl px-4 py-2.5 text-[1.03rem] font-black tracking-tight transition ${
               view === "productivity" ? "bg-blue-700 text-white shadow-sm" : "bg-transparent text-slate-600"
             }`}
             onClick={() => setView("productivity")}
@@ -46,7 +46,7 @@ export function RecordHubTabs({
             {locale === "ko" ? "Productivity" : "Productivity"}
           </button>
           <button
-            className={`rounded-2xl px-4 py-2.5 text-sm font-bold transition ${
+            className={`rounded-2xl px-4 py-2.5 text-[1.03rem] font-black tracking-tight transition ${
               view === "wellness" ? "bg-blue-700 text-white shadow-sm" : "bg-transparent text-slate-600"
             }`}
             onClick={() => setView("wellness")}
