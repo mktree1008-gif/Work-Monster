@@ -21,6 +21,10 @@ pnpm-debug.log*
 # local env files
 .env*.local
 .env
+.env.target.local
+
+# local migration backups
+/backups/*.json
 
 # tests
 /playwright-report
