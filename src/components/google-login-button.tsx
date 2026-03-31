@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Chrome } from "lucide-react";
 import { FirebaseError } from "firebase/app";
-import { GoogleAuthProvider, getRedirectResult, signInWithPopup, signInWithRedirect } from "firebase/auth";
+import { GoogleAuthProvider, getRedirectResult, signInWithPopup } from "firebase/auth";
 import { firebaseAuth, isFirebaseClientConfigured } from "@/lib/firebase/client";
 import { Locale, UserRole } from "@/lib/types";
 
@@ -77,6 +77,9 @@ export function GoogleLoginButton({ role, locale, onSuccessRedirect, onError }: 
         await completeGoogleLogin(idToken, email, name);
       } catch (caught) {
         if (!mounted) return;
+        if (caught instanceof FirebaseError && caught.code === "auth/missing-initial-state") {
+          return;
+        }
         const message = caught instanceof Error ? caught.message : "Google sign-in failed.";
         setError(message);
         onError?.(message);
@@ -129,8 +132,7 @@ export function GoogleLoginButton({ role, locale, onSuccessRedirect, onError }: 
               caught.code === "auth/cancelled-popup-request" ||
               caught.code === "auth/operation-not-supported-in-this-environment")
           ) {
-            await signInWithRedirect(firebaseAuth, provider);
-            return;
+            throw new Error("Popup was blocked. Allow popups for this site and try Google login again.");
           }
           throw caught;
         }

@@ -1,6 +1,11 @@
 import { DEFAULT_REWARDS, DEFAULT_RULES } from "@/lib/constants";
 import { hashPassword, verifyPassword } from "@/lib/auth/password";
-import { getAdminDb, isFirebaseServerConfigured } from "@/lib/firebase/admin";
+import {
+  getAdminDb,
+  getFirebaseAccessToken,
+  getFirebaseProjectId,
+  isFirebaseServerConfigured
+} from "@/lib/firebase/admin";
 import {
   Announcement,
   DashboardBundle,
@@ -16,6 +21,47 @@ import {
   UserRole
 } from "@/lib/types";
 import { createId, nowISO, toISODate } from "@/lib/utils";
+
+type FirestorePrimitiveValue = {
+  nullValue?: null;
+  booleanValue?: boolean;
+  integerValue?: string;
+  doubleValue?: number;
+  timestampValue?: string;
+  stringValue?: string;
+  mapValue?: { fields?: Record<string, FirestorePrimitiveValue> };
+  arrayValue?: { values?: FirestorePrimitiveValue[] };
+};
+
+function decodeFirestoreValue(value: FirestorePrimitiveValue | undefined): unknown {
+  if (!value) return null;
+  if ("nullValue" in value) return null;
+  if (typeof value.booleanValue === "boolean") return value.booleanValue;
+  if (typeof value.stringValue === "string") return value.stringValue;
+  if (typeof value.timestampValue === "string") return value.timestampValue;
+  if (typeof value.doubleValue === "number") return value.doubleValue;
+  if (typeof value.integerValue === "string") return Number(value.integerValue);
+  if (value.arrayValue?.values) {
+    return value.arrayValue.values.map((entry) => decodeFirestoreValue(entry));
+  }
+  if (value.mapValue?.fields) {
+    const next: Record<string, unknown> = {};
+    Object.entries(value.mapValue.fields).forEach(([key, nested]) => {
+      next[key] = decodeFirestoreValue(nested);
+    });
+    return next;
+  }
+  return null;
+}
+
+function decodeFirestoreFields(fields: Record<string, FirestorePrimitiveValue> | undefined): Record<string, unknown> {
+  if (!fields) return {};
+  const result: Record<string, unknown> = {};
+  Object.entries(fields).forEach(([key, value]) => {
+    result[key] = decodeFirestoreValue(value);
+  });
+  return result;
+}
 
 export interface SubmissionDraft {
   user_id: string;
@@ -642,18 +688,84 @@ class MemoryGameRepository implements GameRepository {
 
 class FirestoreGameRepository implements GameRepository {
   private db = getAdminDb();
+  private isResourceExhaustedError(error: unknown): boolean {
+    const message = error instanceof Error ? error.message : String(error ?? "");
+    const grpcCode = typeof (error as { code?: unknown } | null)?.code === "number"
+      ? Number((error as { code?: number }).code)
+      : null;
+    return grpcCode === 8 || message.includes("RESOURCE_EXHAUSTED") || message.includes("Quota exceeded");
+  }
+
+  private async findUserByFieldWithRest(
+    field: "email" | "login_id",
+    value: string
+  ): Promise<{ id: string; user: UserProfile } | null> {
+    const projectId = getFirebaseProjectId();
+    const accessToken = await getFirebaseAccessToken();
+    const response = await fetch(
+      `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents:runQuery`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          structuredQuery: {
+            from: [{ collectionId: "users" }],
+            where: {
+              fieldFilter: {
+                field: { fieldPath: field },
+                op: "EQUAL",
+                value: { stringValue: value }
+              }
+            },
+            limit: 1
+          }
+        })
+      }
+    );
+
+    if (!response.ok) {
+      const message = await response.text();
+      throw new Error(`Firestore REST auth query failed: ${message}`);
+    }
+
+    const payload = (await response.json()) as Array<{
+      document?: { name?: string; fields?: Record<string, FirestorePrimitiveValue> };
+    }>;
+    const row = payload.find((entry) => entry.document?.name && entry.document?.fields);
+    if (!row?.document?.name || !row.document.fields) return null;
+
+    const id = row.document.name.split("/").pop() ?? "";
+    if (!id) return null;
+    const decoded = decodeFirestoreFields(row.document.fields) as Partial<UserProfile>;
+    return { id, user: { ...decoded, id } as UserProfile };
+  }
+
+  private async findUserByField(
+    field: "email" | "login_id",
+    value: string
+  ): Promise<{ id: string; user: UserProfile } | null> {
+    try {
+      const query = await this.db.collection("users").where(field, "==", value).limit(1).get();
+      if (query.empty) return null;
+      const doc = query.docs[0];
+      return { id: doc.id, user: doc.data() as UserProfile };
+    } catch (error) {
+      if (!this.isResourceExhaustedError(error)) {
+        throw error;
+      }
+      return this.findUserByFieldWithRest(field, value);
+    }
+  }
+
   private async findUserByEmail(email: string): Promise<{ id: string; user: UserProfile } | null> {
-    const query = await this.db.collection("users").where("email", "==", email).limit(1).get();
-    if (query.empty) return null;
-    const doc = query.docs[0];
-    return { id: doc.id, user: doc.data() as UserProfile };
+    return this.findUserByField("email", email);
   }
 
   private async findUserByLoginId(loginId: string): Promise<{ id: string; user: UserProfile } | null> {
-    const query = await this.db.collection("users").where("login_id", "==", loginId).limit(1).get();
-    if (query.empty) return null;
-    const doc = query.docs[0];
-    return { id: doc.id, user: doc.data() as UserProfile };
+    return this.findUserByField("login_id", loginId);
   }
 
   private async uniqueLoginId(baseLoginId: string): Promise<string> {
@@ -784,7 +896,14 @@ class FirestoreGameRepository implements GameRepository {
     }
 
     const next = { ...user, role, locale };
-    await this.db.collection("users").doc(found.id).set(next, { merge: true });
+    try {
+      await this.db.collection("users").doc(found.id).set(next, { merge: true });
+    } catch (error) {
+      if (!this.isResourceExhaustedError(error)) {
+        throw error;
+      }
+      // Keep login available even when Firestore write quota is temporarily exhausted.
+    }
     return next;
   }
 

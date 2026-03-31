@@ -44,3 +44,24 @@ export function getAdminDb(): Firestore {
 export function getAdminAuth(): Auth {
   return getAuth(getFirebaseAdminApp());
 }
+
+export function getFirebaseProjectId(): string {
+  if (!process.env.FIREBASE_PROJECT_ID) {
+    throw new Error("Firebase project id is not configured.");
+  }
+  return process.env.FIREBASE_PROJECT_ID;
+}
+
+export async function getFirebaseAccessToken(): Promise<string> {
+  const credential = getFirebaseAdminApp().options.credential;
+  if (!credential || typeof credential.getAccessToken !== "function") {
+    throw new Error("Firebase credential is not configured.");
+  }
+
+  const token = await credential.getAccessToken();
+  if (!token?.access_token) {
+    throw new Error("Failed to acquire Firebase access token.");
+  }
+
+  return token.access_token;
+}
