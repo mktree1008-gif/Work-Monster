@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getGameRepository } from "@/lib/repositories/game-repository";
+import { awardDailyLoginPoints } from "@/lib/services/game-service";
 import { UID_COOKIE } from "@/lib/session";
 
 function destinationByRole(role: "user" | "manager") {
@@ -25,10 +26,21 @@ export async function POST(request: NextRequest) {
 
     const repo = getGameRepository();
     const user = await repo.updateUser(uid, { name: nickname });
+    const loginAward =
+      user.role === "user"
+        ? await awardDailyLoginPoints(uid)
+        : { awarded: false, points: 0, date: "" };
+    const baseRedirect = destinationByRole(user.role);
+    const redirectTo =
+      loginAward.awarded && loginAward.points > 0 && user.role === "user"
+        ? `${baseRedirect}?login_bonus=1&login_points=${loginAward.points}`
+        : baseRedirect;
 
     return NextResponse.json({
       ok: true,
-      redirectTo: destinationByRole(user.role)
+      redirectTo,
+      loginPointsAwarded: loginAward.awarded,
+      loginPoints: loginAward.points
     });
   } catch (error) {
     return NextResponse.json(

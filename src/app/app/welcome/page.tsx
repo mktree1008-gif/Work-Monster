@@ -1,5 +1,6 @@
 import { CharacterAlert } from "@/components/character-alert";
 import { InactivityPenaltyPopup } from "@/components/inactivity-penalty-popup";
+import { LoginBonusPopup } from "@/components/login-bonus-popup";
 import { QuestionsSaveCelebration } from "@/components/questions-save-celebration";
 import { WelcomeDashboardClient } from "@/components/wellness/welcome-dashboard-client";
 import { computeNextReward } from "@/lib/logic/scoring";
@@ -48,6 +49,9 @@ export default async function WelcomePage({ searchParams }: Props) {
   const saved = params.saved === "1";
   const updated = params.updated === "1";
   const already = params.already === "1";
+  const loginBonus = params.login_bonus === "1";
+  const loginPointsRaw = typeof params.login_points === "string" ? Number(params.login_points) : 0;
+  const loginPoints = Number.isFinite(loginPointsRaw) ? Math.max(0, Math.round(loginPointsRaw)) : 0;
   const submissionPointsRaw = typeof params.submission_points === "string" ? Number(params.submission_points) : 0;
   const submissionPointsAwarded = Number.isFinite(submissionPointsRaw) ? submissionPointsRaw : 0;
 
@@ -146,6 +150,10 @@ export default async function WelcomePage({ searchParams }: Props) {
         openOnMount={saved}
         pointsAwarded={submissionPointsAwarded}
         updatedMode={updated}
+      />
+      <LoginBonusPopup
+        openOnMount={loginBonus && loginPoints > 0}
+        points={loginPoints}
       />
       {already && (
         <section className="mb-4">
