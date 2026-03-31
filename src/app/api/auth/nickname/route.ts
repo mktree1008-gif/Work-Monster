@@ -26,10 +26,14 @@ export async function POST(request: NextRequest) {
 
     const repo = getGameRepository();
     const user = await repo.updateUser(uid, { name: nickname });
-    const loginAward =
-      user.role === "user"
-        ? await awardDailyLoginPoints(uid)
-        : { awarded: false, points: 0, date: "" };
+    let loginAward = { awarded: false, points: 0, date: "" };
+    if (user.role === "user") {
+      try {
+        loginAward = await awardDailyLoginPoints(uid);
+      } catch (error) {
+        console.warn("Nickname flow login bonus award failed, continuing without bonus.", error);
+      }
+    }
     const baseRedirect = destinationByRole(user.role);
     const redirectTo =
       loginAward.awarded && loginAward.points > 0 && user.role === "user"
