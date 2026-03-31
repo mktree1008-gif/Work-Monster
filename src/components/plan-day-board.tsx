@@ -994,11 +994,11 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
   return (
     <section className="space-y-5 pb-28">
       <article className="rounded-[1.6rem] border border-blue-200/70 bg-blue-50/60 px-4 py-3 shadow-sm">
-        <p className="flex items-center gap-2 text-sm font-medium text-slate-700">
-          <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-blue-600 shadow-sm">
+        <p className="flex items-center gap-2 overflow-hidden text-sm font-medium text-slate-700">
+          <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-blue-600 shadow-sm">
             <Sparkles size={16} />
           </span>
-          <span>
+          <span className="min-w-0 truncate whitespace-nowrap">
             {topInsight.split("—")[0].trim()} — <span className="font-bold text-blue-700">{topInsight.split("—").slice(1).join("—").trim()}</span>
           </span>
         </p>
@@ -1008,7 +1008,7 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
         <div className="mb-3 flex items-center justify-between px-1">
           <div>
             <h2 className="text-3xl font-black text-slate-900">{sectionTitleChecklist}</h2>
-            <p className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-slate-500">
+            <p className="mt-1 inline-flex items-center gap-1 whitespace-nowrap text-xs font-semibold text-slate-500">
               <GripVertical size={13} />
               {isKo ? "드래그로 우선순위를 바꿀 수 있어요." : "Drag rows to reorder priority."}
             </p>
@@ -1033,14 +1033,14 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
         <article className="overflow-hidden rounded-[2rem] border border-slate-200/60 bg-white shadow-[0_16px_40px_rgba(33,72,165,0.09)]">
           <div className="bg-blue-50/50 px-4 py-4">
             <div className="mb-3 flex items-center justify-between">
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-blue-700">{isKo ? "핵심 임팩트" : "High Impact"}</p>
+              <p className="whitespace-nowrap text-xs font-black uppercase tracking-[0.18em] text-blue-700">{isKo ? "핵심 임팩트" : "High Impact"}</p>
               <div className="flex items-center gap-2">
                 {missionMetaLabel && (
-                  <span className="rounded-full bg-white px-2 py-1 text-[10px] font-black text-slate-600">{missionMetaLabel}</span>
+                  <span className="whitespace-nowrap rounded-full bg-white px-2 py-1 text-[10px] font-black text-slate-600">{missionMetaLabel}</span>
                 )}
                 {activeMission && (
                   <button
-                    className="rounded-full bg-fuchsia-100 px-2 py-1 text-[11px] font-bold text-fuchsia-700"
+                    className="whitespace-nowrap rounded-full bg-fuchsia-100 px-2 py-1 text-[11px] font-bold text-fuchsia-700"
                     onClick={addMissionMainTask}
                     type="button"
                   >
@@ -1049,7 +1049,7 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
                 )}
                 {activeMission && missionOpenTaskCount > 0 && (
                   <button
-                    className="rounded-full bg-blue-100 px-2 py-1 text-[11px] font-bold text-blue-700"
+                    className="whitespace-nowrap rounded-full bg-blue-100 px-2 py-1 text-[11px] font-bold text-blue-700"
                     onClick={splitMissionIntoTasks}
                     type="button"
                   >
@@ -1088,23 +1088,23 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
                         </button>
 
                         <div className="min-w-0 flex-1">
-                          <p className="text-lg font-black text-slate-900">{task.title}</p>
+                          <p className="truncate whitespace-nowrap text-lg font-black text-slate-900">{task.title}</p>
                           <div className="mt-1 flex flex-wrap items-center gap-2">
-                            <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${CATEGORY_COLOR[task.category]}`}>
+                            <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-black ${CATEGORY_COLOR[task.category]}`}>
                               {categoryLabel(task.category, locale)}
                             </span>
-                            <span className="inline-flex items-center gap-1 text-[12px] text-slate-500">
+                            <span className="inline-flex items-center gap-1 whitespace-nowrap text-[12px] text-slate-500">
                               <Clock3 size={12} />
                               {formatTaskMinutes(task.duration, locale)}
                             </span>
                             {task.due_date && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-700">
+                              <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-700">
                                 <CalendarClock size={11} />
                                 {isKo ? "마감" : "Due"} {formatDueDateLabel(task.due_date, locale)}
                               </span>
                             )}
                             {task.is_mission_linked && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-fuchsia-100 px-2 py-0.5 text-[10px] font-black text-fuchsia-700">
+                              <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-fuchsia-100 px-2 py-0.5 text-[10px] font-black text-fuchsia-700">
                                 <Target size={12} />
                                 {isKo ? "매니저 미션" : "MANAGER MISSION"}
                               </span>
@@ -1155,7 +1155,7 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
 
           <div className="space-y-2 px-4 py-4">
             <div className="mb-1 flex items-center justify-between">
-              <p className="text-[11px] font-black uppercase tracking-[0.15em] text-slate-500">{isKo ? "기타 작업" : "Other Tasks"}</p>
+              <p className="whitespace-nowrap text-[11px] font-black uppercase tracking-[0.15em] text-slate-500">{isKo ? "기타 작업" : "Other Tasks"}</p>
               <span className="text-xs font-bold text-slate-400">{otherTasks.length}</span>
             </div>
             {otherTasks.length > 0 ? (
@@ -1185,22 +1185,22 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
                       </button>
 
                       <div className="min-w-0 flex-1">
-                        <p className="text-lg font-semibold text-slate-900">{task.title}</p>
+                        <p className="truncate whitespace-nowrap text-lg font-semibold text-slate-900">{task.title}</p>
                         <div className="mt-1 flex flex-wrap items-center gap-2">
-                          <span className={`rounded-full px-2 py-0.5 text-[10px] font-black ${CATEGORY_COLOR[task.category]}`}>
+                          <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-black ${CATEGORY_COLOR[task.category]}`}>
                             {categoryLabel(task.category, locale)}
                           </span>
-                          <span className="inline-flex items-center gap-1 text-[12px] text-slate-500">
+                          <span className="inline-flex items-center gap-1 whitespace-nowrap text-[12px] text-slate-500">
                             <Clock3 size={12} />
                             {formatTaskMinutes(task.duration, locale)}
                           </span>
                           {task.due_date && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-700">
+                            <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-700">
                               <CalendarClock size={11} />
                               {isKo ? "마감" : "Due"} {formatDueDateLabel(task.due_date, locale)}
                             </span>
                           )}
-                          <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-slate-500">
+                          <span className="whitespace-nowrap rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-slate-500">
                             {priorityLabel(task.priority, locale)}
                           </span>
                         </div>
@@ -1274,14 +1274,14 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
                         <Check size={14} />
                       </button>
                       <div className="min-w-0 flex-1">
-                        <p className="text-sm font-semibold text-slate-400 line-through">{task.title}</p>
+                        <p className="truncate whitespace-nowrap text-sm font-semibold text-slate-400 line-through">{task.title}</p>
                         {task.due_date && (
-                          <p className="mt-0.5 text-[11px] font-semibold text-slate-400">
+                          <p className="mt-0.5 whitespace-nowrap text-[11px] font-semibold text-slate-400">
                             {isKo ? "마감" : "Due"} {formatDueDateLabel(task.due_date, locale)}
                           </p>
                         )}
                       </div>
-                      <span className="text-[10px] font-bold text-blue-700">{isKo ? "다시 활성화" : "Re-open"}</span>
+                      <span className="whitespace-nowrap text-[10px] font-bold text-blue-700">{isKo ? "다시 활성화" : "Re-open"}</span>
                     </div>
                   ))
                 ) : (
@@ -1293,20 +1293,22 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
         </article>
       </section>
 
-      <section className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-[#0f57d8] via-[#1764ef] to-[#2a49cb] p-5 text-white shadow-[0_20px_45px_rgba(20,72,210,0.26)]">
+      <section className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-[#0f57d8] via-[#1764ef] to-[#2a49cb] p-4 text-white shadow-[0_20px_45px_rgba(20,72,210,0.26)]">
         <div className="absolute -right-10 -top-12 h-44 w-44 rounded-full bg-white/10 blur-2xl" />
         <div className="relative z-10">
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start justify-between gap-2">
             <div>
-              <h3 className="text-[clamp(2rem,8.1vw,2.7rem)] font-black leading-[1.02] tracking-tight">{isKo ? "오늘의 플랜" : "Today's Plan"}</h3>
-              <p className="mt-1 text-sm font-medium text-blue-100">
+              <h3 className="whitespace-nowrap text-[clamp(1.55rem,6.3vw,2.05rem)] font-black leading-[1.05] tracking-tight">
+                {isKo ? "오늘의 플랜" : "Today's Plan"}
+              </h3>
+              <p className="mt-1 whitespace-nowrap text-sm font-medium text-blue-100">
                 {prettyDate(todayISO, locale)} • {tasks.length} {isKo ? "Tasks" : "Tasks"}
               </p>
             </div>
-            <span className="rounded-full bg-white/20 px-3 py-1 text-xs font-black">PROGRESS: {progressPercent}%</span>
+            <span className="whitespace-nowrap rounded-full bg-white/20 px-3 py-1 text-xs font-black">PROGRESS: {progressPercent}%</span>
           </div>
 
-          <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-white/20">
+          <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-white/20">
             <div className="h-full rounded-full bg-white transition-all" style={{ width: `${progressPercent}%` }} />
           </div>
 
@@ -1317,9 +1319,9 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
             </div>
           </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-3">
+          <div className="mt-3 grid grid-cols-2 gap-2.5">
             <button
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-3 py-2.5 text-sm font-black text-blue-700 shadow-[0_8px_18px_rgba(8,42,120,0.2)]"
+              className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-2xl bg-white px-3 py-2 text-sm font-black text-blue-700 shadow-[0_8px_18px_rgba(8,42,120,0.2)]"
               onClick={() => openQuickTaskSheet()}
               type="button"
             >
@@ -1329,7 +1331,7 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
               <span>{isKo ? "Quick Task" : "Quick Task"}</span>
             </button>
             <button
-              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-white/25 bg-white/15 px-3 py-2.5 text-sm font-black text-white"
+              className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-2xl border border-white/25 bg-white/15 px-3 py-2 text-sm font-black text-white"
               onClick={() => setSuggestionsOpen(true)}
               type="button"
             >
@@ -1365,7 +1367,7 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
           <div className="mt-2 flex flex-wrap gap-2">
             {quickFocusTemplates.map((template) => (
               <button
-                className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-600 transition hover:bg-blue-50 hover:text-blue-700"
+                className="whitespace-nowrap rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-600 transition hover:bg-blue-50 hover:text-blue-700"
                 key={template}
                 onClick={() => setFocusText(template)}
                 type="button"
@@ -1399,7 +1401,7 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
             <ArrowUpRight size={18} />
           </span>
           <p className="mt-3 text-sm font-black uppercase tracking-wide text-slate-600">{isKo ? "Carry Forward" : "Carry Forward"}</p>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 truncate whitespace-nowrap text-xs text-slate-500">
             {yesterdayUnfinished.length > 0
               ? isKo
                 ? `미완료 ${yesterdayUnfinished.length}개 이월하기`
@@ -1414,8 +1416,8 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
           <span className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-blue-100 text-blue-600">
             <TrendingUp size={18} />
           </span>
-          <p className="mt-3 text-sm font-black uppercase tracking-wide text-slate-600">{isKo ? "Insights" : "Insights"}</p>
-          <p className="mt-1 text-xs text-slate-500">{weeklyInsight}</p>
+          <p className="mt-3 whitespace-nowrap text-sm font-black uppercase tracking-wide text-slate-600">{isKo ? "Insights" : "Insights"}</p>
+          <p className="mt-1 truncate whitespace-nowrap text-xs text-slate-500">{weeklyInsight}</p>
         </Link>
       </section>
 
@@ -1560,7 +1562,7 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
                     <p className="text-sm font-black text-slate-900">{item.title}</p>
                     <p className="mt-1 text-xs text-slate-500">{item.description}</p>
                     <button
-                      className="mt-2 rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700"
+                      className="mt-2 whitespace-nowrap rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700"
                       onClick={() => applySuggestion(item)}
                       type="button"
                     >

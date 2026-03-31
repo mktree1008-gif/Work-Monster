@@ -61,6 +61,7 @@ type DayMetric = {
   consistencyRate: number;
   productivityScore: number;
   pointsDelta: number;
+  hasActivity: boolean;
   focusMinutes: number;
   carryOverOut: number;
   carryOverIn: number;
@@ -370,6 +371,7 @@ function buildAnalyticsModel(
   const today = toLocalISODate();
   const rangeDates = Array.from({ length: RANGE_DAYS }, (_, index) => shiftISODate(today, index - (RANGE_DAYS - 1)));
   const fallbackByDate = buildFallbackTasksByDate(submissions);
+  const submissionPresenceByDate = new Set(submissions.map((submission) => submission.date));
 
   const submissionPointsByDate = submissions.reduce<Map<string, number>>((acc, submission) => {
     if (
@@ -424,6 +426,7 @@ function buildAnalyticsModel(
     const focusMinutes = Math.max(planFocus, fallbackFocus);
 
     const pointsDelta = submissionPointsByDate.get(date) ?? 0;
+    const hasActivity = total > 0 || submissionPresenceByDate.has(date);
 
     return {
       date,
@@ -439,6 +442,7 @@ function buildAnalyticsModel(
       consistencyRate,
       productivityScore: clampPercent(completionRate * 0.4 + highImpactRate * 0.3 + missionRate * 0.2 + consistencyRate * 0.1),
       pointsDelta,
+      hasActivity,
       focusMinutes,
       carryOverOut: 0,
       carryOverIn: 0,
@@ -642,17 +646,19 @@ function metricTone(value: number): string {
   return "text-slate-500";
 }
 
-function heatCellClass(scoreValue: number, pointsDelta: number): string {
+function heatCellClass(scoreValue: number, pointsDelta: number, hasActivity: boolean): string {
+  if (!hasActivity) {
+    return "border border-slate-200 bg-white";
+  }
+
   if (pointsDelta < 0) {
-    if (pointsDelta <= -8) return "bg-rose-500";
-    if (pointsDelta <= -3) return "bg-pink-400";
-    return "bg-pink-300";
+    if (pointsDelta <= -8) return "bg-rose-600";
+    return "bg-rose-400";
   }
   if (scoreValue >= 85) return "bg-blue-700";
   if (scoreValue >= 65) return "bg-sky-500";
-  if (scoreValue >= 45) return "bg-sky-300";
-  if (scoreValue >= 25) return "bg-pink-300";
-  return "bg-rose-400";
+  if (scoreValue >= 40) return "bg-sky-300";
+  return "bg-pink-300";
 }
 
 function categoryColor(category: Category): string {
@@ -760,17 +766,22 @@ export function ProductivityRecordSystem({ mode, locale, userId, score, submissi
           <div className="rounded-3xl bg-slate-50 p-3">
             <div className="grid grid-cols-7 gap-2">
               {heatmapDays.map((day) => (
-                <div key={day.date} className={`aspect-square rounded-lg ${heatCellClass(day.productivityScore, day.pointsDelta)} ${day.date === model.rangeDates.at(-1) ? "ring-2 ring-blue-600 ring-offset-2" : ""}`} title={`${day.date} ${day.productivityScore}%`} />
+                <div
+                  key={day.date}
+                  className={`aspect-square rounded-lg ${heatCellClass(day.productivityScore, day.pointsDelta, day.hasActivity)} ${day.date === model.rangeDates.at(-1) ? "ring-2 ring-blue-600 ring-offset-2" : ""}`}
+                  title={`${day.date} ${day.hasActivity ? `${day.productivityScore}%` : locale === "ko" ? "기록 없음" : "No record"}`}
+                />
               ))}
             </div>
             <div className="mt-3 flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-slate-500">
               <span>{locale === "ko" ? "낮음" : "Low"}</span>
               <div className="flex gap-1">
-                <div className="h-3 w-3 rounded-sm bg-rose-400" />
+                <div className="h-3 w-3 rounded-sm border border-slate-300 bg-white" title={locale === "ko" ? "기록 없음" : "No record"} />
                 <div className="h-3 w-3 rounded-sm bg-pink-300" />
-                <div className="h-3 w-3 rounded-sm bg-sky-200" />
-                <div className="h-3 w-3 rounded-sm bg-sky-400" />
+                <div className="h-3 w-3 rounded-sm bg-sky-300" />
+                <div className="h-3 w-3 rounded-sm bg-sky-500" />
                 <div className="h-3 w-3 rounded-sm bg-blue-700" />
+                <div className="h-3 w-3 rounded-sm bg-rose-500" title={locale === "ko" ? "감점" : "Penalty"} />
               </div>
               <span>{locale === "ko" ? "높음" : "High"}</span>
             </div>
