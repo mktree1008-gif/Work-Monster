@@ -417,7 +417,7 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [quickForm, setQuickForm] = useState<QuickTaskForm>(defaultQuickTaskForm);
-  const [completedCollapsed, setCompletedCollapsed] = useState(true);
+  const [completedCollapsed, setCompletedCollapsed] = useState(false);
   const [swipedTaskId, setSwipedTaskId] = useState<string | null>(null);
   const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
   const touchStartXRef = useRef(0);
@@ -889,6 +889,10 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
   }
 
   function toggleCompleted(taskId: string) {
+    const target = tasks.find((task) => task.id === taskId);
+    if (target && !target.is_completed) {
+      setCompletedCollapsed(false);
+    }
     updateTasks(
       tasks.map((task) => (task.id === taskId ? { ...task, is_completed: !task.is_completed } : task)),
       isKo ? "체크리스트가 업데이트됐어요." : "Checklist updated."
