@@ -278,11 +278,14 @@ export function WelcomeDashboardClient({ mission, checkinState, labels, score, r
                   {planCount > 0 ? `${planCount} checklist items ready.` : "Set top priorities and build your checklist."}
                 </p>
                 <Link
-                  className="group mt-4 inline-flex min-h-[3.1rem] min-w-[12.5rem] items-center justify-between gap-3 rounded-full border border-blue-100 bg-white px-5 py-2.5 text-[0.98rem] font-black tracking-tight text-blue-800 shadow-[0_8px_18px_rgba(8,42,120,0.2)] transition hover:-translate-y-0.5 hover:shadow-[0_12px_24px_rgba(8,42,120,0.28)] active:translate-y-0"
+                  className="group mt-4 inline-flex min-h-[3.1rem] w-full max-w-[16rem] items-center justify-center gap-2.5 rounded-full border border-blue-100 bg-white px-4 py-2.5 !text-blue-800 shadow-[0_8px_18px_rgba(8,42,120,0.2)] transition hover:-translate-y-0.5 hover:shadow-[0_12px_24px_rgba(8,42,120,0.28)] active:translate-y-0"
                   href="/app/plan"
                 >
-                  <span>Make Checklist</span>
-                  <ChevronRight className="text-blue-600 transition group-hover:translate-x-0.5" size={18} />
+                  <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-blue-700 anim-pulse-soft">
+                    <Sparkles size={13} />
+                  </span>
+                  <span className="whitespace-nowrap text-[0.98rem] font-black tracking-tight !text-blue-800">Start Plan Day</span>
+                  <ChevronRight className="text-blue-600 transition group-hover:translate-x-0.5" size={17} />
                 </Link>
               </div>
               <div className="relative mt-1 h-20 w-20 shrink-0 rounded-3xl bg-white/15 p-3">
