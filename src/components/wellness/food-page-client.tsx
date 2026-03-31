@@ -21,9 +21,11 @@ import {
   duplicateFoodLog,
   FoodLog,
   getFoodLogs,
+  getFoodManualCaloriesByDate,
   getFoodSummary,
   getWellnessGoals,
   MealType,
+  setFoodManualCaloriesByDate,
   setWellnessGoals,
   setWaterByDate,
   todayLocalISO,
@@ -132,6 +134,7 @@ export function FoodPageClient({ labels }: { labels: Labels }) {
   const [selectedReference, setSelectedReference] = useState<FoodReference | null>(null);
   const [autoEstimate, setAutoEstimate] = useState(true);
   const [draft, setDraft] = useState<DraftForm>(emptyDraft());
+  const [manualCaloriesInput, setManualCaloriesInput] = useState("");
   const [expandedMeals, setExpandedMeals] = useState<Record<MealType, boolean>>({
     Breakfast: true,
     Lunch: true,
@@ -143,6 +146,12 @@ export function FoodPageClient({ labels }: { labels: Labels }) {
     setLogs(getFoodLogs());
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+    const manualCalories = getFoodManualCaloriesByDate(selectedDate);
+    setManualCaloriesInput(manualCalories > 0 ? String(manualCalories) : "");
+  }, [mounted, selectedDate]);
 
   const goals = mounted
     ? getWellnessGoals()
@@ -203,7 +212,9 @@ export function FoodPageClient({ labels }: { labels: Labels }) {
     () =>
       week.map((date) => ({
         date,
-        total: logs.filter((item) => item.date === date).reduce((sum, item) => sum + item.calories, 0)
+        total:
+          logs.filter((item) => item.date === date).reduce((sum, item) => sum + item.calories, 0)
+          + getFoodManualCaloriesByDate(date)
       })),
     [logs, week]
   );
@@ -465,6 +476,13 @@ export function FoodPageClient({ labels }: { labels: Labels }) {
     syncState();
   }
 
+  function saveManualCalories() {
+    const parsed = Math.max(0, Math.round(parseNumeric(manualCaloriesInput, 0)));
+    const saved = setFoodManualCaloriesByDate(selectedDate, parsed);
+    setManualCaloriesInput(saved > 0 ? String(saved) : "");
+    syncState();
+  }
+
   const totalMealCount = mealBreakdown.reduce((sum, item) => sum + item.count, 0);
 
   return (
@@ -539,6 +557,35 @@ export function FoodPageClient({ labels }: { labels: Labels }) {
           </div>
         </div>
       </article>
+
+      <section className="mt-4 rounded-3xl bg-white p-4 shadow-sm">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-black text-slate-900">Quick Total Calories</p>
+            <p className="text-xs text-slate-500">Skip item-by-item logging and save just today&apos;s total kcal.</p>
+          </div>
+          <span className="rounded-full bg-blue-50 px-2 py-1 text-[11px] font-semibold text-blue-700">Optional</span>
+        </div>
+        <div className="mt-3 flex items-center gap-2">
+          <input
+            className="h-11 flex-1 rounded-xl border border-slate-200 px-3 text-sm text-slate-800 outline-none focus:border-blue-400"
+            min={0}
+            onChange={(event) => setManualCaloriesInput(event.target.value)}
+            placeholder="e.g. 1850"
+            type="number"
+            value={manualCaloriesInput}
+          />
+          <span className="text-xs font-semibold text-slate-500">kcal</span>
+          <button
+            className="h-11 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white"
+            onClick={saveManualCalories}
+            type="button"
+          >
+            Save
+          </button>
+        </div>
+        <p className="mt-2 text-[11px] text-slate-500">Set to 0 and save to clear this quick total.</p>
+      </section>
 
       <section className="mt-6">
         <div className="mb-3 flex items-end justify-between">

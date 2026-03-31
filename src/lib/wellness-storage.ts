@@ -97,10 +97,13 @@ export type WellnessGoals = {
 };
 
 type WaterMap = Record<string, number>;
+type DailyCaloriesMap = Record<string, number>;
 
 const STORAGE_KEYS = {
   food: "wm-food-logs-v1",
   workout: "wm-workout-logs-v1",
+  foodManualCalories: "wm-food-manual-calories-v1",
+  workoutManualCalories: "wm-workout-manual-calories-v1",
   workoutRoutines: "wm-workout-routines-v1",
   sleep: "wm-sleep-logs-v1",
   focus: "wm-focus-sessions-v1",
@@ -752,11 +755,68 @@ export function addWaterCup(date: string) {
   writeJSON(STORAGE_KEYS.waterMap, map);
 }
 
+function getFoodManualCaloriesMap(): DailyCaloriesMap {
+  const raw = ensureSeeded<DailyCaloriesMap>(STORAGE_KEYS.foodManualCalories, {});
+  const normalized: DailyCaloriesMap = {};
+  Object.entries(raw).forEach(([date, value]) => {
+    const next = Math.max(0, Math.round(Number(value) || 0));
+    if (next > 0) normalized[date] = next;
+  });
+  writeJSON(STORAGE_KEYS.foodManualCalories, normalized);
+  return normalized;
+}
+
+function getWorkoutManualCaloriesMap(): DailyCaloriesMap {
+  const raw = ensureSeeded<DailyCaloriesMap>(STORAGE_KEYS.workoutManualCalories, {});
+  const normalized: DailyCaloriesMap = {};
+  Object.entries(raw).forEach(([date, value]) => {
+    const next = Math.max(0, Math.round(Number(value) || 0));
+    if (next > 0) normalized[date] = next;
+  });
+  writeJSON(STORAGE_KEYS.workoutManualCalories, normalized);
+  return normalized;
+}
+
+export function getFoodManualCaloriesByDate(date: string): number {
+  const map = getFoodManualCaloriesMap();
+  return Math.max(0, Math.round(map[date] ?? 0));
+}
+
+export function setFoodManualCaloriesByDate(date: string, calories: number): number {
+  const map = getFoodManualCaloriesMap();
+  const normalized = Math.max(0, Math.round(calories));
+  if (normalized <= 0) {
+    delete map[date];
+  } else {
+    map[date] = normalized;
+  }
+  writeJSON(STORAGE_KEYS.foodManualCalories, map);
+  return normalized;
+}
+
+export function getWorkoutManualCaloriesByDate(date: string): number {
+  const map = getWorkoutManualCaloriesMap();
+  return Math.max(0, Math.round(map[date] ?? 0));
+}
+
+export function setWorkoutManualCaloriesByDate(date: string, calories: number): number {
+  const map = getWorkoutManualCaloriesMap();
+  const normalized = Math.max(0, Math.round(calories));
+  if (normalized <= 0) {
+    delete map[date];
+  } else {
+    map[date] = normalized;
+  }
+  writeJSON(STORAGE_KEYS.workoutManualCalories, map);
+  return normalized;
+}
+
 export function getFoodSummary(date: string) {
   const logs = getFoodLogs().filter((item) => item.date === date);
   const goals = getWellnessGoals();
   const waterMap = getWaterMap();
-  const calories = logs.reduce((sum, item) => sum + item.calories, 0);
+  const manualCalories = getFoodManualCaloriesByDate(date);
+  const calories = logs.reduce((sum, item) => sum + item.calories, 0) + manualCalories;
   const protein = logs.reduce((sum, item) => sum + item.protein, 0);
   const fat = logs.reduce((sum, item) => sum + item.fat, 0);
   const carbs = logs.reduce((sum, item) => sum + item.carbs, 0);
@@ -795,7 +855,8 @@ export function getFoodMealBreakdown(date: string) {
 export function getWorkoutSummary(date: string) {
   const logs = getWorkoutLogs().filter((item) => item.date === date);
   const minutes = logs.reduce((sum, item) => sum + item.duration, 0);
-  const calories = logs.reduce((sum, item) => sum + item.calories_burned, 0);
+  const manualCalories = getWorkoutManualCaloriesByDate(date);
+  const calories = logs.reduce((sum, item) => sum + item.calories_burned, 0) + manualCalories;
   const steps = logs.reduce((sum, item) => sum + item.steps, 0);
   const goals = getWellnessGoals();
   const percent = goals.movement_goal <= 0 ? 0 : Math.max(0, Math.min(100, Math.round((minutes / goals.movement_goal) * 100)));

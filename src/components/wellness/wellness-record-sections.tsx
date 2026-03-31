@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { PenaltyEvent, RewardClaim, Submission } from "@/lib/types";
 import {
+  getFoodManualCaloriesByDate,
   getFoodLogs,
   getSleepLogs,
   getWorkoutLogs,
@@ -74,7 +75,9 @@ export function WellnessRecordSections({ initialSection, submissions, rewardClai
     () =>
       dates.map((date) => ({
         date,
-        value: foodLogs.filter((item) => item.date === date).reduce((sum, item) => sum + item.calories, 0)
+        value:
+          foodLogs.filter((item) => item.date === date).reduce((sum, item) => sum + item.calories, 0)
+          + getFoodManualCaloriesByDate(date)
       })),
     [dates, foodLogs]
   );

@@ -22,9 +22,11 @@ import {
 import {
   deleteWorkoutLog,
   getWellnessGoals,
+  getWorkoutManualCaloriesByDate,
   getWorkoutLogs,
   getWorkoutRoutines,
   removeWorkoutRoutine,
+  setWorkoutManualCaloriesByDate,
   setWellnessGoals,
   todayLocalISO,
   toggleWorkoutRoutineFavorite,
@@ -220,12 +222,19 @@ export function WorkoutPageClient({ labels }: { labels: Labels }) {
   const [selectedReference, setSelectedReference] = useState<WorkoutReference | null>(null);
   const [saveAsRoutine, setSaveAsRoutine] = useState(true);
   const [saveRoutineFavorite, setSaveRoutineFavorite] = useState(true);
+  const [manualCaloriesInput, setManualCaloriesInput] = useState("");
 
   useEffect(() => {
     setLogs(getWorkoutLogs());
     setRoutines(getWorkoutRoutines());
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+    const manualCalories = getWorkoutManualCaloriesByDate(selectedDate);
+    setManualCaloriesInput(manualCalories > 0 ? String(manualCalories) : "");
+  }, [mounted, selectedDate]);
 
   const todayLogs = useMemo(
     () => logs.filter((item) => item.date === selectedDate).sort((a, b) => (a.created_at > b.created_at ? -1 : 1)),
@@ -238,7 +247,7 @@ export function WorkoutPageClient({ labels }: { labels: Labels }) {
 
   const summary = useMemo(() => {
     const minutes = todayLogs.reduce((sum, item) => sum + item.duration, 0);
-    const calories = todayLogs.reduce((sum, item) => sum + item.calories_burned, 0);
+    const calories = todayLogs.reduce((sum, item) => sum + item.calories_burned, 0) + getWorkoutManualCaloriesByDate(selectedDate);
     const steps = todayLogs.reduce((sum, item) => sum + item.steps, 0);
     const label = todayLogs.length > 0 ? [...new Set(todayLogs.map((item) => item.workout_type))].join(" • ") : "No workout yet";
     return {
@@ -248,7 +257,7 @@ export function WorkoutPageClient({ labels }: { labels: Labels }) {
       label,
       percent: Math.max(0, Math.min(100, Math.round((minutes / Math.max(1, goals.movement_goal)) * 100)))
     };
-  }, [goals.movement_goal, todayLogs]);
+  }, [goals.movement_goal, selectedDate, todayLogs]);
 
   const weekDates = useMemo(() => weeklyDates(selectedDate), [selectedDate]);
   const weeklyMinutes = useMemo(
@@ -533,6 +542,13 @@ export function WorkoutPageClient({ labels }: { labels: Labels }) {
     syncAll();
   }
 
+  function saveManualCalories() {
+    const parsed = Math.max(0, Math.round(Number(manualCaloriesInput) || 0));
+    const saved = setWorkoutManualCaloriesByDate(selectedDate, parsed);
+    setManualCaloriesInput(saved > 0 ? String(saved) : "");
+    syncAll();
+  }
+
   return (
     <section className="pb-32">
       <header className="mb-5 flex items-center justify-between">
@@ -588,6 +604,35 @@ export function WorkoutPageClient({ labels }: { labels: Labels }) {
           </button>
         </div>
       </article>
+
+      <section className="mt-4 rounded-[1.7rem] bg-white p-4 shadow-sm">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-black text-slate-900">Quick Burned Calories</p>
+            <p className="text-xs text-slate-500">If needed, save only total workout kcal for this day.</p>
+          </div>
+          <span className="rounded-full bg-blue-50 px-2 py-1 text-[11px] font-semibold text-blue-700">Optional</span>
+        </div>
+        <div className="mt-3 flex items-center gap-2">
+          <input
+            className="h-11 flex-1 rounded-xl border border-slate-200 px-3 text-sm text-slate-800 outline-none focus:border-blue-400"
+            min={0}
+            onChange={(event) => setManualCaloriesInput(event.target.value)}
+            placeholder="e.g. 420"
+            type="number"
+            value={manualCaloriesInput}
+          />
+          <span className="text-xs font-semibold text-slate-500">kcal</span>
+          <button
+            className="h-11 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white"
+            onClick={saveManualCalories}
+            type="button"
+          >
+            Save
+          </button>
+        </div>
+        <p className="mt-2 text-[11px] text-slate-500">Set 0 and save to remove this quick total.</p>
+      </section>
 
       <section className="mt-5">
         <div className="mb-2 flex items-center justify-between">
