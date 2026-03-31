@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import {
   ArrowRight,
   Brain,
@@ -646,19 +646,45 @@ function metricTone(value: number): string {
   return "text-slate-500";
 }
 
-function heatCellClass(scoreValue: number, pointsDelta: number, hasActivity: boolean): string {
+function heatCellVisual(scoreValue: number, pointsDelta: number, hasActivity: boolean) {
   if (!hasActivity) {
-    return "border border-slate-200 bg-white";
+    return {
+      className: "border border-slate-200 bg-white",
+      style: undefined as undefined | CSSProperties,
+      dayTextClass: "text-slate-300",
+      toneLabel: "No record"
+    };
   }
 
   if (pointsDelta < 0) {
-    if (pointsDelta <= -8) return "bg-rose-600";
-    return "bg-rose-400";
+    const magnitude = Math.min(12, Math.max(1, Math.abs(pointsDelta))) / 12;
+    const baseLight = Math.round(74 - magnitude * 20);
+    const deepLight = Math.round(56 - magnitude * 16);
+    return {
+      className: "border border-white/60",
+      style: {
+        background: `radial-gradient(140% 140% at 26% 22%, hsl(346 90% ${Math.min(90, baseLight + 11)}%) 0%, hsl(347 86% ${baseLight}%) 50%, hsl(350 78% ${deepLight}%) 100%)`
+      },
+      dayTextClass: "text-white",
+      toneLabel: "Penalty"
+    };
   }
-  if (scoreValue >= 85) return "bg-blue-700";
-  if (scoreValue >= 65) return "bg-sky-500";
-  if (scoreValue >= 40) return "bg-sky-300";
-  return "bg-pink-300";
+
+  const clamped = Math.max(0, Math.min(100, scoreValue));
+  const t = clamped / 100;
+  const hue = Math.round(332 - t * 116); // pink -> sky/blue
+  const saturation = Math.round(78 + t * 12);
+  const light = Math.round(83 - t * 31);
+  const deepLight = Math.max(28, light - 15);
+
+  return {
+    className: "border border-white/60",
+    style: {
+      background: `radial-gradient(145% 145% at 26% 20%, hsl(${Math.max(200, hue + 6)} ${Math.max(60, saturation - 10)}% ${Math.min(94, light + 10)}%) 0%, hsl(${hue} ${saturation}% ${light}%) 52%, hsl(${Math.max(210, hue - 10)} ${Math.min(96, saturation + 4)}% ${deepLight}%) 100%)`
+    },
+    dayTextClass: clamped >= 58 ? "text-white" : "text-slate-700",
+    toneLabel: clamped >= 85 ? "Excellent" : clamped >= 65 ? "Great" : clamped >= 40 ? "Medium" : "Low"
+  };
 }
 
 function categoryColor(category: Category): string {
@@ -742,6 +768,25 @@ export function ProductivityRecordSystem({ mode, locale, userId, score, submissi
   const model = useMemo(() => buildAnalyticsModel(submissions, score, localTasksByDate, locale), [submissions, score, localTasksByDate, locale]);
 
   const heatmapDays = model.dayMetrics.slice(-28);
+  const latestHeatmapDate = heatmapDays.at(-1)?.date ?? model.rangeDates.at(-1) ?? toLocalISODate();
+  const monthTitle =
+    locale === "ko"
+      ? `${new Date(`${latestHeatmapDate}T12:00:00.000Z`).getUTCFullYear()}년 ${new Date(`${latestHeatmapDate}T12:00:00.000Z`).getUTCMonth() + 1}월 집중도`
+      : `${new Date(`${latestHeatmapDate}T12:00:00.000Z`).toLocaleDateString("en-US", { month: "long", timeZone: "UTC" })} Focus`;
+  const weekdayLabels = (() => {
+    const seedDays = heatmapDays.slice(0, 7);
+    if (seedDays.length < 7) {
+      return locale === "ko" ? ["일", "월", "화", "수", "목", "금", "토"] : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    }
+    return seedDays.map((day) =>
+      new Intl.DateTimeFormat(locale === "ko" ? "ko-KR" : "en-US", {
+        weekday: "short",
+        timeZone: "UTC"
+      })
+        .format(new Date(`${day.date}T12:00:00.000Z`))
+        .replace(".", "")
+    );
+  })();
   const completionPath = linePath(model.latest7.map((day) => day.completionRate), 100, 46);
   const highPath = linePath(model.latest7.map((day) => day.highImpactRate), 100, 46);
   const missionPath = linePath(model.latest7.map((day) => day.missionRate), 100, 46);
@@ -757,33 +802,55 @@ export function ProductivityRecordSystem({ mode, locale, userId, score, submissi
           <div className="mb-3 flex items-end justify-between">
             <div>
               <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">{locale === "ko" ? "생산성 맵" : "Productivity Map"}</p>
-              <h2 className="text-4xl font-extrabold tracking-tight text-slate-900">{locale === "ko" ? "이번 달 집중도" : "September Focus"}</h2>
+              <h2 className="text-[clamp(1.8rem,7vw,2.3rem)] font-extrabold tracking-tight text-slate-900">{monthTitle}</h2>
             </div>
             <span className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.1em] text-slate-600">
               {locale === "ko" ? "실시간" : "Live Tracking"}
             </span>
           </div>
           <div className="rounded-3xl bg-slate-50 p-3">
-            <div className="grid grid-cols-7 gap-2">
-              {heatmapDays.map((day) => (
-                <div
-                  key={day.date}
-                  className={`aspect-square rounded-lg ${heatCellClass(day.productivityScore, day.pointsDelta, day.hasActivity)} ${day.date === model.rangeDates.at(-1) ? "ring-2 ring-blue-600 ring-offset-2" : ""}`}
-                  title={`${day.date} ${day.hasActivity ? `${day.productivityScore}%` : locale === "ko" ? "기록 없음" : "No record"}`}
-                />
+            <div className="mb-2 grid grid-cols-7 gap-2">
+              {weekdayLabels.map((label, index) => (
+                <span className="text-center text-[10px] font-bold uppercase tracking-[0.08em] text-slate-400" key={`${label}-${index}`}>
+                  {label}
+                </span>
               ))}
             </div>
-            <div className="mt-3 flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-              <span>{locale === "ko" ? "낮음" : "Low"}</span>
-              <div className="flex gap-1">
-                <div className="h-3 w-3 rounded-sm border border-slate-300 bg-white" title={locale === "ko" ? "기록 없음" : "No record"} />
-                <div className="h-3 w-3 rounded-sm bg-pink-300" />
-                <div className="h-3 w-3 rounded-sm bg-sky-300" />
-                <div className="h-3 w-3 rounded-sm bg-sky-500" />
-                <div className="h-3 w-3 rounded-sm bg-blue-700" />
-                <div className="h-3 w-3 rounded-sm bg-rose-500" title={locale === "ko" ? "감점" : "Penalty"} />
+            <div className="grid grid-cols-7 gap-2">
+              {heatmapDays.map((day) => {
+                const visual = heatCellVisual(day.productivityScore, day.pointsDelta, day.hasActivity);
+                const isToday = day.date === model.rangeDates.at(-1);
+                const dayNumber = Number(day.date.slice(8, 10));
+                const statusText = day.hasActivity ? `${visual.toneLabel} • ${day.productivityScore}%` : locale === "ko" ? "기록 없음" : "No record";
+                return (
+                  <div
+                    key={day.date}
+                    className={`relative aspect-square rounded-full shadow-[inset_0_1px_0_rgba(255,255,255,0.5)] transition-transform hover:scale-[1.03] ${visual.className} ${isToday ? "ring-2 ring-blue-600 ring-offset-2" : ""}`}
+                    style={visual.style}
+                    title={`${day.date} ${statusText}`}
+                  >
+                    <span className={`absolute inset-0 flex items-center justify-center text-[10px] font-extrabold ${visual.dayTextClass}`}>
+                      {dayNumber}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-3 rounded-2xl bg-white/70 px-3 py-2">
+              <div className="flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+                <span>{locale === "ko" ? "기록 없음" : "No record"}</span>
+                <span>{locale === "ko" ? "낮음" : "Low"}</span>
+                <span>{locale === "ko" ? "보통" : "Medium"}</span>
+                <span>{locale === "ko" ? "높음" : "High"}</span>
               </div>
-              <span>{locale === "ko" ? "높음" : "High"}</span>
+              <div className="mt-1 flex items-center gap-2">
+                <div className="h-3 w-3 rounded-sm border border-slate-300 bg-white" />
+                <div className="h-2 flex-1 rounded-full bg-gradient-to-r from-pink-300 via-sky-300 to-blue-700" />
+                <div className="h-3 w-3 rounded-sm bg-rose-500" />
+              </div>
+              <p className="mt-1 text-right text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+                {locale === "ko" ? "빨강은 감점 발생일" : "Red means penalty day"}
+              </p>
             </div>
           </div>
         </section>
