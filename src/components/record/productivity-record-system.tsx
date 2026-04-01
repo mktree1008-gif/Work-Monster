@@ -672,15 +672,15 @@ function heatCellVisual(scoreValue: number, pointsDelta: number, hasActivity: bo
 
   const clamped = Math.max(0, Math.min(100, scoreValue));
   const t = clamped / 100;
-  const hue = Math.round(342 - t * 52); // rose -> violet
-  const saturation = Math.round(76 + t * 14);
-  const light = Math.round(83 - t * 30);
-  const deepLight = Math.max(30, light - 14);
+  const hue = Math.round(350 - t * 132); // rose -> blue
+  const saturation = Math.round(74 + t * 18);
+  const light = Math.round(84 - t * 28);
+  const deepLight = Math.max(28, light - 16);
 
   return {
     className: "border border-white/60",
     style: {
-      background: `radial-gradient(145% 145% at 26% 20%, hsl(${hue + 8} ${Math.max(62, saturation - 10)}% ${Math.min(94, light + 10)}%) 0%, hsl(${hue} ${saturation}% ${light}%) 52%, hsl(${Math.max(260, hue - 18)} ${Math.min(96, saturation + 4)}% ${deepLight}%) 100%)`
+      background: `radial-gradient(145% 145% at 26% 20%, hsl(${hue + 8} ${Math.max(62, saturation - 10)}% ${Math.min(94, light + 10)}%) 0%, hsl(${hue} ${saturation}% ${light}%) 52%, hsl(${Math.max(206, hue - 24)} ${Math.min(96, saturation + 4)}% ${deepLight}%) 100%)`
     },
     dayTextClass: clamped >= 58 ? "text-white" : "text-slate-700",
     toneLabel: clamped >= 85 ? "Excellent" : clamped >= 65 ? "Great" : clamped >= 40 ? "Medium" : "Low"
@@ -848,8 +848,8 @@ export function ProductivityRecordSystem({ mode, locale, userId, score, submissi
               </div>
               <div className="mt-1 flex items-center gap-2">
                 <div className="h-3 w-3 rounded-sm border border-slate-300 bg-white" />
-                <div className="h-2 flex-1 rounded-full bg-gradient-to-r from-rose-300 via-fuchsia-300 to-violet-700" />
-                <div className="h-3 w-3 rounded-sm bg-violet-700" />
+                <div className="h-2 flex-1 rounded-full bg-gradient-to-r from-rose-300 via-sky-300 to-blue-700" />
+                <div className="h-3 w-3 rounded-sm bg-blue-700" />
               </div>
               <div className="mt-1 flex items-center justify-end gap-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">
                 <span className="inline-flex h-3 w-3 rounded-full border border-rose-300 bg-rose-100" />
