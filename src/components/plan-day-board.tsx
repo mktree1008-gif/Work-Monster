@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { FormEvent, TouchEvent } from "react";
+import type { FormEvent } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
@@ -24,6 +24,7 @@ import {
   TriangleAlert,
   TrendingUp,
   Wand2,
+  X,
   Zap
 } from "lucide-react";
 import { getSleepSummary, getWorkoutSummary } from "@/lib/wellness-storage";
@@ -67,6 +68,13 @@ type QuickTaskForm = {
   note: string;
 };
 
+type QuickAddRow = {
+  id: string;
+  title: string;
+};
+
+type QuickAddDefaults = Omit<QuickTaskForm, "title">;
+
 type Suggestion = {
   id: string;
   title: string;
@@ -107,7 +115,6 @@ const STORAGE_PREFIX = "workmonster-plan-v2";
 const LEGACY_STORAGE_PREFIX = "workmonster-plan";
 const FOCUS_STORAGE_PREFIX = "workmonster-focus-v1";
 const ACTIVE_MISSION_KEY = "workmonster-active-mission";
-const SWIPE_REVEAL_CLASS = "-translate-x-[8.6rem]";
 const RANGE_NOTE_REGEX = /\[(?:Range|기간):\s*(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})\]/i;
 
 const CATEGORY_COLOR: Record<Category, string> = {
@@ -160,6 +167,13 @@ function nowISO(): string {
 
 function createTaskId(prefix = "task"): string {
   return `${prefix}-${Date.now()}-${Math.floor(Math.random() * 100000)}`;
+}
+
+function createQuickAddRow(initialTitle = ""): QuickAddRow {
+  return {
+    id: createTaskId("quick-row"),
+    title: initialTitle
+  };
 }
 
 function clampDuration(value: number): number {
@@ -512,6 +526,19 @@ function defaultQuickTaskForm(): QuickTaskForm {
   };
 }
 
+function defaultQuickAddDefaults(): QuickAddDefaults {
+  const base = defaultQuickTaskForm();
+  return {
+    category: base.category,
+    priority: base.priority,
+    duration: base.duration,
+    is_high_impact: base.is_high_impact,
+    is_mission_linked: base.is_mission_linked,
+    due_date: base.due_date,
+    note: base.note
+  };
+}
+
 export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
   const isKo = locale === "ko";
   const [todayISO, setTodayISO] = useState(() => toLocalISODate());
@@ -522,11 +549,17 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
   const [saveMessage, setSaveMessage] = useState("");
   const [focusActionState, setFocusActionState] = useState<"idle" | "saved" | "skipped">("idle");
   const [quickTaskOpen, setQuickTaskOpen] = useState(false);
+  const [quickAddOpen, setQuickAddOpen] = useState(false);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [dismissedSuggestionIds, setDismissedSuggestionIds] = useState<string[]>([]);
   const [completionCelebration, setCompletionCelebration] = useState<CompletionCelebration | null>(null);
+  const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [quickForm, setQuickForm] = useState<QuickTaskForm>(defaultQuickTaskForm);
+  const [quickAddRows, setQuickAddRows] = useState<QuickAddRow[]>(() => [createQuickAddRow()]);
+  const [quickAddDefaults, setQuickAddDefaults] = useState<QuickAddDefaults>(defaultQuickAddDefaults);
+  const [quickAddRangeStartISO, setQuickAddRangeStartISO] = useState("");
+  const [quickAddRangeEndISO, setQuickAddRangeEndISO] = useState("");
   const [duePickerOpen, setDuePickerOpen] = useState(false);
   const [duePickerMonthISO, setDuePickerMonthISO] = useState(() => monthStartISO(new Date()));
   const [dueRangeStartISO, setDueRangeStartISO] = useState("");
@@ -534,9 +567,7 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
   const [dueDraftStartISO, setDueDraftStartISO] = useState("");
   const [dueDraftEndISO, setDueDraftEndISO] = useState("");
   const [completedCollapsed, setCompletedCollapsed] = useState(false);
-  const [swipedTaskId, setSwipedTaskId] = useState<string | null>(null);
   const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
-  const touchStartXRef = useRef(0);
   const toastTimerRef = useRef<number | null>(null);
   const focusActionTimerRef = useRef<number | null>(null);
   const celebrationTimerRef = useRef<number | null>(null);
@@ -572,13 +603,13 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
   }, [hydrated, tasks, todayISO, userId]);
 
   useEffect(() => {
-    if (!quickTaskOpen && !suggestionsOpen) return undefined;
+    if (!quickTaskOpen && !quickAddOpen && !suggestionsOpen) return undefined;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => {
       document.body.style.overflow = prev;
     };
-  }, [quickTaskOpen, suggestionsOpen]);
+  }, [quickTaskOpen, quickAddOpen, suggestionsOpen]);
 
   useEffect(() => {
     return () => {
@@ -1189,6 +1220,91 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
     setDuePickerMonthISO(monthStartISO(new Date()));
   }
 
+  function openQuickAddSheet() {
+    setQuickAddRows([createQuickAddRow()]);
+    setQuickAddDefaults(defaultQuickAddDefaults());
+    setQuickAddRangeStartISO("");
+    setQuickAddRangeEndISO("");
+    setQuickAddOpen(true);
+  }
+
+  function closeQuickAddSheet() {
+    setQuickAddOpen(false);
+  }
+
+  function addQuickAddRow(prefill = "") {
+    setQuickAddRows((prev) => [...prev, createQuickAddRow(prefill)]);
+  }
+
+  function removeQuickAddRow(rowId: string) {
+    setQuickAddRows((prev) => {
+      if (prev.length <= 1) {
+        return prev.map((row) => (row.id === rowId ? { ...row, title: "" } : row));
+      }
+      return prev.filter((row) => row.id !== rowId);
+    });
+  }
+
+  function updateQuickAddRow(rowId: string, title: string) {
+    setQuickAddRows((prev) => prev.map((row) => (row.id === rowId ? { ...row, title } : row)));
+  }
+
+  function createTasksFromQuickAdd(openEditorAfterCreate: boolean) {
+    const seen = new Set<string>();
+    const titles = quickAddRows
+      .map((row) => row.title.trim())
+      .filter((title) => {
+        const key = title.toLowerCase();
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+    if (titles.length === 0) {
+      showSaveMessage(isKo ? "추가할 작업 제목을 입력해 주세요." : "Add at least one task title.");
+      return;
+    }
+
+    const dueStart = parseDateToISO(quickAddRangeStartISO) ?? parseDateToISO(quickAddDefaults.due_date);
+    const dueEnd = parseDateToISO(quickAddRangeEndISO) ?? dueStart;
+    const normalizedRange = dueStart && dueEnd ? normalizeRange(dueStart, dueEnd) : null;
+    const resolvedDueDate = normalizedRange?.end ?? dueStart ?? undefined;
+    const resolvedNote = composeTaskNote(quickAddDefaults.note, normalizedRange?.start ?? null, normalizedRange?.end ?? null, locale);
+
+    const createdTasks: PlannerTask[] = titles.map((title) => ({
+      id: createTaskId("quick"),
+      user_id: userId,
+      title,
+      category: quickAddDefaults.category,
+      priority: quickAddDefaults.priority,
+      duration: clampDuration(quickAddDefaults.duration),
+      is_high_impact: quickAddDefaults.is_high_impact || quickAddDefaults.priority === "high" || quickAddDefaults.is_mission_linked,
+      is_completed: false,
+      is_mission_linked: quickAddDefaults.is_mission_linked,
+      mission_id: quickAddDefaults.is_mission_linked ? activeMission?.id : undefined,
+      due_date: resolvedDueDate,
+      note: resolvedNote,
+      created_at: nowISO()
+    }));
+
+    const nextTasks = [...createdTasks, ...tasks];
+    updateTasks(nextTasks, isKo ? `${createdTasks.length}개 작업을 추가했어요.` : `${createdTasks.length} tasks added.`);
+    setExpandedTaskId(createdTasks[0]?.id ?? null);
+    setQuickAddOpen(false);
+    setQuickAddRows([createQuickAddRow()]);
+
+    if (openEditorAfterCreate && createdTasks[0]) {
+      window.setTimeout(() => {
+        openQuickTaskSheet(createdTasks[0]);
+      }, 80);
+    }
+  }
+
+  function submitQuickAdd(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    createTasksFromQuickAdd(true);
+  }
+
   function submitQuickTask(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const title = quickForm.title.trim();
@@ -1255,7 +1371,9 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
 
   function deleteTask(taskId: string) {
     updateTasks(tasks.filter((task) => task.id !== taskId), isKo ? "작업이 삭제됐어요." : "Task deleted.");
-    setSwipedTaskId(null);
+    if (expandedTaskId === taskId) {
+      setExpandedTaskId(null);
+    }
   }
 
   function moveTaskToTomorrow(taskId: string) {
@@ -1273,7 +1391,9 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
 
     writeTasksForDate(userId, tomorrowISO, [copied, ...tomorrowTasks]);
     updateTasks(tasks.filter((task) => task.id !== taskId), isKo ? "내일로 이동했어요." : "Moved to tomorrow.");
-    setSwipedTaskId(null);
+    if (expandedTaskId === taskId) {
+      setExpandedTaskId(null);
+    }
   }
 
   function carryForwardFromYesterday() {
@@ -1331,23 +1451,137 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
     setTasks(next);
   }
 
-  function onRowTouchStart(event: TouchEvent) {
-    touchStartXRef.current = event.changedTouches[0]?.clientX ?? 0;
-  }
+  function renderActiveTaskCard(task: PlannerTask, tone: "high" | "other") {
+    const isExpanded = expandedTaskId === task.id;
+    const dueChip = taskDueChipLabel(task, locale);
+    const cardBase =
+      tone === "high"
+        ? "rounded-2xl border border-blue-200/70 bg-gradient-to-r from-white to-blue-50/35 shadow-[0_10px_24px_rgba(37,99,235,0.12)]"
+        : "rounded-2xl border border-slate-200 bg-slate-50/80";
 
-  function onRowTouchEnd(taskId: string, event: TouchEvent) {
-    const endX = event.changedTouches[0]?.clientX ?? 0;
-    const diff = endX - touchStartXRef.current;
-    if (diff < -40) {
-      setSwipedTaskId(taskId);
-      return;
-    }
-    if (diff > 35) {
-      setSwipedTaskId(null);
-    }
+    return (
+      <article
+        className={`${cardBase} cursor-pointer p-3 transition hover:border-blue-300`}
+        draggable
+        key={task.id}
+        onClick={() => setExpandedTaskId((prev) => (prev === task.id ? null : task.id))}
+        onDragEnd={() => setDraggingTaskId(null)}
+        onDragOver={(event) => event.preventDefault()}
+        onDragStart={() => setDraggingTaskId(task.id)}
+        onDrop={() => {
+          if (!draggingTaskId) return;
+          reorderTask(draggingTaskId, task.id);
+          setDraggingTaskId(null);
+        }}
+      >
+        <div className="flex items-start gap-3">
+          <button
+            className={`mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 ${
+              task.is_completed ? "border-blue-500 bg-blue-500 text-white" : "border-blue-500 text-transparent"
+            }`}
+            onClick={(event) => {
+              event.stopPropagation();
+              toggleCompleted(task.id);
+            }}
+            type="button"
+          >
+            <Check size={14} />
+          </button>
+
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start gap-2">
+              <p className="line-clamp-2 flex-1 break-words text-[1.04rem] font-black leading-snug text-slate-900">
+                {task.title}
+              </p>
+              <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/95 text-slate-300 shadow-sm">
+                <GripVertical size={15} />
+              </span>
+            </div>
+
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+              <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-black ${CATEGORY_COLOR[task.category]}`}>
+                {categoryLabel(task.category, locale)}
+              </span>
+              <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-slate-500">
+                <Clock3 size={11} />
+                {formatTaskMinutes(task.duration, locale)}
+              </span>
+              {dueChip && (
+                <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-700">
+                  <CalendarClock size={11} />
+                  {isKo ? "마감" : "Due"} {dueChip}
+                </span>
+              )}
+              {task.is_mission_linked && (
+                <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-fuchsia-100 px-2 py-0.5 text-[10px] font-black text-fuchsia-700">
+                  <Target size={11} />
+                  {isKo ? "매니저 미션" : "MISSION"}
+                </span>
+              )}
+              {!task.is_mission_linked && (
+                <span className="whitespace-nowrap rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-slate-500">
+                  {priorityLabel(task.priority, locale)}
+                </span>
+              )}
+            </div>
+
+            {visibleTaskNote(task.note) && (
+              <p className="mt-1.5 line-clamp-2 text-xs text-slate-500">{visibleTaskNote(task.note)}</p>
+            )}
+
+            <div
+              className={`mt-2 grid overflow-hidden transition-all duration-300 ${
+                isExpanded ? "max-h-20 grid-cols-3 gap-2 opacity-100" : "max-h-0 grid-cols-3 gap-0 opacity-0"
+              }`}
+            >
+              <button
+                className="inline-flex items-center justify-center gap-1 rounded-xl border border-slate-200 bg-white py-1.5 text-xs font-bold text-slate-700 transition hover:bg-slate-100"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  openQuickTaskSheet(task);
+                }}
+                type="button"
+              >
+                <Pencil size={13} />
+                {isKo ? "수정" : "Edit"}
+              </button>
+              <button
+                className="inline-flex items-center justify-center gap-1 rounded-xl border border-amber-200 bg-amber-50 py-1.5 text-xs font-bold text-amber-700 transition hover:bg-amber-100"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  moveTaskToTomorrow(task.id);
+                }}
+                type="button"
+              >
+                <CornerDownRight size={13} />
+                {isKo ? "내일" : "Carry"}
+              </button>
+              <button
+                className="inline-flex items-center justify-center gap-1 rounded-xl border border-rose-200 bg-rose-50 py-1.5 text-xs font-bold text-rose-700 transition hover:bg-rose-100"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  deleteTask(task.id);
+                }}
+                type="button"
+              >
+                <Trash2 size={13} />
+                {isKo ? "삭제" : "Delete"}
+              </button>
+            </div>
+
+            {!isExpanded && (
+              <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.1em] text-slate-400">
+                {isKo ? "탭해서 관리하기" : "Tap to manage"}
+              </p>
+            )}
+          </div>
+        </div>
+      </article>
+    );
   }
 
   const sectionTitleChecklist = isKo ? "오늘의 체크리스트" : "Today's Checklist";
+  const activeTaskCount = highImpactTasks.length + otherTasks.length;
   const celebrationPercent = completionCelebration?.percent ?? 0;
   const celebrationRadius = 42;
   const celebrationCircumference = 2 * Math.PI * celebrationRadius;
@@ -1404,12 +1638,12 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
       </article>
 
       <section>
-        <div className="mb-3 px-1">
-          <div>
+        <div className="mb-3 flex flex-wrap items-start justify-between gap-3 px-1">
+          <div className="min-w-0">
             <h2 className="text-3xl font-black text-slate-900">{sectionTitleChecklist}</h2>
             <p className="mt-1 inline-flex items-center gap-1 whitespace-nowrap text-xs font-semibold text-slate-500">
               <GripVertical size={13} />
-              {isKo ? "드래그 또는 ↑↓ 버튼으로 우선순위를 바꿀 수 있어요." : "Drag rows or use ↑↓ buttons to reorder priority."}
+              {isKo ? "카드를 길게 눌러 드래그하면 우선순위를 바꿀 수 있어요." : "Long press and drag cards to reorder priority."}
             </p>
             {focusText.trim().length > 0 && (
               <p className="mt-2 inline-flex max-w-[31rem] items-center gap-2 rounded-full bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 px-4 py-2 text-sm font-black text-white shadow-[0_10px_24px_rgba(43,80,214,0.34)] sm:text-base">
@@ -1418,10 +1652,23 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
               </p>
             )}
           </div>
+          <div className="inline-flex items-center gap-2 rounded-2xl border border-blue-100 bg-white/95 px-2 py-2 shadow-sm">
+            <span className="inline-flex h-8 items-center rounded-xl bg-slate-100 px-3 text-xs font-black text-slate-600">
+              {isKo ? "활성" : "Active"} {activeTaskCount}
+            </span>
+            <button
+              className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 px-3 py-2 text-xs font-black text-white shadow-[0_10px_20px_rgba(43,80,214,0.3)] transition hover:brightness-105 active:scale-[0.98]"
+              onClick={openQuickAddSheet}
+              type="button"
+            >
+              <Plus size={14} />
+              {isKo ? "Quick Add" : "Quick Add"}
+            </button>
+          </div>
         </div>
 
         <article className="overflow-hidden rounded-[2rem] border border-slate-200/60 bg-white shadow-[0_16px_40px_rgba(33,72,165,0.09)]">
-          <div className="bg-blue-50/50 px-4 py-4">
+          <div className="bg-gradient-to-br from-blue-50/70 via-white to-blue-50/50 px-4 py-4">
             <div className="mb-3 flex items-center justify-between">
               <p className="whitespace-nowrap text-xs font-black uppercase tracking-[0.18em] text-blue-700">{isKo ? "핵심 임팩트" : "High Impact"}</p>
               <div className="flex items-center gap-2">
@@ -1452,116 +1699,10 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
 
             <div className="space-y-2">
               {highImpactTasks.length > 0 ? (
-                highImpactTasks.map((task, index) => (
-                  <div className="relative overflow-hidden rounded-2xl" key={task.id}>
-                    <div
-                      className={`relative rounded-2xl bg-white/80 p-3 transition-transform duration-200 ${swipedTaskId === task.id ? SWIPE_REVEAL_CLASS : "translate-x-0"}`}
-                      draggable
-                      onDragEnd={() => setDraggingTaskId(null)}
-                      onDragOver={(event) => event.preventDefault()}
-                      onDragStart={() => setDraggingTaskId(task.id)}
-                      onDrop={() => {
-                        if (!draggingTaskId) return;
-                        reorderTask(draggingTaskId, task.id);
-                        setDraggingTaskId(null);
-                      }}
-                      onTouchEnd={(event) => onRowTouchEnd(task.id, event)}
-                      onTouchStart={onRowTouchStart}
-                    >
-                      <div className="flex items-start gap-3">
-                        <button
-                          className={`mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 ${task.is_completed ? "border-blue-500 bg-blue-500 text-white" : "border-blue-500 text-transparent"}`}
-                          onClick={() => toggleCompleted(task.id)}
-                          type="button"
-                        >
-                          <Check size={14} />
-                        </button>
-
-                        <div className="min-w-0 flex-1">
-                          <p className="break-words text-[1.08rem] font-black leading-tight text-slate-900">{task.title}</p>
-                          <div className="mt-1 flex flex-wrap items-center gap-2">
-                            <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-black ${CATEGORY_COLOR[task.category]}`}>
-                              {categoryLabel(task.category, locale)}
-                            </span>
-                            <span className="inline-flex items-center gap-1 whitespace-nowrap text-[12px] text-slate-500">
-                              <Clock3 size={12} />
-                              {formatTaskMinutes(task.duration, locale)}
-                            </span>
-                            {taskDueChipLabel(task, locale) && (
-                              <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-700">
-                                <CalendarClock size={11} />
-                                {isKo ? "마감" : "Due"} {taskDueChipLabel(task, locale)}
-                              </span>
-                            )}
-                            {task.is_mission_linked && (
-                              <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-fuchsia-100 px-2 py-0.5 text-[10px] font-black text-fuchsia-700">
-                                <Target size={12} />
-                                {isKo ? "매니저 미션" : "MANAGER MISSION"}
-                              </span>
-                            )}
-                          </div>
-                          {visibleTaskNote(task.note) && <p className="mt-1 max-h-9 overflow-hidden text-xs text-slate-500">{visibleTaskNote(task.note)}</p>}
-
-                          <div className="mt-2 flex flex-wrap items-center gap-1">
-                            <button
-                              aria-label={isKo ? "위로 이동" : "Move up"}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-35"
-                              disabled={index === 0}
-                              onClick={() => {
-                                const prev = highImpactTasks[index - 1];
-                                if (!prev) return;
-                                reorderTask(task.id, prev.id);
-                              }}
-                              type="button"
-                            >
-                              <ChevronUp size={14} />
-                            </button>
-                            <button
-                              aria-label={isKo ? "아래로 이동" : "Move down"}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-35"
-                              disabled={index === highImpactTasks.length - 1}
-                              onClick={() => {
-                                const next = highImpactTasks[index + 1];
-                                if (!next) return;
-                                reorderTask(task.id, next.id);
-                              }}
-                              type="button"
-                            >
-                              <ChevronDown size={14} />
-                            </button>
-                            <button
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-100"
-                              onClick={() => openQuickTaskSheet(task)}
-                              type="button"
-                            >
-                              <Pencil size={14} />
-                            </button>
-                            <button
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-amber-200 bg-amber-50 text-amber-700 shadow-sm transition hover:bg-amber-100"
-                              onClick={() => moveTaskToTomorrow(task.id)}
-                              type="button"
-                            >
-                              <CornerDownRight size={14} />
-                            </button>
-                            <button
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-rose-200 bg-rose-50 text-rose-700 shadow-sm transition hover:bg-rose-100"
-                              onClick={() => deleteTask(task.id)}
-                              type="button"
-                            >
-                              <Trash2 size={14} />
-                            </button>
-                            <span className="ml-auto inline-flex text-slate-300">
-                              <GripVertical size={18} />
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))
+                highImpactTasks.map((task) => renderActiveTaskCard(task, "high"))
               ) : (
                 <p className="rounded-xl bg-white px-3 py-3 text-sm text-slate-500">
-                  {isKo ? "핵심 작업이 아직 없습니다. Quick Task로 시작해보세요." : "No high-impact tasks yet. Start with Quick Task."}
+                  {isKo ? "핵심 작업이 아직 없습니다. Quick Add로 빠르게 시작해보세요." : "No high-impact tasks yet. Start quickly with Quick Add."}
                 </p>
               )}
             </div>
@@ -1573,110 +1714,7 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
               <span className="text-xs font-bold text-slate-400">{otherTasks.length}</span>
             </div>
             {otherTasks.length > 0 ? (
-              otherTasks.map((task, index) => (
-                <div className="relative overflow-hidden rounded-2xl" key={task.id}>
-                  <div
-                    className={`relative rounded-2xl bg-slate-50 p-3 transition-transform duration-200 ${swipedTaskId === task.id ? SWIPE_REVEAL_CLASS : "translate-x-0"}`}
-                    draggable
-                    onDragEnd={() => setDraggingTaskId(null)}
-                    onDragOver={(event) => event.preventDefault()}
-                    onDragStart={() => setDraggingTaskId(task.id)}
-                    onDrop={() => {
-                      if (!draggingTaskId) return;
-                      reorderTask(draggingTaskId, task.id);
-                      setDraggingTaskId(null);
-                    }}
-                    onTouchEnd={(event) => onRowTouchEnd(task.id, event)}
-                    onTouchStart={onRowTouchStart}
-                  >
-                    <div className="flex items-start gap-3">
-                      <button
-                        className={`mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 ${task.is_completed ? "border-blue-500 bg-blue-500 text-white" : "border-slate-300 text-transparent"}`}
-                        onClick={() => toggleCompleted(task.id)}
-                        type="button"
-                      >
-                        <Check size={14} />
-                      </button>
-
-                      <div className="min-w-0 flex-1">
-                        <p className="break-words text-base font-semibold leading-tight text-slate-900">{task.title}</p>
-                        <div className="mt-1 flex flex-wrap items-center gap-2">
-                          <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-black ${CATEGORY_COLOR[task.category]}`}>
-                            {categoryLabel(task.category, locale)}
-                          </span>
-                          <span className="inline-flex items-center gap-1 whitespace-nowrap text-[12px] text-slate-500">
-                            <Clock3 size={12} />
-                            {formatTaskMinutes(task.duration, locale)}
-                          </span>
-                          {taskDueChipLabel(task, locale) && (
-                            <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-700">
-                              <CalendarClock size={11} />
-                              {isKo ? "마감" : "Due"} {taskDueChipLabel(task, locale)}
-                            </span>
-                          )}
-                          <span className="whitespace-nowrap rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-slate-500">
-                            {priorityLabel(task.priority, locale)}
-                          </span>
-                        </div>
-                        {visibleTaskNote(task.note) && <p className="mt-1 max-h-9 overflow-hidden text-xs text-slate-500">{visibleTaskNote(task.note)}</p>}
-
-                        <div className="mt-2 flex flex-wrap items-center gap-1">
-                          <button
-                            aria-label={isKo ? "위로 이동" : "Move up"}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-35"
-                            disabled={index === 0}
-                            onClick={() => {
-                              const prev = otherTasks[index - 1];
-                              if (!prev) return;
-                              reorderTask(task.id, prev.id);
-                            }}
-                            type="button"
-                          >
-                            <ChevronUp size={14} />
-                          </button>
-                          <button
-                            aria-label={isKo ? "아래로 이동" : "Move down"}
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-35"
-                            disabled={index === otherTasks.length - 1}
-                            onClick={() => {
-                              const next = otherTasks[index + 1];
-                              if (!next) return;
-                              reorderTask(task.id, next.id);
-                            }}
-                            type="button"
-                          >
-                            <ChevronDown size={14} />
-                          </button>
-                          <button
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:bg-slate-100"
-                            onClick={() => openQuickTaskSheet(task)}
-                            type="button"
-                          >
-                            <Pencil size={14} />
-                          </button>
-                          <button
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-amber-200 bg-amber-50 text-amber-700 shadow-sm transition hover:bg-amber-100"
-                            onClick={() => moveTaskToTomorrow(task.id)}
-                            type="button"
-                          >
-                            <CornerDownRight size={14} />
-                          </button>
-                          <button
-                            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-rose-200 bg-rose-50 text-rose-700 shadow-sm transition hover:bg-rose-100"
-                            onClick={() => deleteTask(task.id)}
-                            type="button"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                          <span className="ml-auto inline-flex text-slate-300">
-                            <GripVertical size={18} />
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))
+              otherTasks.map((task) => renderActiveTaskCard(task, "other"))
             ) : (
               <p className="rounded-xl bg-slate-50 px-3 py-3 text-sm text-slate-500">
                 {isKo ? "다른 작업은 없습니다." : "No other tasks for today."}
@@ -1770,13 +1808,13 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
           <div className="mt-3 grid grid-cols-2 gap-2.5">
             <button
               className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-2xl bg-white px-3 py-2 text-sm font-black text-blue-700 shadow-[0_8px_18px_rgba(8,42,120,0.2)]"
-              onClick={() => openQuickTaskSheet()}
+              onClick={openQuickAddSheet}
               type="button"
             >
               <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-blue-700">
                 <Plus size={14} />
               </span>
-              <span>{isKo ? "Quick Task" : "Quick Task"}</span>
+              <span>{isKo ? "Quick Add" : "Quick Add"}</span>
             </button>
             <button
               className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-2xl border border-white/25 bg-white/15 px-3 py-2 text-sm font-black text-white"
@@ -1940,11 +1978,210 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
 
       <button
         className="fixed bottom-28 right-6 z-40 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-[0_16px_30px_rgba(24,83,236,0.35)] transition-transform active:scale-95"
-        onClick={() => openQuickTaskSheet()}
+        onClick={openQuickAddSheet}
         type="button"
       >
         <Plus size={28} />
       </button>
+
+      {quickAddOpen && (
+        <div className="fixed inset-0 z-[79] bg-slate-950/45 px-4 py-8" onClick={closeQuickAddSheet}>
+          <div
+            className="mx-auto max-h-[92dvh] w-full max-w-xl overflow-y-auto rounded-[2rem] border border-blue-100 bg-white p-4 shadow-[0_24px_60px_rgba(15,23,42,0.28)] sm:p-5"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="text-2xl font-black text-slate-900">{isKo ? "Quick Add" : "Quick Add"}</h3>
+                <p className="mt-1 text-xs font-semibold text-slate-500">
+                  {isKo
+                    ? "아침 체크리스트를 빠르게 여러 개 만들고, 필요하면 바로 상세 편집까지 이어가세요."
+                    : "Create multiple tasks fast, then jump to detailed editor if needed."}
+                </p>
+              </div>
+              <button
+                aria-label={isKo ? "닫기" : "Close"}
+                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-slate-50 text-slate-600 transition hover:bg-slate-100"
+                onClick={closeQuickAddSheet}
+                type="button"
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            <form className="space-y-3" onSubmit={submitQuickAdd}>
+              <div className="rounded-2xl border border-blue-100 bg-blue-50/45 p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-xs font-black uppercase tracking-[0.14em] text-blue-700">
+                    {isKo ? "Task List Up" : "Task List Up"}
+                  </p>
+                  <span className="rounded-full bg-white px-2 py-1 text-[11px] font-bold text-slate-600">
+                    {quickAddRows.filter((row) => row.title.trim().length > 0).length} {isKo ? "입력됨" : "ready"}
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {quickAddRows.map((row, index) => (
+                    <div className="flex items-center gap-2" key={row.id}>
+                      <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white text-xs font-black text-blue-700 shadow-sm">
+                        {index + 1}
+                      </span>
+                      <input
+                        className="input h-11 flex-1"
+                        onChange={(event) => updateQuickAddRow(row.id, event.target.value)}
+                        placeholder={isKo ? "할 일을 입력하세요" : "Type a task"}
+                        value={row.title}
+                      />
+                      <button
+                        aria-label={isKo ? "행 삭제" : "Remove row"}
+                        className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-rose-200 bg-rose-50 text-rose-600 transition hover:bg-rose-100"
+                        onClick={() => removeQuickAddRow(row.id)}
+                        type="button"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-blue-700 shadow-sm transition hover:bg-blue-100"
+                    onClick={() => addQuickAddRow()}
+                    type="button"
+                  >
+                    <Plus size={13} />
+                    {isKo ? "계속 추가하기" : "Add more row"}
+                  </button>
+                  <button
+                    className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-3 py-1.5 text-xs font-bold text-violet-700 transition hover:bg-violet-200"
+                    onClick={() => {
+                      closeQuickAddSheet();
+                      openQuickTaskSheet();
+                    }}
+                    type="button"
+                  >
+                    <Sparkles size={12} />
+                    {isKo ? "상세 편집 열기" : "Open full editor"}
+                  </button>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                <p className="text-[11px] font-black uppercase tracking-[0.14em] text-slate-600">
+                  {isKo ? "공통 설정 (한 번에 적용)" : "Shared settings (applied to all)"}
+                </p>
+
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <select
+                    className="input"
+                    onChange={(event) =>
+                      setQuickAddDefaults((prev) => ({ ...prev, category: normalizeCategory(event.target.value) }))
+                    }
+                    value={quickAddDefaults.category}
+                  >
+                    <option value="work">{categoryLabel("work", locale)}</option>
+                    <option value="health">{categoryLabel("health", locale)}</option>
+                    <option value="study">{categoryLabel("study", locale)}</option>
+                    <option value="personal">{categoryLabel("personal", locale)}</option>
+                    <option value="admin">{categoryLabel("admin", locale)}</option>
+                    <option value="custom">{categoryLabel("custom", locale)}</option>
+                  </select>
+                  <select
+                    className="input"
+                    onChange={(event) =>
+                      setQuickAddDefaults((prev) => ({ ...prev, priority: normalizePriority(event.target.value) }))
+                    }
+                    value={quickAddDefaults.priority}
+                  >
+                    <option value="high">{priorityLabel("high", locale)}</option>
+                    <option value="medium">{priorityLabel("medium", locale)}</option>
+                    <option value="low">{priorityLabel("low", locale)}</option>
+                  </select>
+                </div>
+
+                <div className="mt-2 grid grid-cols-3 gap-2">
+                  <label className="rounded-xl bg-white px-3 py-2 text-[11px] font-bold text-slate-600">
+                    {isKo ? "분" : "Mins"}
+                    <input
+                      className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                      min={5}
+                      onChange={(event) =>
+                        setQuickAddDefaults((prev) => ({ ...prev, duration: clampDuration(Number(event.target.value)) }))
+                      }
+                      type="number"
+                      value={quickAddDefaults.duration}
+                    />
+                  </label>
+                  <label className="rounded-xl bg-white px-3 py-2 text-[11px] font-bold text-slate-600">
+                    {isKo ? "시작일" : "Start"}
+                    <input
+                      className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                      onChange={(event) => setQuickAddRangeStartISO(event.target.value)}
+                      type="date"
+                      value={quickAddRangeStartISO}
+                    />
+                  </label>
+                  <label className="rounded-xl bg-white px-3 py-2 text-[11px] font-bold text-slate-600">
+                    {isKo ? "종료일" : "End"}
+                    <input
+                      className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                      onChange={(event) => {
+                        const nextEnd = event.target.value;
+                        setQuickAddRangeEndISO(nextEnd);
+                        setQuickAddDefaults((prev) => ({ ...prev, due_date: nextEnd || quickAddRangeStartISO }));
+                      }}
+                      type="date"
+                      value={quickAddRangeEndISO}
+                    />
+                  </label>
+                </div>
+
+                <div className="mt-2 grid grid-cols-2 gap-2 rounded-xl bg-white px-3 py-2 text-xs font-semibold text-slate-600">
+                  <label className="flex items-center gap-2">
+                    <input
+                      checked={quickAddDefaults.is_high_impact}
+                      onChange={(event) =>
+                        setQuickAddDefaults((prev) => ({ ...prev, is_high_impact: event.target.checked }))
+                      }
+                      type="checkbox"
+                    />
+                    {isKo ? "High Impact" : "High Impact"}
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      checked={quickAddDefaults.is_mission_linked}
+                      onChange={(event) =>
+                        setQuickAddDefaults((prev) => ({ ...prev, is_mission_linked: event.target.checked }))
+                      }
+                      type="checkbox"
+                    />
+                    {isKo ? "미션 연결" : "Mission linked"}
+                  </label>
+                </div>
+
+                <textarea
+                  className="input mt-2 min-h-20 resize-none"
+                  onChange={(event) => setQuickAddDefaults((prev) => ({ ...prev, note: event.target.value }))}
+                  placeholder={isKo ? "공통 메모 (선택)" : "Shared note (optional)"}
+                  value={quickAddDefaults.note}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 pt-1">
+                <button
+                  className="btn btn-muted w-full"
+                  onClick={() => createTasksFromQuickAdd(false)}
+                  type="button"
+                >
+                  {isKo ? "한 번에 생성" : "Create only"}
+                </button>
+                <button className="btn btn-primary w-full" type="submit">
+                  {isKo ? "생성 후 검토" : "Create + Review"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {quickTaskOpen && (
         <div className="fixed inset-0 z-[78] bg-slate-950/45" onClick={closeQuickTaskSheet}>
