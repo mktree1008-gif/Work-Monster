@@ -2233,6 +2233,7 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
                         const isStart = quickAddDraftStartISO === cell.iso;
                         const isEnd = quickAddDraftEndISO === cell.iso;
                         const inRange = isISOInQuickAddSelectedRange(cell.iso);
+                        const isToday = cell.iso === todayISO;
                         return (
                           <button
                             className={`h-8 rounded-lg text-xs font-bold transition ${
@@ -2240,7 +2241,9 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
                                 ? "bg-blue-600 text-white shadow-[0_8px_20px_rgba(37,99,235,0.3)]"
                                 : inRange
                                   ? "bg-blue-100 text-blue-700"
-                                  : "bg-white text-slate-600 hover:bg-blue-50"
+                                  : isToday
+                                    ? "bg-blue-50 text-blue-700 ring-1 ring-blue-200"
+                                    : "bg-white text-slate-600 hover:bg-blue-50"
                             }`}
                             key={`quick-add-date-${cell.iso}`}
                             onClick={() => handleQuickAddDateCellClick(cell.iso)}
