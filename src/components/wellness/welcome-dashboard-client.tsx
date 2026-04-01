@@ -244,25 +244,53 @@ export function WelcomeDashboardClient({ mission, checkinState, labels, score, r
 
   return (
     <section className="pb-32">
-      <section className="card card-standard mb-4 p-1.5">
+      <section className="card card-standard mb-4 overflow-hidden border border-blue-100/80 bg-gradient-to-br from-white via-blue-50/40 to-indigo-50/40 p-1.5 shadow-[0_10px_30px_rgba(59,130,246,0.12)]">
         <div className="grid grid-cols-2 gap-1">
           <button
-            className={`rounded-2xl px-4 py-2.5 text-[1.03rem] font-black tracking-tight transition ${
-              mode === "productivity" ? "bg-blue-700 text-white shadow-sm" : "bg-transparent text-slate-600"
+            className={`group relative rounded-2xl px-4 py-2.5 text-[1.03rem] font-black tracking-tight transition-all duration-200 ${
+              mode === "productivity"
+                ? "bg-gradient-to-r from-blue-700 via-indigo-600 to-blue-600 text-white shadow-[0_10px_24px_rgba(37,99,235,0.34)]"
+                : "bg-transparent text-slate-600 hover:bg-white/70"
             }`}
             onClick={() => setMode("productivity")}
             type="button"
           >
-            Productivity
+            <span className={`inline-flex items-center gap-1.5 whitespace-nowrap ${mode === "productivity" ? "drop-shadow-sm" : ""}`}>
+              <span
+                aria-label="man working on laptop"
+                className={`text-[1.04rem] ${mode === "productivity" ? "animate-[pulse_2.2s_ease-in-out_infinite]" : ""}`}
+                role="img"
+              >
+                👨‍💻
+              </span>
+              Productivity
+            </span>
+            {mode === "productivity" && (
+              <span className="pointer-events-none absolute right-3 top-2 h-2 w-2 rounded-full bg-cyan-200 shadow-[0_0_12px_rgba(103,232,249,0.95)]" />
+            )}
           </button>
           <button
-            className={`rounded-2xl px-4 py-2.5 text-[1.03rem] font-black tracking-tight transition ${
-              mode === "wellness" ? "bg-blue-700 text-white shadow-sm" : "bg-transparent text-slate-600"
+            className={`group relative rounded-2xl px-4 py-2.5 text-[1.03rem] font-black tracking-tight transition-all duration-200 ${
+              mode === "wellness"
+                ? "bg-gradient-to-r from-emerald-600 via-cyan-600 to-blue-600 text-white shadow-[0_10px_24px_rgba(20,184,166,0.3)]"
+                : "bg-transparent text-slate-600 hover:bg-white/70"
             }`}
             onClick={() => setMode("wellness")}
             type="button"
           >
-            Wellness
+            <span className={`inline-flex items-center gap-1.5 whitespace-nowrap ${mode === "wellness" ? "drop-shadow-sm" : ""}`}>
+              <span
+                aria-label="man lifting weights"
+                className={`text-[1.04rem] ${mode === "wellness" ? "animate-[pulse_2.2s_ease-in-out_infinite]" : ""}`}
+                role="img"
+              >
+                🏋️‍♂️
+              </span>
+              Wellness
+            </span>
+            {mode === "wellness" && (
+              <span className="pointer-events-none absolute right-3 top-2 h-2 w-2 rounded-full bg-emerald-200 shadow-[0_0_12px_rgba(110,231,183,0.95)]" />
+            )}
           </button>
         </div>
       </section>
