@@ -78,6 +78,23 @@ function toSafeInt(value: unknown): number {
   return Number.isFinite(parsed) ? Math.round(parsed) : 0;
 }
 
+function stripUndefinedDeep<T>(input: T): T {
+  if (Array.isArray(input)) {
+    return input
+      .map((item) => stripUndefinedDeep(item))
+      .filter((item) => item !== undefined) as T;
+  }
+  if (input && typeof input === "object") {
+    const output: Record<string, unknown> = {};
+    Object.entries(input as Record<string, unknown>).forEach(([key, value]) => {
+      if (value === undefined) return;
+      output[key] = stripUndefinedDeep(value);
+    });
+    return output as T;
+  }
+  return input;
+}
+
 function sortISODateAsc(values: string[]): string[] {
   return [...values].sort((a, b) => (a > b ? 1 : -1));
 }
@@ -363,18 +380,19 @@ export async function submitDailyCheckIn(
       submission_time: submittedAt ?? editableSameDate.submission_time ?? nowISO(),
       updated_at: nowISO()
     };
-    await repo.saveSubmission(updatedPending);
+    const sanitizedPending = stripUndefinedDeep(updatedPending);
+    await repo.saveSubmission(sanitizedPending);
     let submissionPointsAwarded = 0;
     if (saveMode === "submit") {
       const rules = await repo.getRules();
       submissionPointsAwarded = await awardSubmissionBasePointsOnce({
         userId,
-        submissionId: updatedPending.id,
-        submissionDate: updatedPending.date,
+        submissionId: sanitizedPending.id,
+        submissionDate: sanitizedPending.date,
         points: Math.round(rules.submission_points ?? 0)
       });
     }
-    return { submission: updatedPending, mode: "updated" as const, submissionPointsAwarded };
+    return { submission: sanitizedPending, mode: "updated" as const, submissionPointsAwarded };
   }
 
   const createdAt = nowISO();
@@ -389,20 +407,21 @@ export async function submitDailyCheckIn(
     },
     targetDate
   );
-  await repo.saveSubmission(submission);
+  const sanitizedSubmission = stripUndefinedDeep(submission);
+  await repo.saveSubmission(sanitizedSubmission);
 
   let submissionPointsAwarded = 0;
   if (saveMode === "submit") {
     const rules = await repo.getRules();
     submissionPointsAwarded = await awardSubmissionBasePointsOnce({
       userId,
-      submissionId: submission.id,
-      submissionDate: submission.date,
+      submissionId: sanitizedSubmission.id,
+      submissionDate: sanitizedSubmission.date,
       points: Math.round(rules.submission_points ?? 0)
     });
   }
 
-  return { submission, mode: "created" as const, submissionPointsAwarded };
+  return { submission: sanitizedSubmission, mode: "created" as const, submissionPointsAwarded };
 }
 
 export async function awardDailyLoginPoints(userId: string): Promise<DailyLoginAwardResult> {
