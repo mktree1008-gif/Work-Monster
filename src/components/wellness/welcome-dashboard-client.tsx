@@ -247,7 +247,7 @@ export function WelcomeDashboardClient({ mission, checkinState, labels, score, r
       <section className="card card-standard mb-4 overflow-hidden border border-blue-100/80 bg-gradient-to-br from-white via-blue-50/40 to-indigo-50/40 p-1.5 shadow-[0_10px_30px_rgba(59,130,246,0.12)]">
         <div className="grid grid-cols-2 gap-1">
           <button
-            className={`group relative rounded-2xl px-4 py-2.5 text-[clamp(1.08rem,4.6vw,1.18rem)] font-semibold tracking-[-0.01em] transition-all duration-200 ${
+            className={`group relative rounded-2xl px-4 py-2.5 text-[clamp(1.12rem,4.8vw,1.24rem)] font-medium tracking-[-0.008em] transition-all duration-200 ${
               mode === "productivity"
                 ? "bg-gradient-to-r from-blue-700 via-indigo-600 to-blue-600 text-white shadow-[0_8px_18px_rgba(37,99,235,0.3)]"
                 : "bg-transparent text-slate-600 hover:bg-white/70"
@@ -258,7 +258,7 @@ export function WelcomeDashboardClient({ mission, checkinState, labels, score, r
             <span className={`inline-flex items-center gap-1.5 whitespace-nowrap ${mode === "productivity" ? "drop-shadow-sm" : ""}`}>
               <span
                 aria-label="man working on laptop"
-                className={`text-[1.02rem] ${mode === "productivity" ? "animate-[pulse_2.2s_ease-in-out_infinite]" : ""}`}
+                className={`text-[0.98rem] ${mode === "productivity" ? "animate-[pulse_2.2s_ease-in-out_infinite]" : ""}`}
                 role="img"
               >
                 👨‍💻
@@ -270,7 +270,7 @@ export function WelcomeDashboardClient({ mission, checkinState, labels, score, r
             )}
           </button>
           <button
-            className={`group relative rounded-2xl px-4 py-2.5 text-[clamp(1.08rem,4.6vw,1.18rem)] font-semibold tracking-[-0.01em] transition-all duration-200 ${
+            className={`group relative rounded-2xl px-4 py-2.5 text-[clamp(1.12rem,4.8vw,1.24rem)] font-medium tracking-[-0.008em] transition-all duration-200 ${
               mode === "wellness"
                 ? "bg-gradient-to-r from-emerald-600 via-cyan-600 to-blue-600 text-white shadow-[0_8px_18px_rgba(20,184,166,0.28)]"
                 : "bg-transparent text-slate-600 hover:bg-white/70"
@@ -281,7 +281,7 @@ export function WelcomeDashboardClient({ mission, checkinState, labels, score, r
             <span className={`inline-flex items-center gap-1.5 whitespace-nowrap ${mode === "wellness" ? "drop-shadow-sm" : ""}`}>
               <span
                 aria-label="man lifting weights"
-                className={`text-[1.02rem] ${mode === "wellness" ? "animate-[pulse_2.2s_ease-in-out_infinite]" : ""}`}
+                className={`text-[0.98rem] ${mode === "wellness" ? "animate-[pulse_2.2s_ease-in-out_infinite]" : ""}`}
                 role="img"
               >
                 🏋️‍♂️

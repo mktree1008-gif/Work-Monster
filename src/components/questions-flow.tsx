@@ -730,7 +730,7 @@ export function QuestionsFlow({
 
   function StepShell({ title, description, children }: { title: string; description: string; children: ReactNode }) {
     return (
-      <div className="mt-2 min-h-[23rem] rounded-[1.5rem] bg-white/82 p-3.5 shadow-[0_12px_26px_rgba(18,32,96,0.08)] ring-1 ring-black/[0.03] sm:min-h-[24rem] sm:p-4">
+      <div className="mt-2 min-h-[21.75rem] rounded-[1.5rem] bg-white/82 p-3 shadow-[0_12px_26px_rgba(18,32,96,0.08)] ring-1 ring-black/[0.03] sm:min-h-[23rem] sm:p-4">
         <h2 className="truncate whitespace-nowrap text-[clamp(1.35rem,6.1vw,1.8rem)] font-extrabold leading-none tracking-[-0.015em] text-slate-900">
           {title}
         </h2>
@@ -800,8 +800,8 @@ export function QuestionsFlow({
   }
 
   return (
-    <section className="relative -mx-4 min-h-[calc(100dvh-6.4rem)] bg-gradient-to-b from-slate-100 via-slate-50 to-slate-100 px-4 pb-[calc(5.8rem+var(--safe-bottom))] pt-1 sm:mx-0 sm:rounded-[2rem] sm:px-6">
-      <header className="sticky top-0 z-20 -mx-4 border-b border-white/50 bg-white/80 px-4 pb-1.5 pt-1.5 backdrop-blur sm:mx-0 sm:-mt-2 sm:rounded-t-[2rem] sm:px-0">
+    <section className="relative -mx-4 min-h-[calc(100dvh-6.4rem)] bg-gradient-to-b from-slate-100 via-slate-50 to-slate-100 px-4 pb-[calc(5.4rem+var(--safe-bottom))] pt-1 sm:mx-0 sm:rounded-[2rem] sm:px-6">
+      <header className="sticky top-0 z-20 -mx-4 border-b border-white/50 bg-white/80 px-4 pb-1 pt-1 backdrop-blur sm:mx-0 sm:-mt-2 sm:rounded-t-[2rem] sm:px-0">
         <div className="flex items-center justify-between gap-2">
           <Link className="rounded-full p-2 text-blue-700 hover:bg-blue-50" href="/app/welcome">
             <X size={20} />
@@ -810,7 +810,7 @@ export function QuestionsFlow({
           <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-[11px] font-bold text-blue-700">{stepHeading}</span>
         </div>
 
-        <div className="mt-2">{dateSelectionPanel}</div>
+        <div className="mt-1.5">{dateSelectionPanel}</div>
 
         <div className="mt-1.5">
           <div className="mb-1 flex items-center justify-between text-[11px] font-semibold text-slate-500">
@@ -1271,7 +1271,7 @@ export function QuestionsFlow({
       <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-white/60 bg-white/85 px-5 pb-[calc(1rem+var(--safe-bottom))] pt-3 backdrop-blur">
         <div className="mx-auto flex w-full max-w-[420px] items-center justify-between gap-3">
           <button
-            className="inline-flex min-w-[6.8rem] items-center justify-center gap-2 rounded-full bg-slate-100 px-4 py-3 text-sm font-bold text-slate-700 disabled:opacity-45"
+            className="inline-flex min-w-[6.4rem] items-center justify-center gap-2 rounded-full bg-slate-100 px-4 py-2.5 text-[13px] font-semibold text-slate-700 disabled:opacity-45"
             disabled={currentStep === 0 || submitting}
             onClick={() => setCurrentStep((prev) => Math.max(0, prev - 1))}
             type="button"
@@ -1282,7 +1282,7 @@ export function QuestionsFlow({
 
           {currentStep < TOTAL_STEPS - 1 ? (
             <button
-              className="inline-flex min-w-[8.8rem] items-center justify-center gap-2 rounded-full bg-gradient-to-r from-blue-600 to-blue-400 px-5 py-3 text-sm font-black text-white shadow-[0_12px_22px_rgba(37,99,235,0.32)] disabled:opacity-45"
+              className="inline-flex min-w-[8.3rem] items-center justify-center gap-2 rounded-full bg-gradient-to-r from-blue-600 to-blue-400 px-5 py-2.5 text-[13px] font-semibold text-white shadow-[0_12px_22px_rgba(37,99,235,0.32)] disabled:opacity-45"
               disabled={!stepValid || submitting || isStepSaving}
               onClick={goNext}
               type="button"
@@ -1292,7 +1292,7 @@ export function QuestionsFlow({
             </button>
           ) : (
             <button
-              className="inline-flex min-w-[12rem] items-center justify-center gap-2 rounded-full bg-gradient-to-r from-blue-700 to-blue-500 px-5 py-3 text-sm font-black text-white shadow-[0_12px_22px_rgba(37,99,235,0.32)] disabled:opacity-45"
+              className="inline-flex min-w-[11.4rem] items-center justify-center gap-2 rounded-full bg-gradient-to-r from-blue-700 to-blue-500 px-5 py-2.5 text-[13px] font-semibold text-white shadow-[0_12px_22px_rgba(37,99,235,0.32)] disabled:opacity-45"
               disabled={submitting}
               onClick={onSubmitToManager}
               type="button"

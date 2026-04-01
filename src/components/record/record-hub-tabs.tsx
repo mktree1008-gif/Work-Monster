@@ -39,7 +39,7 @@ export function RecordHubTabs({
       <section className="card overflow-hidden border border-blue-100/80 bg-gradient-to-br from-white via-blue-50/40 to-indigo-50/40 p-1.5 shadow-[0_10px_30px_rgba(59,130,246,0.12)]">
         <div className="grid grid-cols-2 gap-1">
           <button
-            className={`group relative rounded-2xl px-4 py-2.5 text-[clamp(1.08rem,4.6vw,1.18rem)] font-semibold tracking-[-0.01em] transition-all duration-200 ${
+            className={`group relative rounded-2xl px-4 py-2.5 text-[clamp(1.12rem,4.8vw,1.24rem)] font-medium tracking-[-0.008em] transition-all duration-200 ${
               isProductivity
                 ? "bg-gradient-to-r from-blue-700 via-indigo-600 to-blue-600 text-white shadow-[0_8px_18px_rgba(37,99,235,0.3)]"
                 : "bg-transparent text-slate-600 hover:bg-white/70"
@@ -48,13 +48,13 @@ export function RecordHubTabs({
             type="button"
           >
             <span className={`inline-flex items-center gap-1.5 whitespace-nowrap ${isProductivity ? "drop-shadow-sm" : ""}`}>
-              <span className={`text-[1.02rem] ${isProductivity ? "animate-[pulse_2.2s_ease-in-out_infinite]" : ""}`} role="img" aria-label="man working on laptop">👨‍💻</span>
+              <span className={`text-[0.98rem] ${isProductivity ? "animate-[pulse_2.2s_ease-in-out_infinite]" : ""}`} role="img" aria-label="man working on laptop">👨‍💻</span>
               {locale === "ko" ? "Productivity" : "Productivity"}
             </span>
             {isProductivity && <span className="pointer-events-none absolute right-3 top-2 h-1.5 w-1.5 rounded-full bg-cyan-200 shadow-[0_0_10px_rgba(103,232,249,0.9)]" />}
           </button>
           <button
-            className={`group relative rounded-2xl px-4 py-2.5 text-[clamp(1.08rem,4.6vw,1.18rem)] font-semibold tracking-[-0.01em] transition-all duration-200 ${
+            className={`group relative rounded-2xl px-4 py-2.5 text-[clamp(1.12rem,4.8vw,1.24rem)] font-medium tracking-[-0.008em] transition-all duration-200 ${
               isWellness
                 ? "bg-gradient-to-r from-emerald-600 via-cyan-600 to-blue-600 text-white shadow-[0_8px_18px_rgba(20,184,166,0.28)]"
                 : "bg-transparent text-slate-600 hover:bg-white/70"
@@ -63,7 +63,7 @@ export function RecordHubTabs({
             type="button"
           >
             <span className={`inline-flex items-center gap-1.5 whitespace-nowrap ${isWellness ? "drop-shadow-sm" : ""}`}>
-              <span className={`text-[1.02rem] ${isWellness ? "animate-[pulse_2.2s_ease-in-out_infinite]" : ""}`} role="img" aria-label="man lifting weights">🏋️‍♂️</span>
+              <span className={`text-[0.98rem] ${isWellness ? "animate-[pulse_2.2s_ease-in-out_infinite]" : ""}`} role="img" aria-label="man lifting weights">🏋️‍♂️</span>
               Wellness
             </span>
             {isWellness && <span className="pointer-events-none absolute right-3 top-2 h-1.5 w-1.5 rounded-full bg-emerald-200 shadow-[0_0_10px_rgba(110,231,183,0.9)]" />}
