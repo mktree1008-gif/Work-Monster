@@ -243,7 +243,15 @@ export function WorkoutPageClient({ labels }: { labels: Labels }) {
 
   const goals = mounted
     ? getWellnessGoals()
-    : { calorie_goal: 2100, water_goal: 8, movement_goal: 60, sleep_goal_minutes: 480 };
+    : {
+        calorie_goal: 2100,
+        protein_goal: 120,
+        fat_goal: 70,
+        carb_goal: 250,
+        water_goal: 8,
+        movement_goal: 60,
+        sleep_goal_minutes: 480
+      };
 
   const summary = useMemo(() => {
     const minutes = todayLogs.reduce((sum, item) => sum + item.duration, 0);

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent, TouchEvent } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   ArrowUpRight,
   CalendarClock,
@@ -18,6 +19,7 @@ import {
   Star,
   Target,
   Trash2,
+  TriangleAlert,
   TrendingUp,
   Wand2,
   Zap
@@ -80,6 +82,13 @@ type Suggestion = {
     note?: string;
     missionLinked?: boolean;
   };
+};
+
+type CompletionCelebration = {
+  taskTitle: string;
+  percent: number;
+  done: number;
+  total: number;
 };
 
 type Props = {
@@ -415,6 +424,8 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
   const [focusActionState, setFocusActionState] = useState<"idle" | "saved" | "skipped">("idle");
   const [quickTaskOpen, setQuickTaskOpen] = useState(false);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const [dismissedSuggestionIds, setDismissedSuggestionIds] = useState<string[]>([]);
+  const [completionCelebration, setCompletionCelebration] = useState<CompletionCelebration | null>(null);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [quickForm, setQuickForm] = useState<QuickTaskForm>(defaultQuickTaskForm);
   const [completedCollapsed, setCompletedCollapsed] = useState(false);
@@ -423,6 +434,7 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
   const touchStartXRef = useRef(0);
   const toastTimerRef = useRef<number | null>(null);
   const focusActionTimerRef = useRef<number | null>(null);
+  const celebrationTimerRef = useRef<number | null>(null);
 
   useEffect(() => {
     const today = toLocalISODate();
@@ -470,6 +482,9 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
       }
       if (focusActionTimerRef.current) {
         window.clearTimeout(focusActionTimerRef.current);
+      }
+      if (celebrationTimerRef.current) {
+        window.clearTimeout(celebrationTimerRef.current);
       }
     };
   }, []);
@@ -564,6 +579,67 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
         : ["Finish one manager mission", "Complete 2 high-impact tasks", "Focus block 90 mins"],
     [isKo]
   );
+
+  const progressPalette = useMemo(() => {
+    if (progressPercent >= 100) {
+      return {
+        card: "from-[#1f5cf0] via-[#5b5bf7] to-[#7c3aed]",
+        bar: "from-emerald-300 via-cyan-300 to-violet-300",
+        badge: "bg-violet-300/35 text-white"
+      };
+    }
+    if (progressPercent >= 70) {
+      return {
+        card: "from-[#1256d6] via-[#1f6feb] to-[#06b6d4]",
+        bar: "from-emerald-300 via-cyan-200 to-blue-200",
+        badge: "bg-cyan-300/30 text-white"
+      };
+    }
+    if (progressPercent >= 35) {
+      return {
+        card: "from-[#1d4fd9] via-[#2563eb] to-[#3b82f6]",
+        bar: "from-amber-200 via-cyan-200 to-blue-200",
+        badge: "bg-blue-200/30 text-white"
+      };
+    }
+    return {
+      card: "from-[#1e4cca] via-[#2158d8] to-[#2b49cb]",
+      bar: "from-amber-200 via-rose-200 to-sky-200",
+      badge: "bg-white/20 text-white"
+    };
+  }, [progressPercent]);
+
+  function celebrateCompletion(nextTasks: PlannerTask[], taskTitle: string) {
+    const done = nextTasks.filter((task) => task.is_completed).length;
+    const total = nextTasks.length;
+    const percent = total === 0 ? 0 : Math.round((done / total) * 100);
+    setCompletionCelebration({
+      taskTitle,
+      percent,
+      done,
+      total
+    });
+    if (celebrationTimerRef.current) {
+      window.clearTimeout(celebrationTimerRef.current);
+    }
+    celebrationTimerRef.current = window.setTimeout(() => {
+      setCompletionCelebration(null);
+      celebrationTimerRef.current = null;
+    }, 2600);
+  }
+
+  function encouragementByPercent(percent: number): string {
+    if (isKo) {
+      if (percent >= 100) return "완벽해요! 오늘 플랜을 모두 해냈어요.";
+      if (percent >= 70) return "아주 좋아요! 마무리 페이스가 올라가고 있어요.";
+      if (percent >= 35) return "좋은 흐름이에요! 계속 체크해보세요.";
+      return "멋진 시작이에요! 한 칸씩 쌓아가요.";
+    }
+    if (percent >= 100) return "Perfect run. You completed today’s plan.";
+    if (percent >= 70) return "Amazing pace. You are closing strong.";
+    if (percent >= 35) return "Great momentum. Keep checking tasks off.";
+    return "Strong start. Build one win at a time.";
+  }
 
   function showSaveMessage(message: string, duration = 1600) {
     setSaveMessage(message);
@@ -675,8 +751,30 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
       });
     }
 
-    return items.slice(0, 6);
-  }, [activeMission, isKo, missionOpenTaskCount, pendingTasks.length, sleepSummary.recovery, workoutSummary.minutes, yesterdayUnfinished]);
+    return items.filter((item) => !dismissedSuggestionIds.includes(item.id)).slice(0, 6);
+  }, [
+    activeMission,
+    dismissedSuggestionIds,
+    isKo,
+    missionOpenTaskCount,
+    pendingTasks.length,
+    sleepSummary.recovery,
+    workoutSummary.minutes,
+    yesterdayUnfinished
+  ]);
+
+  function dismissSuggestion(id: string) {
+    setDismissedSuggestionIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+  }
+
+  function confirmSuggestionAction(item: Suggestion): boolean {
+    const title = item.title.trim();
+    const actionText = item.kind === "carry_over" ? (isKo ? "이월" : "Carry") : (isKo ? "추가" : "Add");
+    const question = isKo
+      ? `${title}\n\n${actionText} 하시겠습니까?`
+      : `${title}\n\nDo you want to ${actionText.toLowerCase()} this?`;
+    return window.confirm(question);
+  }
 
   function updateTasks(next: PlannerTask[], message?: string) {
     setTasks(next);
@@ -789,13 +887,17 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
   }
 
   function applySuggestion(item: Suggestion) {
+    if (!confirmSuggestionAction(item)) return;
+
     if (item.kind === "mission_main") {
       addMissionMainTask();
+      dismissSuggestion(item.id);
       return;
     }
 
     if (item.kind === "mission_split") {
       splitMissionIntoTasks();
+      dismissSuggestion(item.id);
       return;
     }
 
@@ -808,11 +910,13 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
         created_at: nowISO()
       };
       updateTasks([copied, ...tasks], isKo ? "어제 작업을 이월했어요." : "Task carried over from yesterday.");
+      dismissSuggestion(item.id);
       return;
     }
 
     if (item.kind === "add_template" && item.template) {
       appendTaskFromTemplate(item.template);
+      dismissSuggestion(item.id);
     }
   }
 
@@ -890,13 +994,15 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
 
   function toggleCompleted(taskId: string) {
     const target = tasks.find((task) => task.id === taskId);
+    if (!target) return;
     if (target && !target.is_completed) {
       setCompletedCollapsed(false);
     }
-    updateTasks(
-      tasks.map((task) => (task.id === taskId ? { ...task, is_completed: !task.is_completed } : task)),
-      isKo ? "체크리스트가 업데이트됐어요." : "Checklist updated."
-    );
+    const nextTasks = tasks.map((task) => (task.id === taskId ? { ...task, is_completed: !task.is_completed } : task));
+    updateTasks(nextTasks, isKo ? "체크리스트가 업데이트됐어요." : "Checklist updated.");
+    if (!target.is_completed) {
+      celebrateCompletion(nextTasks, target.title);
+    }
   }
 
   function deleteTask(taskId: string) {
@@ -994,6 +1100,10 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
   }
 
   const sectionTitleChecklist = isKo ? "오늘의 체크리스트" : "Today's Checklist";
+  const celebrationPercent = completionCelebration?.percent ?? 0;
+  const celebrationRadius = 42;
+  const celebrationCircumference = 2 * Math.PI * celebrationRadius;
+  const celebrationDashOffset = celebrationCircumference - (celebrationPercent / 100) * celebrationCircumference;
 
   return (
     <section className="space-y-5 pb-28">
@@ -1016,12 +1126,10 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
               <GripVertical size={13} />
               {isKo ? "드래그 또는 ↑↓ 버튼으로 우선순위를 바꿀 수 있어요." : "Drag rows or use ↑↓ buttons to reorder priority."}
             </p>
-            <p className="mt-1 text-[11px] font-semibold text-slate-500">
-              {isKo ? "Mission = 매니저 지정, Task = 내가 직접 추가" : "Mission = manager assigned, Task = self-created"}
-            </p>
             {focusText.trim().length > 0 && (
-              <p className="mt-1 max-w-[20rem] truncate text-xs font-bold text-blue-700">
-                {isKo ? "오늘의 포커스:" : "Today focus:"} {focusText.trim()}
+              <p className="mt-2 inline-flex max-w-[24rem] items-center gap-2 rounded-full bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 px-3 py-1.5 text-xs font-black text-white shadow-[0_8px_20px_rgba(43,80,214,0.32)]">
+                <Zap size={13} />
+                {isKo ? "오늘의 포커스:" : "Today focus:"} <span className="truncate">{focusText.trim()}</span>
               </p>
             )}
           </div>
@@ -1084,7 +1192,7 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
                     >
                       <div className="flex items-start gap-3">
                         <button
-                          className={`mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-full border-2 ${task.is_completed ? "border-blue-500 bg-blue-500 text-white" : "border-blue-500 text-transparent"}`}
+                          className={`mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 ${task.is_completed ? "border-blue-500 bg-blue-500 text-white" : "border-blue-500 text-transparent"}`}
                           onClick={() => toggleCompleted(task.id)}
                           type="button"
                         >
@@ -1092,7 +1200,7 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
                         </button>
 
                         <div className="min-w-0 flex-1">
-                          <p className="truncate whitespace-nowrap text-lg font-black text-slate-900">{task.title}</p>
+                          <p className="break-words text-[1.08rem] font-black leading-tight text-slate-900">{task.title}</p>
                           <div className="mt-1 flex flex-wrap items-center gap-2">
                             <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-black ${CATEGORY_COLOR[task.category]}`}>
                               {categoryLabel(task.category, locale)}
@@ -1114,11 +1222,9 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
                               </span>
                             )}
                           </div>
-                          {task.note && <p className="mt-1 text-xs text-slate-500">{task.note}</p>}
-                        </div>
+                          {task.note && <p className="mt-1 max-h-9 overflow-hidden text-xs text-slate-500">{task.note}</p>}
 
-                        <div className="flex flex-col items-end gap-2">
-                          <div className="flex items-center gap-1">
+                          <div className="mt-2 flex flex-wrap items-center gap-1">
                             <button
                               aria-label={isKo ? "위로 이동" : "Move up"}
                               className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-35"
@@ -1166,9 +1272,9 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
                             >
                               <Trash2 size={14} />
                             </button>
-                          </div>
-                          <div className="pt-0.5 text-slate-300">
-                            <GripVertical size={18} />
+                            <span className="ml-auto inline-flex text-slate-300">
+                              <GripVertical size={18} />
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -1207,7 +1313,7 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
                   >
                     <div className="flex items-start gap-3">
                       <button
-                        className={`mt-0.5 inline-flex h-7 w-7 items-center justify-center rounded-full border-2 ${task.is_completed ? "border-blue-500 bg-blue-500 text-white" : "border-slate-300 text-transparent"}`}
+                        className={`mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 ${task.is_completed ? "border-blue-500 bg-blue-500 text-white" : "border-slate-300 text-transparent"}`}
                         onClick={() => toggleCompleted(task.id)}
                         type="button"
                       >
@@ -1215,7 +1321,7 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
                       </button>
 
                       <div className="min-w-0 flex-1">
-                        <p className="truncate whitespace-nowrap text-lg font-semibold text-slate-900">{task.title}</p>
+                        <p className="break-words text-base font-semibold leading-tight text-slate-900">{task.title}</p>
                         <div className="mt-1 flex flex-wrap items-center gap-2">
                           <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-black ${CATEGORY_COLOR[task.category]}`}>
                             {categoryLabel(task.category, locale)}
@@ -1234,11 +1340,9 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
                             {priorityLabel(task.priority, locale)}
                           </span>
                         </div>
-                        {task.note && <p className="mt-1 text-xs text-slate-500">{task.note}</p>}
-                      </div>
+                        {task.note && <p className="mt-1 max-h-9 overflow-hidden text-xs text-slate-500">{task.note}</p>}
 
-                      <div className="flex flex-col items-end gap-2">
-                        <div className="flex items-center gap-1">
+                        <div className="mt-2 flex flex-wrap items-center gap-1">
                           <button
                             aria-label={isKo ? "위로 이동" : "Move up"}
                             className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-35"
@@ -1286,9 +1390,9 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
                           >
                             <Trash2 size={14} />
                           </button>
-                        </div>
-                        <div className="pt-0.5 text-slate-300">
-                          <GripVertical size={18} />
+                          <span className="ml-auto inline-flex text-slate-300">
+                            <GripVertical size={18} />
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -1349,8 +1453,11 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
         </article>
       </section>
 
-      <section className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-[#0f57d8] via-[#1764ef] to-[#2a49cb] p-4 text-white shadow-[0_20px_45px_rgba(20,72,210,0.26)]">
+      <section className={`relative overflow-hidden rounded-[2rem] bg-gradient-to-br ${progressPalette.card} p-4 text-white shadow-[0_20px_45px_rgba(20,72,210,0.26)]`}>
         <div className="absolute -right-10 -top-12 h-44 w-44 rounded-full bg-white/10 blur-2xl" />
+        <div className="absolute -left-12 bottom-0 h-36 w-36 rounded-full bg-white/10 blur-2xl" />
+        <div className="absolute right-16 top-8 h-2.5 w-2.5 animate-pulse rounded-full bg-amber-200/90" />
+        <div className="absolute right-8 top-14 h-1.5 w-1.5 animate-pulse rounded-full bg-white/90 [animation-delay:260ms]" />
         <div className="relative z-10">
           <div className="flex items-start justify-between gap-2">
             <div>
@@ -1361,11 +1468,18 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
                 {prettyDate(todayISO, locale)} • {tasks.length} {isKo ? "Tasks" : "Tasks"}
               </p>
             </div>
-            <span className="whitespace-nowrap rounded-full bg-white/20 px-3 py-1 text-xs font-black">PROGRESS: {progressPercent}%</span>
+            <span className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-black shadow-sm ${progressPalette.badge} ${progressPercent < 100 ? "animate-pulse" : ""}`}>
+              PROGRESS: {progressPercent}%
+            </span>
           </div>
 
-          <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-white/20">
-            <div className="h-full rounded-full bg-white transition-all" style={{ width: `${progressPercent}%` }} />
+          <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-white/20">
+            <div
+              className={`relative h-full rounded-full bg-gradient-to-r ${progressPalette.bar} transition-all duration-700`}
+              style={{ width: `${progressPercent}%` }}
+            >
+              <span className="absolute right-0 top-1/2 h-4 w-4 -translate-y-1/2 animate-pulse rounded-full bg-white/85 shadow-[0_0_0_3px_rgba(255,255,255,0.2)]" />
+            </div>
           </div>
 
           <div className="mt-3 rounded-xl bg-white/10 p-2 text-xs font-semibold text-blue-50">
@@ -1403,10 +1517,10 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
           <Zap className="text-violet-600" size={18} />
           {isKo ? "오늘의 포커스" : "Focus of the Day"}
         </h3>
-        <p className="mt-1 text-xs font-semibold text-slate-500">
+        <p className="mt-1 text-xs font-semibold text-blue-700">
           {isKo
-            ? "선택 기능이에요. 오늘 가장 중요한 한 줄 목표를 적어두면 체크리스트 상단에 계속 보여줘서 우선순위를 잃지 않게 도와줘요."
-            : "Optional. Add one key intention and we keep it visible above your checklist so priorities stay clear."}
+            ? "직접 저장한 문구가 체크리스트 상단에 강하게 고정됩니다. 오늘의 에너지를 한 줄로 선언하세요."
+            : "Your saved line stays pinned at the top of checklist. Lock in your energy with one bold intention."}
         </p>
         <div className="mt-3 rounded-2xl bg-slate-100 p-3">
           <input
@@ -1483,6 +1597,69 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
         </div>
       )}
 
+      {completionCelebration && (
+        <div
+          className="fixed inset-0 z-[83] flex items-end justify-center bg-slate-950/20 px-4 pb-[calc(8.6rem+env(safe-area-inset-bottom))] text-left sm:items-center sm:pb-0"
+          onClick={() => setCompletionCelebration(null)}
+        >
+          <div
+            className="w-full max-w-xs rounded-[1.6rem] border border-blue-100 bg-white p-4 shadow-[0_24px_60px_rgba(29,78,216,0.28)]"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-center gap-3">
+              <Image
+                alt={isKo ? "응원 캐릭터" : "Cheer character"}
+                className="h-14 w-14 rounded-2xl border border-blue-100 bg-blue-50 object-cover"
+                height={56}
+                src="/images/cheer-character.svg"
+                width={56}
+              />
+              <div className="min-w-0">
+                <p className="text-sm font-black text-blue-700">{isKo ? "잘했어요!" : "Nice work!"}</p>
+                <p className="max-h-8 overflow-hidden text-xs font-semibold text-slate-600">{encouragementByPercent(completionCelebration.percent)}</p>
+              </div>
+            </div>
+            <div className="mt-3 flex items-center gap-3 rounded-2xl bg-slate-50 p-3">
+              <div className="relative h-24 w-24">
+                <svg className="h-24 w-24 -rotate-90" viewBox="0 0 100 100">
+                  <circle cx="50" cy="50" fill="none" r={celebrationRadius} stroke="rgba(148,163,184,0.22)" strokeWidth="8" />
+                  <circle
+                    cx="50"
+                    cy="50"
+                    fill="none"
+                    r={celebrationRadius}
+                    stroke="url(#celebration-progress)"
+                    strokeDasharray={celebrationCircumference}
+                    strokeDashoffset={celebrationDashOffset}
+                    strokeLinecap="round"
+                    strokeWidth="8"
+                    style={{ transition: "stroke-dashoffset 620ms cubic-bezier(0.34, 1.56, 0.64, 1)" }}
+                  />
+                  <defs>
+                    <linearGradient id="celebration-progress" x1="0%" x2="100%" y1="0%" y2="0%">
+                      <stop offset="0%" stopColor="#34d399" />
+                      <stop offset="55%" stopColor="#22d3ee" />
+                      <stop offset="100%" stopColor="#4f46e5" />
+                    </linearGradient>
+                  </defs>
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <p className="text-xl font-black text-indigo-700">{completionCelebration.percent}%</p>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.08em] text-slate-500">Progress</p>
+                </div>
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-black text-slate-900">{completionCelebration.taskTitle}</p>
+                <p className="mt-1 text-xs font-semibold text-slate-600">
+                  {isKo ? "완료" : "Completed"} {completionCelebration.done}/{completionCelebration.total}
+                </p>
+                <p className="mt-1 text-[11px] text-blue-700">{isKo ? "체크리스트를 계속 채워보세요 ✨" : "Keep stacking wins ✨"}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <button
         className="fixed bottom-28 right-6 z-40 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-600 text-white shadow-[0_16px_30px_rgba(24,83,236,0.35)] transition-transform active:scale-95"
         onClick={() => openQuickTaskSheet()}
@@ -1501,6 +1678,16 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
             <h3 className="text-2xl font-black text-slate-900">
               {editingTaskId ? (isKo ? "작업 수정" : "Edit task") : (isKo ? "Quick Task" : "Quick Task")}
             </h3>
+            <p className="mt-1 text-xs font-semibold text-slate-500">
+              {isKo ? "작은 한 칸씩 쌓으면 오늘 성취가 빨라져요." : "Small wins first. Build momentum with one clear action."}
+            </p>
+            {!editingTaskId && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                <span className="rounded-full bg-blue-100 px-2.5 py-1 text-[11px] font-bold text-blue-700">{isKo ? "추천 25분" : "Suggested 25m"}</span>
+                <span className="rounded-full bg-violet-100 px-2.5 py-1 text-[11px] font-bold text-violet-700">{isKo ? "한 줄 목표" : "Single clear goal"}</span>
+                <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-bold text-emerald-700">{isKo ? "완료 우선" : "Completion first"}</span>
+              </div>
+            )}
 
             <form className="mt-3 space-y-2" onSubmit={submitQuickTask}>
               <input
@@ -1551,12 +1738,12 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
                   {isKo ? "마감일" : "Due date"}
                   <input
                     className="mt-1 w-full rounded-xl border-none bg-white px-2 py-1 text-sm"
-                    lang={isKo ? "ko-KR" : "en-US"}
                     onChange={(event) => setQuickForm((prev) => ({ ...prev, due_date: event.target.value }))}
-                    placeholder="YYYY-MM-DD"
-                    type="date"
+                    placeholder={isKo ? "예: 2026-04-01" : "e.g. 2026-04-01"}
+                    type="text"
                     value={quickForm.due_date}
                   />
+                  <p className="mt-1 text-[10px] text-slate-500">{isKo ? "영문 형식 권장: YYYY-MM-DD" : "Use YYYY-MM-DD format"}</p>
                 </label>
               </div>
 
@@ -1615,15 +1802,31 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
               {suggestions.length > 0 ? (
                 suggestions.map((item) => (
                   <article className="rounded-2xl border border-slate-200 bg-slate-50 p-3" key={item.id}>
-                    <p className="text-sm font-black text-slate-900">{item.title}</p>
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-black text-slate-900">{item.title}</p>
+                      <button
+                        aria-label={isKo ? "추천 숨기기" : "Dismiss suggestion"}
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-100"
+                        onClick={() => dismissSuggestion(item.id)}
+                        type="button"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
                     <p className="mt-1 text-xs text-slate-500">{item.description}</p>
-                    <button
-                      className="mt-2 whitespace-nowrap rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700"
-                      onClick={() => applySuggestion(item)}
-                      type="button"
-                    >
-                      {item.actionLabel}
-                    </button>
+                    <div className="mt-2 flex items-center justify-between gap-2">
+                      <button
+                        className="whitespace-nowrap rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700"
+                        onClick={() => applySuggestion(item)}
+                        type="button"
+                      >
+                        {item.actionLabel}
+                      </button>
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-400">
+                        <TriangleAlert size={11} />
+                        {isKo ? "적용 전 확인 팝업 표시" : "Shows confirm popup before action"}
+                      </span>
+                    </div>
                   </article>
                 ))
               ) : (

@@ -1,3 +1,6 @@
+"use client";
+
+import { useMemo, useRef, useState, type TouchEvent } from "react";
 import { ManagerAuditLog, ScoreState, Submission } from "@/lib/types";
 
 type AnalyticsUserOption = {
@@ -148,8 +151,21 @@ export function ManagerUserAnalytics({
   score,
   auditLogs
 }: Props) {
+  const [activeDateKey, setActiveDateKey] = useState<string | null>(null);
+  const [activeDetailView, setActiveDetailView] = useState<"list" | "checkin">("list");
+  const touchStartXRef = useRef(0);
+
   const selectedUser = users.find((user) => user.id === selectedUserId) ?? users[0];
   const submissionById = new Map(submissions.map((submission) => [submission.id, submission] as const));
+  const submissionsByDate = useMemo(() => {
+    const map = new Map<string, Submission[]>();
+    for (const submission of submissions) {
+      const items = map.get(submission.date) ?? [];
+      items.push(submission);
+      map.set(submission.date, items);
+    }
+    return map;
+  }, [submissions]);
 
   const reviewedEntries = submissions
     .filter(
@@ -309,6 +325,34 @@ export function ManagerUserAnalytics({
   const recentReviewCards = [...reviewedEntries]
     .sort((a, b) => (a.reviewedAt > b.reviewedAt ? -1 : 1))
     .slice(0, 6);
+
+  const selectedDateSubmissions = activeDateKey ? submissionsByDate.get(activeDateKey) ?? [] : [];
+  const selectedDateStats = activeDateKey
+    ? dayStats.get(activeDateKey) ?? { net: 0, plus: 0, minus: 0, events: 0 }
+    : { net: 0, plus: 0, minus: 0, events: 0 };
+  const latestSubmissionOnDate = selectedDateSubmissions
+    .slice()
+    .sort((a, b) => (a.created_at > b.created_at ? -1 : 1))[0];
+
+  function openDayModal(dateKey: string) {
+    setActiveDateKey(dateKey);
+    setActiveDetailView("list");
+  }
+
+  function closeDayModal() {
+    setActiveDateKey(null);
+  }
+
+  function onDetailTouchStart(event: TouchEvent<HTMLDivElement>) {
+    touchStartXRef.current = event.changedTouches[0]?.clientX ?? 0;
+  }
+
+  function onDetailTouchEnd(event: TouchEvent<HTMLDivElement>) {
+    const endX = event.changedTouches[0]?.clientX ?? 0;
+    const diff = endX - touchStartXRef.current;
+    if (diff < -35) setActiveDetailView("checkin");
+    if (diff > 35) setActiveDetailView("list");
+  }
 
   const answerDigest = [
     {
@@ -501,7 +545,12 @@ export function ManagerUserAnalytics({
                       ? "bg-rose-100 text-rose-700"
                       : "bg-slate-100 text-slate-500";
                 return (
-                  <div key={cell.dateKey} className={`h-14 rounded-md p-1 ${tone}`}>
+                  <button
+                    key={cell.dateKey}
+                    className={`h-14 rounded-md p-1 text-left transition hover:scale-[1.02] ${tone}`}
+                    onClick={() => openDayModal(cell.dateKey)}
+                    type="button"
+                  >
                     <p className="text-[10px] font-semibold">{cell.day}</p>
                     <p className="text-[10px] font-bold">{cell.stat.net > 0 ? `+${cell.stat.net}` : cell.stat.net}</p>
                     {cell.stat.events > 0 && (
@@ -509,7 +558,7 @@ export function ManagerUserAnalytics({
                         +{cell.stat.plus}/-{cell.stat.minus}
                       </p>
                     )}
-                  </div>
+                  </button>
                 );
               })}
             </div>
@@ -622,6 +671,105 @@ export function ManagerUserAnalytics({
         </>
       ) : (
         <p className="mt-3 rounded-xl bg-slate-100 p-3 text-sm text-slate-600">No user data yet.</p>
+      )}
+
+      {activeDateKey && (
+        <div className="fixed inset-0 z-[90] bg-slate-950/45 p-3" onClick={closeDayModal}>
+          <div
+            className="mx-auto mt-8 w-full max-w-lg rounded-3xl bg-white p-4 shadow-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Daily Snapshot</p>
+                <h3 className="text-xl font-black text-indigo-900">{activeDateKey}</h3>
+                <p className="text-xs text-slate-500">
+                  Net {selectedDateStats.net >= 0 ? `+${selectedDateStats.net}` : selectedDateStats.net} pts • +{selectedDateStats.plus} / -{selectedDateStats.minus}
+                </p>
+              </div>
+              <button
+                className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700"
+                onClick={closeDayModal}
+                type="button"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-3 rounded-full bg-slate-100 p-1 text-xs font-bold">
+              <button
+                className={`rounded-full px-3 py-1 ${activeDetailView === "list" ? "bg-white text-indigo-800 shadow-sm" : "text-slate-600"}`}
+                onClick={() => setActiveDetailView("list")}
+                type="button"
+              >
+                Checklist
+              </button>
+              <button
+                className={`rounded-full px-3 py-1 ${activeDetailView === "checkin" ? "bg-white text-indigo-800 shadow-sm" : "text-slate-600"}`}
+                onClick={() => setActiveDetailView("checkin")}
+                type="button"
+              >
+                Check-in
+              </button>
+            </div>
+
+            <div
+              className="mt-3 rounded-2xl bg-slate-50 p-3"
+              onTouchEnd={onDetailTouchEnd}
+              onTouchStart={onDetailTouchStart}
+            >
+              {activeDetailView === "list" ? (
+                selectedDateSubmissions.length > 0 ? (
+                  <div className="space-y-3">
+                    {selectedDateSubmissions.map((submission) => {
+                      const totalTasks = submission.task_list.length;
+                      const estimatedCompleted = submission.productive ? totalTasks : Math.max(0, Math.round(totalTasks * 0.4));
+                      const completionPct = totalTasks > 0 ? Math.round((estimatedCompleted / totalTasks) * 100) : 0;
+                      return (
+                        <article className="rounded-xl bg-white p-3" key={submission.id}>
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-sm font-bold text-indigo-900">{submission.status.toUpperCase()}</p>
+                            <p className={`text-xs font-bold ${submission.productive ? "text-emerald-700" : "text-amber-700"}`}>
+                              {submission.productive ? "Productive day" : "Needs follow-up"}
+                            </p>
+                          </div>
+                          <p className="mt-1 text-xs text-slate-600">
+                            Tasks submitted {totalTasks} • Estimated completed {estimatedCompleted}
+                          </p>
+                          <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200">
+                            <div className="h-full rounded-full bg-indigo-600" style={{ width: `${completionPct}%` }} />
+                          </div>
+                          {totalTasks > 0 && (
+                            <div className="mt-2 space-y-1">
+                              {submission.task_list.slice(0, 4).map((task, idx) => (
+                                <p className="text-xs text-slate-700" key={`${submission.id}-task-${idx}`}>• {compactLabel(task)}</p>
+                              ))}
+                            </div>
+                          )}
+                        </article>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-500">No checklist submission on this date.</p>
+                )
+              ) : latestSubmissionOnDate ? (
+                <article className="space-y-2 rounded-xl bg-white p-3 text-sm">
+                  <p className="rounded-lg bg-indigo-50 px-2 py-1 text-xs font-bold text-indigo-700">
+                    Swipe left/right to switch Checklist and Check-in
+                  </p>
+                  <p><span className="font-semibold text-slate-500">Mood:</span> {latestSubmissionOnDate.mood || "-"}</p>
+                  <p><span className="font-semibold text-slate-500">Focus:</span> {latestSubmissionOnDate.custom_answers.focus || "-"}</p>
+                  <p><span className="font-semibold text-slate-500">Blocker:</span> {latestSubmissionOnDate.custom_answers.blocker || "-"}</p>
+                  <p><span className="font-semibold text-slate-500">Win/Need:</span> {latestSubmissionOnDate.custom_answers.win || "-"}</p>
+                  <p><span className="font-semibold text-slate-500">Manager note:</span> {latestSubmissionOnDate.manager_note || "-"}</p>
+                </article>
+              ) : (
+                <p className="text-sm text-slate-500">No check-in summary on this date.</p>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </section>
   );

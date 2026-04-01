@@ -89,6 +89,9 @@ export type FocusSession = {
 
 export type WellnessGoals = {
   calorie_goal: number;
+  protein_goal: number;
+  fat_goal: number;
+  carb_goal: number;
   water_goal: number;
   water_unit?: "cups" | "ml";
   water_goal_ml?: number;
@@ -98,11 +101,13 @@ export type WellnessGoals = {
 
 type WaterMap = Record<string, number>;
 type DailyCaloriesMap = Record<string, number>;
+type DailyMacroMap = Record<string, { protein: number; fat: number; carbs: number }>;
 
 const STORAGE_KEYS = {
   food: "wm-food-logs-v1",
   workout: "wm-workout-logs-v1",
   foodManualCalories: "wm-food-manual-calories-v1",
+  foodManualMacros: "wm-food-manual-macros-v1",
   workoutManualCalories: "wm-workout-manual-calories-v1",
   workoutRoutines: "wm-workout-routines-v1",
   sleep: "wm-sleep-logs-v1",
@@ -420,6 +425,9 @@ function ensureSeeded<T>(key: string, seed: T): T {
 export function getWellnessGoals(): WellnessGoals {
   const seeded = ensureSeeded<WellnessGoals>(STORAGE_KEYS.goals, {
     calorie_goal: 2100,
+    protein_goal: 120,
+    fat_goal: 70,
+    carb_goal: 250,
     water_goal: 8,
     water_unit: "cups",
     water_goal_ml: 2000,
@@ -428,6 +436,9 @@ export function getWellnessGoals(): WellnessGoals {
   });
   const normalized: WellnessGoals = {
     calorie_goal: Math.max(1000, Math.round(seeded.calorie_goal ?? 2100)),
+    protein_goal: Math.max(10, roundOne(Number(seeded.protein_goal ?? 120))),
+    fat_goal: Math.max(10, roundOne(Number(seeded.fat_goal ?? 70))),
+    carb_goal: Math.max(10, roundOne(Number(seeded.carb_goal ?? 250))),
     water_goal: Math.max(1, Math.round(seeded.water_goal ?? 8)),
     water_unit: seeded.water_unit === "ml" ? "ml" : "cups",
     water_goal_ml: Math.max(
@@ -459,6 +470,9 @@ export function setWellnessGoals(next: Partial<WellnessGoals>) {
     ...current,
     ...next,
     calorie_goal: Math.max(1000, Math.round(next.calorie_goal ?? current.calorie_goal)),
+    protein_goal: Math.max(10, roundOne(Number(next.protein_goal ?? current.protein_goal))),
+    fat_goal: Math.max(10, roundOne(Number(next.fat_goal ?? current.fat_goal))),
+    carb_goal: Math.max(10, roundOne(Number(next.carb_goal ?? current.carb_goal))),
     water_goal: nextWaterGoal,
     water_unit: nextWaterUnit,
     water_goal_ml: nextWaterGoalMl,
@@ -766,6 +780,22 @@ function getFoodManualCaloriesMap(): DailyCaloriesMap {
   return normalized;
 }
 
+function getFoodManualMacroMap(): DailyMacroMap {
+  const raw = ensureSeeded<DailyMacroMap>(STORAGE_KEYS.foodManualMacros, {});
+  const normalized: DailyMacroMap = {};
+  Object.entries(raw).forEach(([date, value]) => {
+    const source = value ?? {};
+    const protein = Math.max(0, roundOne(Number(source.protein ?? 0)));
+    const fat = Math.max(0, roundOne(Number(source.fat ?? 0)));
+    const carbs = Math.max(0, roundOne(Number(source.carbs ?? 0)));
+    if (protein > 0 || fat > 0 || carbs > 0) {
+      normalized[date] = { protein, fat, carbs };
+    }
+  });
+  writeJSON(STORAGE_KEYS.foodManualMacros, normalized);
+  return normalized;
+}
+
 function getWorkoutManualCaloriesMap(): DailyCaloriesMap {
   const raw = ensureSeeded<DailyCaloriesMap>(STORAGE_KEYS.workoutManualCalories, {});
   const normalized: DailyCaloriesMap = {};
@@ -794,6 +824,37 @@ export function setFoodManualCaloriesByDate(date: string, calories: number): num
   return normalized;
 }
 
+export function getFoodManualMacrosByDate(date: string): { protein: number; fat: number; carbs: number } {
+  const map = getFoodManualMacroMap();
+  const source = map[date] ?? { protein: 0, fat: 0, carbs: 0 };
+  return {
+    protein: Math.max(0, roundOne(Number(source.protein ?? 0))),
+    fat: Math.max(0, roundOne(Number(source.fat ?? 0))),
+    carbs: Math.max(0, roundOne(Number(source.carbs ?? 0)))
+  };
+}
+
+export function setFoodManualMacrosByDate(
+  date: string,
+  macros: { protein: number; fat: number; carbs: number }
+): { protein: number; fat: number; carbs: number } {
+  const map = getFoodManualMacroMap();
+  const normalized = {
+    protein: Math.max(0, roundOne(Number(macros.protein ?? 0))),
+    fat: Math.max(0, roundOne(Number(macros.fat ?? 0))),
+    carbs: Math.max(0, roundOne(Number(macros.carbs ?? 0)))
+  };
+
+  if (normalized.protein <= 0 && normalized.fat <= 0 && normalized.carbs <= 0) {
+    delete map[date];
+  } else {
+    map[date] = normalized;
+  }
+
+  writeJSON(STORAGE_KEYS.foodManualMacros, map);
+  return normalized;
+}
+
 export function getWorkoutManualCaloriesByDate(date: string): number {
   const map = getWorkoutManualCaloriesMap();
   return Math.max(0, Math.round(map[date] ?? 0));
@@ -816,10 +877,11 @@ export function getFoodSummary(date: string) {
   const goals = getWellnessGoals();
   const waterMap = getWaterMap();
   const manualCalories = getFoodManualCaloriesByDate(date);
+  const manualMacros = getFoodManualMacrosByDate(date);
   const calories = logs.reduce((sum, item) => sum + item.calories, 0) + manualCalories;
-  const protein = logs.reduce((sum, item) => sum + item.protein, 0);
-  const fat = logs.reduce((sum, item) => sum + item.fat, 0);
-  const carbs = logs.reduce((sum, item) => sum + item.carbs, 0);
+  const protein = roundOne(logs.reduce((sum, item) => sum + item.protein, 0) + manualMacros.protein);
+  const fat = roundOne(logs.reduce((sum, item) => sum + item.fat, 0) + manualMacros.fat);
+  const carbs = roundOne(logs.reduce((sum, item) => sum + item.carbs, 0) + manualMacros.carbs);
   const cups = Math.max(0, Math.round(waterMap[date] ?? logs.reduce((sum, item) => sum + item.water, 0)));
   const percent = goals.calorie_goal <= 0 ? 0 : Math.max(0, Math.min(100, Math.round((calories / goals.calorie_goal) * 100)));
   return {
@@ -827,6 +889,9 @@ export function getFoodSummary(date: string) {
     protein,
     fat,
     carbs,
+    manualCalories,
+    manualMacros,
+    goals,
     waterCups: cups,
     goal: goals.calorie_goal,
     remaining: Math.max(0, goals.calorie_goal - calories),

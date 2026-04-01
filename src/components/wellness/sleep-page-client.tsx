@@ -39,7 +39,18 @@ export function SleepPageClient({ labels }: { labels: Labels }) {
   }, []);
 
   const goals = useMemo(
-    () => (mounted ? getWellnessGoals() : { calorie_goal: 2100, water_goal: 8, movement_goal: 60, sleep_goal_minutes: 480 }),
+    () =>
+      (mounted
+        ? getWellnessGoals()
+        : {
+            calorie_goal: 2100,
+            protein_goal: 120,
+            fat_goal: 70,
+            carb_goal: 250,
+            water_goal: 8,
+            movement_goal: 60,
+            sleep_goal_minutes: 480
+          }),
     [logs, mounted]
   );
   const todayLog = useMemo(() => logs.find((item) => item.date === selectedDate) ?? null, [logs, selectedDate]);

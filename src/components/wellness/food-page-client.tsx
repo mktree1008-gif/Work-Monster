@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronDown,
   ChevronRight,
@@ -22,10 +22,12 @@ import {
   FoodLog,
   getFoodLogs,
   getFoodManualCaloriesByDate,
+  getFoodManualMacrosByDate,
   getFoodSummary,
   getWellnessGoals,
   MealType,
   setFoodManualCaloriesByDate,
+  setFoodManualMacrosByDate,
   setWellnessGoals,
   setWaterByDate,
   todayLocalISO,
@@ -98,6 +100,30 @@ function roundOne(value: number) {
   return Math.round(value * 10) / 10;
 }
 
+function formatOne(value: number) {
+  return roundOne(value).toFixed(1);
+}
+
+function macroProgressTone(value: number, goal: number) {
+  if (goal <= 0) return "bg-white/10 text-white";
+  const ratio = value / goal;
+  if (ratio < 0.7) return "bg-rose-500/35 text-white";
+  if (ratio < 0.95) return "bg-sky-500/30 text-white";
+  if (ratio <= 1.1) return "bg-emerald-500/30 text-white";
+  if (ratio <= 1.25) return "bg-violet-500/30 text-white";
+  return "bg-amber-500/35 text-white";
+}
+
+function macroGoalCardTone(value: number, goal: number) {
+  if (goal <= 0) return "border-slate-200 bg-slate-50 text-slate-700";
+  const ratio = value / goal;
+  if (ratio < 0.7) return "border-rose-200 bg-rose-50 text-rose-700";
+  if (ratio < 0.95) return "border-sky-200 bg-sky-50 text-sky-700";
+  if (ratio <= 1.1) return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (ratio <= 1.25) return "border-violet-200 bg-violet-50 text-violet-700";
+  return "border-amber-200 bg-amber-50 text-amber-700";
+}
+
 function toDayLabel(iso: string) {
   return new Date(`${iso}T00:00:00.000Z`).toLocaleDateString("en-US", { weekday: "short" }).slice(0, 3);
 }
@@ -106,7 +132,7 @@ function emptyDraft(meal: MealType = "Lunch"): DraftForm {
   return {
     meal_type: meal,
     food_name: "",
-    grams: 180,
+    grams: 100,
     calories: 0,
     protein: 0,
     fat: 0,
@@ -135,12 +161,18 @@ export function FoodPageClient({ labels }: { labels: Labels }) {
   const [autoEstimate, setAutoEstimate] = useState(true);
   const [draft, setDraft] = useState<DraftForm>(emptyDraft());
   const [manualCaloriesInput, setManualCaloriesInput] = useState("");
+  const [manualProteinInput, setManualProteinInput] = useState("");
+  const [manualFatInput, setManualFatInput] = useState("");
+  const [manualCarbsInput, setManualCarbsInput] = useState("");
+  const [goalEditorOpen, setGoalEditorOpen] = useState(false);
+  const [goalInputs, setGoalInputs] = useState({ calorie: "", protein: "", fat: "", carbs: "" });
   const [expandedMeals, setExpandedMeals] = useState<Record<MealType, boolean>>({
     Breakfast: true,
     Lunch: true,
     Dinner: false,
     Snack: false
   });
+  const photoInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     setLogs(getFoodLogs());
@@ -150,12 +182,34 @@ export function FoodPageClient({ labels }: { labels: Labels }) {
   useEffect(() => {
     if (!mounted) return;
     const manualCalories = getFoodManualCaloriesByDate(selectedDate);
+    const manualMacros = getFoodManualMacrosByDate(selectedDate);
     setManualCaloriesInput(manualCalories > 0 ? String(manualCalories) : "");
+    setManualProteinInput(manualMacros.protein > 0 ? String(manualMacros.protein) : "");
+    setManualFatInput(manualMacros.fat > 0 ? String(manualMacros.fat) : "");
+    setManualCarbsInput(manualMacros.carbs > 0 ? String(manualMacros.carbs) : "");
   }, [mounted, selectedDate]);
 
   const goals = mounted
     ? getWellnessGoals()
-    : { calorie_goal: 2100, water_goal: 8, movement_goal: 60, sleep_goal_minutes: 480 };
+    : {
+        calorie_goal: 2100,
+        protein_goal: 120,
+        fat_goal: 70,
+        carb_goal: 250,
+        water_goal: 8,
+        movement_goal: 60,
+        sleep_goal_minutes: 480
+      };
+
+  useEffect(() => {
+    if (!mounted) return;
+    setGoalInputs({
+      calorie: String(goals.calorie_goal ?? 2100),
+      protein: String(goals.protein_goal ?? 120),
+      fat: String(goals.fat_goal ?? 70),
+      carbs: String(goals.carb_goal ?? 250)
+    });
+  }, [goals.carb_goal, goals.calorie_goal, goals.fat_goal, goals.protein_goal, mounted]);
 
   const summary = mounted
     ? getFoodSummary(selectedDate)
@@ -277,7 +331,9 @@ export function FoodPageClient({ labels }: { labels: Labels }) {
   }
 
   function applyNutritionFromReference(reference: FoodReference, nextGrams: number, nextMeal?: MealType) {
-    const estimated = estimateNutritionFromReference(reference, nextGrams);
+    const baseGrams = Math.max(1, Math.round(nextGrams || 0));
+    const suggestedGrams = baseGrams <= 0 ? 100 : baseGrams;
+    const estimated = estimateNutritionFromReference(reference, suggestedGrams);
     setDraft((prev) => ({
       ...prev,
       meal_type: nextMeal ?? prev.meal_type,
@@ -469,18 +525,67 @@ export function FoodPageClient({ labels }: { labels: Labels }) {
     syncState();
   }
 
-  function updateCalorieGoal() {
-    const next = Number(window.prompt("Set daily calorie goal", String(goals.calorie_goal)) ?? goals.calorie_goal);
-    if (!Number.isFinite(next)) return;
-    setWellnessGoals({ calorie_goal: Math.max(1000, Math.round(next)) });
+  function saveGoalTargets() {
+    const nextCalorie = Math.max(1000, Math.round(parseNumeric(goalInputs.calorie, goals.calorie_goal)));
+    const nextProtein = Math.max(10, roundOne(parseNumeric(goalInputs.protein, goals.protein_goal)));
+    const nextFat = Math.max(10, roundOne(parseNumeric(goalInputs.fat, goals.fat_goal)));
+    const nextCarb = Math.max(10, roundOne(parseNumeric(goalInputs.carbs, goals.carb_goal)));
+    setWellnessGoals({
+      calorie_goal: nextCalorie,
+      protein_goal: nextProtein,
+      fat_goal: nextFat,
+      carb_goal: nextCarb
+    });
+    syncState();
+    setGoalEditorOpen(false);
+  }
+
+  function saveManualNutritionTotals() {
+    const parsed = Math.max(0, Math.round(parseNumeric(manualCaloriesInput, 0)));
+    const parsedProtein = Math.max(0, roundOne(parseNumeric(manualProteinInput, 0)));
+    const parsedFat = Math.max(0, roundOne(parseNumeric(manualFatInput, 0)));
+    const parsedCarbs = Math.max(0, roundOne(parseNumeric(manualCarbsInput, 0)));
+    const saved = setFoodManualCaloriesByDate(selectedDate, parsed);
+    const savedMacros = setFoodManualMacrosByDate(selectedDate, {
+      protein: parsedProtein,
+      fat: parsedFat,
+      carbs: parsedCarbs
+    });
+    setManualCaloriesInput(saved > 0 ? String(saved) : "");
+    setManualProteinInput(savedMacros.protein > 0 ? String(savedMacros.protein) : "");
+    setManualFatInput(savedMacros.fat > 0 ? String(savedMacros.fat) : "");
+    setManualCarbsInput(savedMacros.carbs > 0 ? String(savedMacros.carbs) : "");
     syncState();
   }
 
-  function saveManualCalories() {
-    const parsed = Math.max(0, Math.round(parseNumeric(manualCaloriesInput, 0)));
-    const saved = setFoodManualCaloriesByDate(selectedDate, parsed);
-    setManualCaloriesInput(saved > 0 ? String(saved) : "");
-    syncState();
+  function openCameraCapture() {
+    photoInputRef.current?.click();
+  }
+
+  function handlePhotoCaptured(file?: File | null) {
+    if (!file) return;
+    const guessedLabel = file.name
+      .replace(/\.[a-z0-9]+$/i, "")
+      .replace(/[_-]+/g, " ")
+      .trim();
+    const fallbackLabel = guessedLabel || "Captured meal";
+    const estimated = estimateNutritionFromText(fallbackLabel, 100);
+    setEditorMode("create");
+    setDraft({
+      ...emptyDraft("Lunch"),
+      food_name: fallbackLabel,
+      grams: 100,
+      calories: estimated.calories,
+      protein: estimated.protein,
+      fat: estimated.fat,
+      carbs: estimated.carbs,
+      ingredients: estimated.ingredients,
+      note: "Photo capture estimate. Please review macros before saving."
+    });
+    setSearchQuery(fallbackLabel);
+    setSelectedReference(null);
+    setAutoEstimate(true);
+    setEditorOpen(true);
   }
 
   const totalMealCount = mealBreakdown.reduce((sum, item) => sum + item.count, 0);
@@ -515,17 +620,17 @@ export function FoodPageClient({ labels }: { labels: Labels }) {
         </div>
 
         <div className="mt-4 grid grid-cols-3 gap-2">
-          <div className="rounded-2xl bg-white/10 px-3 py-2">
+          <div className={`rounded-2xl px-3 py-2 ${macroProgressTone(summary.protein, goals.protein_goal)}`}>
             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-blue-100">Protein</p>
-            <p className="text-xl font-black">{summary.protein}g</p>
+            <p className="text-xl font-black">{formatOne(summary.protein)}g</p>
           </div>
-          <div className="rounded-2xl bg-white/10 px-3 py-2">
+          <div className={`rounded-2xl px-3 py-2 ${macroProgressTone(summary.fat, goals.fat_goal)}`}>
             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-blue-100">Fat</p>
-            <p className="text-xl font-black">{summary.fat}g</p>
+            <p className="text-xl font-black">{formatOne(summary.fat)}g</p>
           </div>
-          <div className="rounded-2xl bg-white/10 px-3 py-2">
+          <div className={`rounded-2xl px-3 py-2 ${macroProgressTone(summary.carbs, goals.carb_goal)}`}>
             <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-blue-100">Carbs</p>
-            <p className="text-xl font-black">{summary.carbs}g</p>
+            <p className="text-xl font-black">{formatOne(summary.carbs)}g</p>
           </div>
         </div>
 
@@ -540,10 +645,65 @@ export function FoodPageClient({ labels }: { labels: Labels }) {
           <span>Remaining {summary.remaining.toLocaleString()} kcal</span>
           <span>•</span>
           <span>{summary.percent}% of goal</span>
-          <button className="rounded-full bg-white/20 px-3 py-1 text-[11px]" onClick={updateCalorieGoal} type="button">
-            Edit goal
+          <button
+            className="rounded-full bg-white/20 px-3 py-1 text-[11px]"
+            onClick={() => setGoalEditorOpen((prev) => !prev)}
+            type="button"
+          >
+            {goalEditorOpen ? "Close goals" : "Edit goals"}
           </button>
         </div>
+
+        {goalEditorOpen && (
+          <div className="mt-3 rounded-2xl bg-white/12 p-3">
+            <p className="text-xs font-bold uppercase tracking-[0.12em] text-blue-100">Goal targets</p>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <label className="text-[11px] font-semibold text-blue-100">
+                kcal
+                <input
+                  className="mt-1 h-9 w-full rounded-xl border border-white/20 bg-white/20 px-2 text-sm text-white outline-none"
+                  onChange={(event) => setGoalInputs((prev) => ({ ...prev, calorie: event.target.value }))}
+                  type="number"
+                  value={goalInputs.calorie}
+                />
+              </label>
+              <label className="text-[11px] font-semibold text-blue-100">
+                Protein goal (g)
+                <input
+                  className="mt-1 h-9 w-full rounded-xl border border-white/20 bg-white/20 px-2 text-sm text-white outline-none"
+                  onChange={(event) => setGoalInputs((prev) => ({ ...prev, protein: event.target.value }))}
+                  type="number"
+                  value={goalInputs.protein}
+                />
+              </label>
+              <label className="text-[11px] font-semibold text-blue-100">
+                Fat goal (g)
+                <input
+                  className="mt-1 h-9 w-full rounded-xl border border-white/20 bg-white/20 px-2 text-sm text-white outline-none"
+                  onChange={(event) => setGoalInputs((prev) => ({ ...prev, fat: event.target.value }))}
+                  type="number"
+                  value={goalInputs.fat}
+                />
+              </label>
+              <label className="text-[11px] font-semibold text-blue-100">
+                Carb goal (g)
+                <input
+                  className="mt-1 h-9 w-full rounded-xl border border-white/20 bg-white/20 px-2 text-sm text-white outline-none"
+                  onChange={(event) => setGoalInputs((prev) => ({ ...prev, carbs: event.target.value }))}
+                  type="number"
+                  value={goalInputs.carbs}
+                />
+              </label>
+            </div>
+            <button
+              className="mt-2 rounded-xl bg-white px-3 py-1.5 text-xs font-black text-blue-700"
+              onClick={saveGoalTargets}
+              type="button"
+            >
+              Save goals
+            </button>
+          </div>
+        )}
       </article>
 
       <article className="mt-4 rounded-3xl border-l-4 border-amber-700 bg-[#f5e4d8] p-4">
@@ -562,7 +722,7 @@ export function FoodPageClient({ labels }: { labels: Labels }) {
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-sm font-black text-slate-900">Quick Total Calories</p>
-            <p className="text-xs text-slate-500">Skip item-by-item logging and save just today&apos;s total kcal.</p>
+            <p className="text-xs text-slate-500">Skip item-by-item logging and save today&apos;s total kcal + macros manually.</p>
           </div>
           <span className="rounded-full bg-blue-50 px-2 py-1 text-[11px] font-semibold text-blue-700">Optional</span>
         </div>
@@ -578,13 +738,59 @@ export function FoodPageClient({ labels }: { labels: Labels }) {
           <span className="text-xs font-semibold text-slate-500">kcal</span>
           <button
             className="h-11 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white"
-            onClick={saveManualCalories}
+            onClick={saveManualNutritionTotals}
             type="button"
           >
             Save
           </button>
         </div>
+        <div className="mt-3 grid grid-cols-3 gap-2">
+          <label className="text-[11px] font-semibold text-slate-500">
+            Protein (g)
+            <input
+              className="mt-1 h-10 w-full rounded-xl border border-slate-200 px-2 text-sm text-slate-800"
+              min={0}
+              onChange={(event) => setManualProteinInput(event.target.value)}
+              step={0.1}
+              type="number"
+              value={manualProteinInput}
+            />
+          </label>
+          <label className="text-[11px] font-semibold text-slate-500">
+            Fat (g)
+            <input
+              className="mt-1 h-10 w-full rounded-xl border border-slate-200 px-2 text-sm text-slate-800"
+              min={0}
+              onChange={(event) => setManualFatInput(event.target.value)}
+              step={0.1}
+              type="number"
+              value={manualFatInput}
+            />
+          </label>
+          <label className="text-[11px] font-semibold text-slate-500">
+            Carbs (g)
+            <input
+              className="mt-1 h-10 w-full rounded-xl border border-slate-200 px-2 text-sm text-slate-800"
+              min={0}
+              onChange={(event) => setManualCarbsInput(event.target.value)}
+              step={0.1}
+              type="number"
+              value={manualCarbsInput}
+            />
+          </label>
+        </div>
         <p className="mt-2 text-[11px] text-slate-500">Set to 0 and save to clear this quick total.</p>
+        <div className="mt-2 grid grid-cols-3 gap-2">
+          <p className={`rounded-xl border px-2 py-1 text-[11px] font-semibold ${macroGoalCardTone(summary.protein, goals.protein_goal)}`}>
+            Protein {formatOne(summary.protein)} / {formatOne(goals.protein_goal)}g
+          </p>
+          <p className={`rounded-xl border px-2 py-1 text-[11px] font-semibold ${macroGoalCardTone(summary.fat, goals.fat_goal)}`}>
+            Fat {formatOne(summary.fat)} / {formatOne(goals.fat_goal)}g
+          </p>
+          <p className={`rounded-xl border px-2 py-1 text-[11px] font-semibold ${macroGoalCardTone(summary.carbs, goals.carb_goal)}`}>
+            Carbs {formatOne(summary.carbs)} / {formatOne(goals.carb_goal)}g
+          </p>
+        </div>
       </section>
 
       <section className="mt-6">
@@ -633,15 +839,15 @@ export function FoodPageClient({ labels }: { labels: Labels }) {
                       </div>
                       <div className="rounded-xl bg-white px-2 py-2 text-center">
                         <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Protein</p>
-                        <p className="text-sm font-black text-slate-900">{meal.protein}g</p>
+                        <p className="text-sm font-black text-slate-900">{formatOne(meal.protein)}g</p>
                       </div>
                       <div className="rounded-xl bg-white px-2 py-2 text-center">
                         <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Fat</p>
-                        <p className="text-sm font-black text-slate-900">{meal.fat}g</p>
+                        <p className="text-sm font-black text-slate-900">{formatOne(meal.fat)}g</p>
                       </div>
                       <div className="rounded-xl bg-white px-2 py-2 text-center">
                         <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">Carbs</p>
-                        <p className="text-sm font-black text-slate-900">{meal.carbs}g</p>
+                        <p className="text-sm font-black text-slate-900">{formatOne(meal.carbs)}g</p>
                       </div>
                     </div>
 
@@ -653,7 +859,7 @@ export function FoodPageClient({ labels }: { labels: Labels }) {
                           <p className="text-sm font-black text-blue-700">{entry.calories} kcal</p>
                         </div>
                         <p className="mt-1 text-[11px] text-slate-500">
-                          P {entry.protein}g • F {entry.fat}g • C {entry.carbs}g
+                          P {formatOne(entry.protein)}g • F {formatOne(entry.fat)}g • C {formatOne(entry.carbs)}g
                         </p>
                         {entry.ingredients.length > 0 && (
                           <p className="mt-1 truncate text-[11px] text-slate-400">Ingredients: {entry.ingredients.join(", ")}</p>
@@ -804,11 +1010,23 @@ export function FoodPageClient({ labels }: { labels: Labels }) {
       </button>
       <button
         className="fixed bottom-28 right-6 z-30 flex h-14 w-14 items-center justify-center rounded-full bg-amber-700 text-white shadow-xl transition hover:scale-105 active:scale-95"
-        onClick={() => openCreateModal("Snack")}
+        onClick={openCameraCapture}
         type="button"
       >
         <ScanLine size={20} />
       </button>
+      <input
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          handlePhotoCaptured(file);
+          event.currentTarget.value = "";
+        }}
+        ref={photoInputRef}
+        type="file"
+      />
 
       {editorOpen && (
         <div className="fixed inset-0 z-[82] flex items-end justify-center bg-slate-950/45 p-3 sm:items-center sm:p-4">
@@ -876,7 +1094,7 @@ export function FoodPageClient({ labels }: { labels: Labels }) {
                       className={`flex w-full items-center justify-between rounded-xl px-3 py-2 text-left transition ${
                         selectedReference?.id === reference.id ? "bg-blue-50 ring-1 ring-blue-300" : "bg-white hover:bg-slate-100"
                       }`}
-                      onClick={() => applyNutritionFromReference(reference, draft.grams, draft.meal_type)}
+                      onClick={() => applyNutritionFromReference(reference, 100, draft.meal_type)}
                       type="button"
                     >
                       <div>
@@ -904,6 +1122,11 @@ export function FoodPageClient({ labels }: { labels: Labels }) {
                   type="number"
                   value={draft.grams}
                 />
+                {selectedReference && (
+                  <p className="mt-1 text-[11px] font-semibold text-blue-700">
+                    Suggested baseline from search result: 100g ({selectedReference.per100g.calories} kcal/100g)
+                  </p>
+                )}
                 <label className="mt-2 flex items-center gap-2 text-xs text-slate-600">
                   <input
                     checked={autoEstimate}

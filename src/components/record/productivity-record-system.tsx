@@ -672,15 +672,15 @@ function heatCellVisual(scoreValue: number, pointsDelta: number, hasActivity: bo
 
   const clamped = Math.max(0, Math.min(100, scoreValue));
   const t = clamped / 100;
-  const hue = Math.round(332 - t * 116); // pink -> sky/blue
-  const saturation = Math.round(78 + t * 12);
-  const light = Math.round(83 - t * 31);
-  const deepLight = Math.max(28, light - 15);
+  const hue = Math.round(342 - t * 52); // rose -> violet
+  const saturation = Math.round(76 + t * 14);
+  const light = Math.round(83 - t * 30);
+  const deepLight = Math.max(30, light - 14);
 
   return {
     className: "border border-white/60",
     style: {
-      background: `radial-gradient(145% 145% at 26% 20%, hsl(${Math.max(200, hue + 6)} ${Math.max(60, saturation - 10)}% ${Math.min(94, light + 10)}%) 0%, hsl(${hue} ${saturation}% ${light}%) 52%, hsl(${Math.max(210, hue - 10)} ${Math.min(96, saturation + 4)}% ${deepLight}%) 100%)`
+      background: `radial-gradient(145% 145% at 26% 20%, hsl(${hue + 8} ${Math.max(62, saturation - 10)}% ${Math.min(94, light + 10)}%) 0%, hsl(${hue} ${saturation}% ${light}%) 52%, hsl(${Math.max(260, hue - 18)} ${Math.min(96, saturation + 4)}% ${deepLight}%) 100%)`
     },
     dayTextClass: clamped >= 58 ? "text-white" : "text-slate-700",
     toneLabel: clamped >= 85 ? "Excellent" : clamped >= 65 ? "Great" : clamped >= 40 ? "Medium" : "Low"
@@ -832,6 +832,9 @@ export function ProductivityRecordSystem({ mode, locale, userId, score, submissi
                     <span className={`absolute inset-0 flex items-center justify-center text-[10px] font-extrabold ${visual.dayTextClass}`}>
                       {dayNumber}
                     </span>
+                    {day.pointsDelta < 0 && (
+                      <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border border-white bg-rose-500" />
+                    )}
                   </div>
                 );
               })}
@@ -845,12 +848,13 @@ export function ProductivityRecordSystem({ mode, locale, userId, score, submissi
               </div>
               <div className="mt-1 flex items-center gap-2">
                 <div className="h-3 w-3 rounded-sm border border-slate-300 bg-white" />
-                <div className="h-2 flex-1 rounded-full bg-gradient-to-r from-pink-300 via-sky-300 to-blue-700" />
-                <div className="h-3 w-3 rounded-sm bg-rose-500" />
+                <div className="h-2 flex-1 rounded-full bg-gradient-to-r from-rose-300 via-fuchsia-300 to-violet-700" />
+                <div className="h-3 w-3 rounded-sm bg-violet-700" />
               </div>
-              <p className="mt-1 text-right text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">
-                {locale === "ko" ? "빨강은 감점 발생일" : "Red means penalty day"}
-              </p>
+              <div className="mt-1 flex items-center justify-end gap-1 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">
+                <span className="inline-flex h-3 w-3 rounded-full border border-rose-300 bg-rose-100" />
+                <span>{locale === "ko" ? "감점일은 별도 표시" : "Penalty days are marked separately"}</span>
+              </div>
             </div>
           </div>
         </section>
