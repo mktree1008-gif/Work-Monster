@@ -3,6 +3,7 @@ import { Auth, getAuth } from "firebase-admin/auth";
 import { Firestore, getFirestore } from "firebase-admin/firestore";
 
 let app: App | null = null;
+let db: Firestore | null = null;
 
 export function isFirebaseServerConfigured(): boolean {
   return Boolean(
@@ -38,7 +39,11 @@ function getFirebaseAdminApp(): App {
 }
 
 export function getAdminDb(): Firestore {
-  return getFirestore(getFirebaseAdminApp());
+  if (!db) {
+    db = getFirestore(getFirebaseAdminApp());
+    db.settings({ ignoreUndefinedProperties: true });
+  }
+  return db;
 }
 
 export function getAdminAuth(): Auth {

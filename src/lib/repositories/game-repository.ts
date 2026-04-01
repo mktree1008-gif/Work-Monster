@@ -1245,7 +1245,7 @@ export function makeSubmissionFromDraft(draft: SubmissionDraft, submissionDate?:
     top_focus_summary: draft.top_focus_summary,
     energy_peak_summary: draft.energy_peak_summary,
     submission_time: draft.submitted_at ?? createdAt,
-    submitted_at: draft.submitted_at,
+    ...(draft.submitted_at ? { submitted_at: draft.submitted_at } : {}),
     updated_at: draft.updated_at ?? createdAt,
     created_at: createdAt
   };

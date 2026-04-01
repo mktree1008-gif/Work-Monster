@@ -359,8 +359,8 @@ export async function submitDailyCheckIn(
       coach_insight_text: draft.coach_insight_text ?? editableSameDate.coach_insight_text,
       top_focus_summary: draft.top_focus_summary ?? editableSameDate.top_focus_summary,
       energy_peak_summary: draft.energy_peak_summary ?? editableSameDate.energy_peak_summary,
-      submitted_at: submittedAt,
-      submission_time: submittedAt ?? editableSameDate.submission_time,
+      ...(submittedAt ? { submitted_at: submittedAt } : {}),
+      submission_time: submittedAt ?? editableSameDate.submission_time ?? nowISO(),
       updated_at: nowISO()
     };
     await repo.saveSubmission(updatedPending);
@@ -384,7 +384,7 @@ export async function submitDailyCheckIn(
       ...draft,
       user_id: userId,
       status: saveMode === "draft" ? "draft" : "submitted",
-      submitted_at: submittedAt,
+      ...(submittedAt ? { submitted_at: submittedAt } : {}),
       updated_at: createdAt
     },
     targetDate
