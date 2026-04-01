@@ -859,110 +859,110 @@ export function ProductivityRecordSystem({ mode, locale, userId, score, submissi
           </div>
         </section>
 
-        <section className="card border border-slate-200/80 p-4">
-          <p className="text-center text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500 whitespace-nowrap">
+        <section className="card border border-slate-200/80 p-3.5">
+          <p className="text-center text-[9px] font-semibold uppercase tracking-[0.16em] text-slate-500 whitespace-nowrap">
             {locale === "ko" ? "누적 포인트" : "Total Career Points"}
           </p>
-          <div className="mt-3 grid grid-cols-[auto,1fr] items-center gap-3">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-blue-100 bg-blue-50 text-blue-700">
-              <Medal className="h-5 w-5" />
+          <div className="mt-2.5 grid grid-cols-[auto,1fr] items-center gap-2.5">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl border border-blue-100 bg-blue-50 text-blue-700">
+              <Medal className="h-[18px] w-[18px]" />
             </div>
             <div className="min-w-0">
               <div className="flex items-end justify-between gap-2">
-                <p className="whitespace-nowrap text-[clamp(2rem,7vw,2.4rem)] font-black leading-none tracking-[-0.02em] text-blue-700">
+                <p className="whitespace-nowrap text-[clamp(1.7rem,6vw,2.05rem)] font-extrabold leading-none tracking-[-0.015em] text-blue-700">
                   {score.total_points.toLocaleString()}
                 </p>
-                <p className="whitespace-nowrap text-xs font-semibold text-slate-500">{model.tier} Tier</p>
+                <p className="whitespace-nowrap text-[11px] font-medium text-slate-500">{model.tier} Tier</p>
               </div>
-              <p className="mt-1 whitespace-nowrap text-sm font-semibold text-slate-700">
+              <p className="mt-0.5 whitespace-nowrap text-[13px] font-semibold text-slate-700">
                 {locale === "ko" ? "Monster Level" : "Monster Level"} {model.level}
               </p>
             </div>
           </div>
-          <p className="mt-2 truncate whitespace-nowrap text-center text-[11px] text-slate-500">
+          <p className="mt-1.5 truncate whitespace-nowrap text-center text-[10px] text-slate-500">
             {locale === "ko" ? `상위 ${model.topPercent}% 성과권` : `Top ${model.topPercent}% performer`}
           </p>
         </section>
 
-        <section className="card overflow-hidden bg-gradient-to-br from-[#1848d9] to-[#2154e7] p-4 text-white">
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="whitespace-nowrap text-[clamp(1.9rem,6vw,2.2rem)] font-extrabold tracking-tight">
+        <section className="card overflow-hidden bg-gradient-to-br from-[#1848d9] to-[#2154e7] p-3.5 text-white">
+          <div className="mb-2.5 flex items-center justify-between">
+            <h3 className="whitespace-nowrap text-[clamp(1.45rem,5.2vw,1.72rem)] font-semibold tracking-[-0.01em]">
               {locale === "ko" ? "주간 성과" : "Weekly Performance"}
             </h3>
-            <TrendingUp size={18} className="text-white/80" />
+            <TrendingUp size={16} className="text-white/80" />
           </div>
-          <div className="grid grid-cols-3 gap-2.5">
-            <div className="rounded-xl bg-white/10 px-2.5 py-2">
-              <p className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.1em] text-white/75">{locale === "ko" ? "완료" : "Tasks"}</p>
-              <p className="mt-0.5 whitespace-nowrap text-[2rem] font-black leading-none">{model.weeklyCompletion}%</p>
-              <div className="mt-2 h-1.5 w-full rounded-full bg-white/20"><div className="h-full rounded-full bg-white" style={{ width: `${model.weeklyCompletion}%` }} /></div>
+          <div className="grid grid-cols-3 gap-1.5">
+            <div className="rounded-xl bg-white/10 px-2 py-1.5">
+              <p className="whitespace-nowrap text-[9px] font-semibold uppercase tracking-[0.08em] text-white/75">{locale === "ko" ? "완료" : "Tasks"}</p>
+              <p className="mt-0.5 whitespace-nowrap text-[1.72rem] font-bold leading-none">{model.weeklyCompletion}%</p>
+              <div className="mt-1.5 h-1.5 w-full rounded-full bg-white/20"><div className="h-full rounded-full bg-white" style={{ width: `${model.weeklyCompletion}%` }} /></div>
             </div>
-            <div className="rounded-xl bg-white/10 px-2.5 py-2">
-              <p className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.1em] text-white/75">{locale === "ko" ? "하이임팩트" : "Impact"}</p>
-              <p className="mt-0.5 whitespace-nowrap text-[2rem] font-black leading-none">{model.highImpactRate}%</p>
-              <div className="mt-2 h-1.5 w-full rounded-full bg-white/20"><div className="h-full rounded-full bg-sky-100" style={{ width: `${model.highImpactRate}%` }} /></div>
+            <div className="rounded-xl bg-white/10 px-2 py-1.5">
+              <p className="whitespace-nowrap text-[9px] font-semibold uppercase tracking-[0.08em] text-white/75">{locale === "ko" ? "하이임팩트" : "Impact"}</p>
+              <p className="mt-0.5 whitespace-nowrap text-[1.72rem] font-bold leading-none">{model.highImpactRate}%</p>
+              <div className="mt-1.5 h-1.5 w-full rounded-full bg-white/20"><div className="h-full rounded-full bg-sky-100" style={{ width: `${model.highImpactRate}%` }} /></div>
             </div>
-            <div className="rounded-xl bg-white/10 px-2.5 py-2">
-              <p className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.1em] text-white/75">{locale === "ko" ? "미션" : "Mission"}</p>
-              <p className="mt-0.5 whitespace-nowrap text-[2rem] font-black leading-none">{model.missionSuccessRate}%</p>
-              <div className="mt-2 h-1.5 w-full rounded-full bg-white/20"><div className="h-full rounded-full bg-white" style={{ width: `${model.missionSuccessRate}%` }} /></div>
+            <div className="rounded-xl bg-white/10 px-2 py-1.5">
+              <p className="whitespace-nowrap text-[9px] font-semibold uppercase tracking-[0.08em] text-white/75">{locale === "ko" ? "미션" : "Mission"}</p>
+              <p className="mt-0.5 whitespace-nowrap text-[1.72rem] font-bold leading-none">{model.missionSuccessRate}%</p>
+              <div className="mt-1.5 h-1.5 w-full rounded-full bg-white/20"><div className="h-full rounded-full bg-white" style={{ width: `${model.missionSuccessRate}%` }} /></div>
             </div>
           </div>
         </section>
 
-        <section className="no-scrollbar flex gap-2 overflow-x-auto pb-0.5">
-          <article className="card min-w-[6.9rem] flex-1 border border-slate-200/80 p-2.5 text-center">
-            <p className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">{locale === "ko" ? "스트릭" : "Streak"}</p>
-            <p className="mt-1 whitespace-nowrap text-[2rem] font-black leading-none text-slate-900">{model.streak}</p>
+        <section className="grid grid-cols-4 gap-1.5">
+          <article className="card border border-slate-200/80 p-2 text-center">
+            <p className="whitespace-nowrap text-[9px] font-semibold uppercase tracking-[0.07em] text-slate-500">{locale === "ko" ? "스트릭" : "Streak"}</p>
+            <p className="mt-0.5 whitespace-nowrap text-[1.26rem] font-bold leading-none text-slate-900">{model.streak}</p>
           </article>
-          <article className="card min-w-[6.9rem] flex-1 border border-slate-200/80 p-2.5 text-center">
-            <p className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">{locale === "ko" ? "이월률" : "Carry"}</p>
-            <p className="mt-1 whitespace-nowrap text-[2rem] font-black leading-none text-slate-900">{model.carryOverRate}%</p>
+          <article className="card border border-slate-200/80 p-2 text-center">
+            <p className="whitespace-nowrap text-[9px] font-semibold uppercase tracking-[0.07em] text-slate-500">{locale === "ko" ? "이월률" : "Carry"}</p>
+            <p className="mt-0.5 whitespace-nowrap text-[1.26rem] font-bold leading-none text-slate-900">{model.carryOverRate}%</p>
           </article>
-          <article className="card min-w-[6.9rem] flex-1 border border-slate-200/80 p-2.5 text-center">
-            <p className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">{locale === "ko" ? "집중" : "Focus"}</p>
-            <p className="mt-1 whitespace-nowrap text-[2rem] font-black leading-none text-slate-900">{Math.min(10, Math.max(1, Math.round((model.focusHours / 8) * 10 * 10) / 10)).toFixed(1)}</p>
+          <article className="card border border-slate-200/80 p-2 text-center">
+            <p className="whitespace-nowrap text-[9px] font-semibold uppercase tracking-[0.07em] text-slate-500">{locale === "ko" ? "집중" : "Focus"}</p>
+            <p className="mt-0.5 whitespace-nowrap text-[1.26rem] font-bold leading-none text-slate-900">{Math.min(10, Math.max(1, Math.round((model.focusHours / 8) * 10 * 10) / 10)).toFixed(1)}</p>
           </article>
-          <article className="card min-w-[6.9rem] flex-1 border border-slate-200/80 p-2.5 text-center">
-            <p className="whitespace-nowrap text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-500">{locale === "ko" ? "미션 속도" : "Mission Vel"}</p>
-            <p className="mt-1 whitespace-nowrap text-[2rem] font-black leading-none text-slate-900">{model.missionVelocity}</p>
+          <article className="card border border-slate-200/80 p-2 text-center">
+            <p className="whitespace-nowrap text-[9px] font-semibold uppercase tracking-[0.07em] text-slate-500">{locale === "ko" ? "미션속도" : "Velocity"}</p>
+            <p className="mt-0.5 whitespace-nowrap text-[1.26rem] font-bold leading-none text-slate-900">{model.missionVelocity}</p>
           </article>
         </section>
 
-        <section className="grid grid-cols-2 gap-2.5">
-          <Link className="card border border-slate-200/80 p-3.5 transition active:scale-[0.99]" href="/app/record/performance">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-600"><Gauge size={17} /></div>
+        <section className="grid grid-cols-2 gap-2">
+          <Link className="card border border-slate-200/80 p-3 transition active:scale-[0.99]" href="/app/record/performance">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-600"><Gauge size={15} /></div>
               <div className="min-w-0">
-                <p className="truncate whitespace-nowrap text-sm font-bold text-slate-900">{locale === "ko" ? "퍼포먼스 분석" : "Performance Analytics"}</p>
-                <p className="truncate whitespace-nowrap text-[11px] text-slate-500">{locale === "ko" ? "성과 KPI 추적" : "Track KPI trends"}</p>
+                <p className="truncate whitespace-nowrap text-[13px] font-semibold text-slate-900">{locale === "ko" ? "퍼포먼스 분석" : "Performance"}</p>
+                <p className="truncate whitespace-nowrap text-[10px] text-slate-500">{locale === "ko" ? "KPI 추적" : "KPI trends"}</p>
               </div>
             </div>
           </Link>
-          <Link className="card border border-slate-200/80 p-3.5 transition active:scale-[0.99]" href="/app/record/tasks">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-600"><Target size={17} /></div>
+          <Link className="card border border-slate-200/80 p-3 transition active:scale-[0.99]" href="/app/record/tasks">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-600"><Target size={15} /></div>
               <div className="min-w-0">
-                <p className="truncate whitespace-nowrap text-sm font-bold text-slate-900">{locale === "ko" ? "태스크 분석" : "Task Breakdown"}</p>
-                <p className="truncate whitespace-nowrap text-[11px] text-slate-500">{locale === "ko" ? "카테고리 패턴 확인" : "Category split view"}</p>
+                <p className="truncate whitespace-nowrap text-[13px] font-semibold text-slate-900">{locale === "ko" ? "태스크 분석" : "Task Breakdown"}</p>
+                <p className="truncate whitespace-nowrap text-[10px] text-slate-500">{locale === "ko" ? "카테고리 패턴" : "Category split"}</p>
               </div>
             </div>
           </Link>
-          <Link className="card border border-slate-200/80 p-3.5 transition active:scale-[0.99]" href="/app/record/missions">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-600"><Rocket size={17} /></div>
+          <Link className="card border border-slate-200/80 p-3 transition active:scale-[0.99]" href="/app/record/missions">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-600"><Rocket size={15} /></div>
               <div className="min-w-0">
-                <p className="truncate whitespace-nowrap text-sm font-bold text-slate-900">{locale === "ko" ? "미션 분석" : "Mission Analytics"}</p>
-                <p className="truncate whitespace-nowrap text-[11px] text-slate-500">{locale === "ko" ? "완료율과 속도" : "Success & velocity"}</p>
+                <p className="truncate whitespace-nowrap text-[13px] font-semibold text-slate-900">{locale === "ko" ? "미션 분석" : "Mission"}</p>
+                <p className="truncate whitespace-nowrap text-[10px] text-slate-500">{locale === "ko" ? "완료율·속도" : "Success rate"}</p>
               </div>
             </div>
           </Link>
-          <Link className="card border border-slate-200/80 p-3.5 transition active:scale-[0.99]" href="/app/record/insights">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 text-slate-600"><Brain size={17} /></div>
+          <Link className="card border border-slate-200/80 p-3 transition active:scale-[0.99]" href="/app/record/insights">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-slate-600"><Brain size={15} /></div>
               <div className="min-w-0">
-                <p className="truncate whitespace-nowrap text-sm font-bold text-slate-900">{locale === "ko" ? "인사이트" : "Smart Insights"}</p>
-                <p className="truncate whitespace-nowrap text-[11px] text-slate-500">{locale === "ko" ? "다음 액션 추천" : "Recommended next move"}</p>
+                <p className="truncate whitespace-nowrap text-[13px] font-semibold text-slate-900">{locale === "ko" ? "인사이트" : "Insights"}</p>
+                <p className="truncate whitespace-nowrap text-[10px] text-slate-500">{locale === "ko" ? "다음 액션" : "Next action"}</p>
               </div>
             </div>
           </Link>
