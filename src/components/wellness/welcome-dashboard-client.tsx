@@ -27,6 +27,7 @@ import {
   getWorkoutSummary,
   todayLocalISO
 } from "@/lib/wellness-storage";
+import type { Locale } from "@/lib/types";
 
 type MissionCard = {
   id: string;
@@ -41,6 +42,7 @@ type MissionCard = {
 };
 
 type Props = {
+  locale: Locale;
   mission: MissionCard;
   checkinState: "none" | "draft" | "submitted" | "in_review" | "approved" | "rejected" | "needs_revision";
   labels: {
@@ -162,7 +164,7 @@ function statusBadgeText(checkinState: Props["checkinState"]): string {
   return "Not started";
 }
 
-export function WelcomeDashboardClient({ mission, checkinState, labels, score, reward }: Props) {
+export function WelcomeDashboardClient({ locale, mission, checkinState, labels, score, reward }: Props) {
   const router = useRouter();
   const [, setLocalTrigger] = useState(0);
   const [mounted, setMounted] = useState(false);

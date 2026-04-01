@@ -1,6 +1,7 @@
 import { CharacterAlert } from "@/components/character-alert";
 import { InactivityPenaltyPopup } from "@/components/inactivity-penalty-popup";
 import { LoginBonusPopup } from "@/components/login-bonus-popup";
+import { ManagerAnnouncementPopup } from "@/components/manager-announcement-popup";
 import { QuestionsSaveCelebration } from "@/components/questions-save-celebration";
 import { WelcomeDashboardClient } from "@/components/wellness/welcome-dashboard-client";
 import { computeNextReward } from "@/lib/logic/scoring";
@@ -123,6 +124,10 @@ export default async function WelcomePage({ searchParams }: Props) {
       : "No mission yet"
   };
 
+  const latestUnreadAnnouncement = bundle.notifications
+    .filter((item) => item.kind === "announcement" && item.is_new)
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))[0] ?? null;
+
   const nextReward = computeNextReward(bundle.score.total_points, bundle.rewards);
   const inactivityPenaltyNotification = bundle.notifications.find((item) => {
     if (!item.is_new) return false;
@@ -155,6 +160,19 @@ export default async function WelcomePage({ searchParams }: Props) {
         openOnMount={loginBonus && loginPoints > 0}
         points={loginPoints}
       />
+      {latestUnreadAnnouncement && (
+        <ManagerAnnouncementPopup
+          createdAt={latestUnreadAnnouncement.created_at}
+          ctaLabel={latestUnreadAnnouncement.cta_label}
+          ctaLink={latestUnreadAnnouncement.cta_link || latestUnreadAnnouncement.deep_link}
+          imageUrl={latestUnreadAnnouncement.image_url}
+          locale={bundle.user.locale}
+          message={latestUnreadAnnouncement.message}
+          notificationId={latestUnreadAnnouncement.id}
+          openOnMount
+          title={latestUnreadAnnouncement.title}
+        />
+      )}
       {already && (
         <section className="mb-4">
           <CharacterAlert
@@ -174,6 +192,7 @@ export default async function WelcomePage({ searchParams }: Props) {
       <WelcomeDashboardClient
         checkinState={checkinState}
         labels={strings}
+        locale={bundle.user.locale}
         mission={mission}
         reward={{
           batteryPercent: Math.max(8, nextReward.progressPercent),
