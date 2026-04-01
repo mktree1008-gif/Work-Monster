@@ -8,6 +8,8 @@ import {
   ArrowUpRight,
   CalendarClock,
   Check,
+  ChevronLeft,
+  ChevronRight,
   ChevronDown,
   ChevronUp,
   Clock3,
@@ -106,6 +108,7 @@ const LEGACY_STORAGE_PREFIX = "workmonster-plan";
 const FOCUS_STORAGE_PREFIX = "workmonster-focus-v1";
 const ACTIVE_MISSION_KEY = "workmonster-active-mission";
 const SWIPE_REVEAL_CLASS = "-translate-x-[8.6rem]";
+const RANGE_NOTE_REGEX = /\[(?:Range|기간):\s*(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})\]/i;
 
 const CATEGORY_COLOR: Record<Category, string> = {
   work: "bg-blue-100 text-blue-700",
@@ -327,6 +330,102 @@ function formatDueDateLabel(dueDate: string, locale: "en" | "ko"): string {
   });
 }
 
+function formatLongDateLabel(dateISO: string, locale: "en" | "ko"): string {
+  const date = new Date(`${dateISO}T00:00:00.000Z`);
+  if (!Number.isFinite(date.getTime())) return dateISO;
+  return date.toLocaleDateString(locale === "ko" ? "ko-KR" : "en-US", {
+    weekday: "short",
+    year: "numeric",
+    month: "short",
+    day: "numeric"
+  });
+}
+
+function formatDueRangeLabel(startISO: string, endISO: string, locale: "en" | "ko"): string {
+  const normalized = normalizeRange(startISO, endISO);
+  if (normalized.start === normalized.end) return formatDueDateLabel(normalized.start, locale);
+  return `${formatDueDateLabel(normalized.start, locale)} ${locale === "ko" ? "~" : "-"} ${formatDueDateLabel(normalized.end, locale)}`;
+}
+
+function visibleTaskNote(note?: string): string {
+  if (!note) return "";
+  return stripRangePrefix(note);
+}
+
+function taskDueChipLabel(task: PlannerTask, locale: "en" | "ko"): string {
+  const parsedRange = parseRangeFromNote(task.note);
+  if (parsedRange) return formatDueRangeLabel(parsedRange.start, parsedRange.end, locale);
+  if (task.due_date) return formatDueDateLabel(task.due_date, locale);
+  return "";
+}
+
+function parseRangeFromNote(note?: string): { start: string; end: string } | null {
+  if (!note) return null;
+  const match = note.match(RANGE_NOTE_REGEX);
+  if (!match) return null;
+  const start = match[1];
+  const end = match[2];
+  if (!parseDateToISO(start) || !parseDateToISO(end)) return null;
+  return { start, end };
+}
+
+function stripRangePrefix(note: string): string {
+  return note.replace(RANGE_NOTE_REGEX, "").trim();
+}
+
+function normalizeRange(startISO: string, endISO: string): { start: string; end: string } {
+  if (startISO <= endISO) return { start: startISO, end: endISO };
+  return { start: endISO, end: startISO };
+}
+
+function buildRangePrefix(startISO: string, endISO: string, locale: "en" | "ko"): string {
+  const normalized = normalizeRange(startISO, endISO);
+  if (normalized.start === normalized.end) return "";
+  return locale === "ko"
+    ? `[기간: ${normalized.start} ~ ${normalized.end}]`
+    : `[Range: ${normalized.start} ~ ${normalized.end}]`;
+}
+
+function monthStartISO(input: Date): string {
+  const d = new Date(Date.UTC(input.getUTCFullYear(), input.getUTCMonth(), 1));
+  return d.toISOString().slice(0, 10);
+}
+
+function shiftMonthISO(monthISO: string, diff: number): string {
+  const base = new Date(`${monthISO}T00:00:00.000Z`);
+  if (!Number.isFinite(base.getTime())) return monthStartISO(new Date());
+  const d = new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth() + diff, 1));
+  return d.toISOString().slice(0, 10);
+}
+
+function buildMonthCells(monthISO: string): Array<{ iso: string; day: number } | null> {
+  const base = new Date(`${monthISO}T00:00:00.000Z`);
+  if (!Number.isFinite(base.getTime())) return [];
+  const year = base.getUTCFullYear();
+  const month = base.getUTCMonth();
+  const first = new Date(Date.UTC(year, month, 1));
+  const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+  const lead = first.getUTCDay();
+
+  const cells: Array<{ iso: string; day: number } | null> = [];
+  for (let i = 0; i < lead; i += 1) cells.push(null);
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const iso = new Date(Date.UTC(year, month, day)).toISOString().slice(0, 10);
+    cells.push({ iso, day });
+  }
+  while (cells.length % 7 !== 0) cells.push(null);
+  return cells;
+}
+
+function composeTaskNote(note: string, startISO: string | null, endISO: string | null, locale: "en" | "ko"): string | undefined {
+  const baseNote = stripRangePrefix(note).trim();
+  if (!startISO) return baseNote || undefined;
+  const normalized = normalizeRange(startISO, endISO ?? startISO);
+  const prefix = buildRangePrefix(normalized.start, normalized.end, locale);
+  const merged = [prefix, baseNote].filter(Boolean).join(" ").trim();
+  return merged || undefined;
+}
+
 function parseDateToISO(input?: string): string | null {
   if (!input) return null;
   const text = input.trim();
@@ -428,6 +527,12 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
   const [completionCelebration, setCompletionCelebration] = useState<CompletionCelebration | null>(null);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [quickForm, setQuickForm] = useState<QuickTaskForm>(defaultQuickTaskForm);
+  const [duePickerOpen, setDuePickerOpen] = useState(false);
+  const [duePickerMonthISO, setDuePickerMonthISO] = useState(() => monthStartISO(new Date()));
+  const [dueRangeStartISO, setDueRangeStartISO] = useState("");
+  const [dueRangeEndISO, setDueRangeEndISO] = useState("");
+  const [dueDraftStartISO, setDueDraftStartISO] = useState("");
+  const [dueDraftEndISO, setDueDraftEndISO] = useState("");
   const [completedCollapsed, setCompletedCollapsed] = useState(false);
   const [swipedTaskId, setSwipedTaskId] = useState<string | null>(null);
   const [draggingTaskId, setDraggingTaskId] = useState<string | null>(null);
@@ -608,6 +713,23 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
       badge: "bg-white/20 text-white"
     };
   }, [progressPercent]);
+
+  const dueWeekdayLabels = isKo ? ["일", "월", "화", "수", "목", "금", "토"] : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const dueMonthCells = useMemo(() => buildMonthCells(duePickerMonthISO), [duePickerMonthISO]);
+  const dueMonthLabel = useMemo(() => {
+    const parsed = new Date(`${duePickerMonthISO}T00:00:00.000Z`);
+    if (!Number.isFinite(parsed.getTime())) return duePickerMonthISO;
+    return parsed.toLocaleDateString(locale === "ko" ? "ko-KR" : "en-US", {
+      year: "numeric",
+      month: "long"
+    });
+  }, [duePickerMonthISO, locale]);
+  const selectedDuePreview = useMemo(() => {
+    if (!dueRangeStartISO) return isKo ? "미설정" : "Not set";
+    if (!dueRangeEndISO || dueRangeStartISO === dueRangeEndISO) return formatLongDateLabel(dueRangeStartISO, locale);
+    const normalized = normalizeRange(dueRangeStartISO, dueRangeEndISO);
+    return `${formatLongDateLabel(normalized.start, locale)} ${isKo ? "~" : "→"} ${formatLongDateLabel(normalized.end, locale)}`;
+  }, [dueRangeEndISO, dueRangeStartISO, isKo, locale]);
 
   function celebrateCompletion(nextTasks: PlannerTask[], taskTitle: string) {
     const done = nextTasks.filter((task) => task.is_completed).length;
@@ -920,8 +1042,67 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
     }
   }
 
+  function isISOInSelectedRange(iso: string): boolean {
+    if (!dueDraftStartISO || !dueDraftEndISO) return false;
+    const normalized = normalizeRange(dueDraftStartISO, dueDraftEndISO);
+    return iso >= normalized.start && iso <= normalized.end;
+  }
+
+  function handleDueDateCellClick(iso: string) {
+    if (!dueDraftStartISO || dueDraftEndISO) {
+      setDueDraftStartISO(iso);
+      setDueDraftEndISO("");
+      return;
+    }
+
+    if (iso === dueDraftStartISO) {
+      setDueDraftEndISO(iso);
+      return;
+    }
+
+    const normalized = normalizeRange(dueDraftStartISO, iso);
+    setDueDraftStartISO(normalized.start);
+    setDueDraftEndISO(normalized.end);
+  }
+
+  function applyDueDateSelection() {
+    const start = parseDateToISO(dueDraftStartISO);
+    if (!start) {
+      setQuickForm((prev) => ({ ...prev, due_date: "" }));
+      setDueRangeStartISO("");
+      setDueRangeEndISO("");
+      setDuePickerOpen(false);
+      return;
+    }
+    const end = parseDateToISO(dueDraftEndISO) ?? start;
+    const normalized = normalizeRange(start, end);
+    setDueRangeStartISO(normalized.start);
+    setDueRangeEndISO(normalized.end);
+    setQuickForm((prev) => ({ ...prev, due_date: normalized.end }));
+    setDuePickerOpen(false);
+  }
+
+  function clearDueDateSelection() {
+    setDueRangeStartISO("");
+    setDueRangeEndISO("");
+    setDueDraftStartISO("");
+    setDueDraftEndISO("");
+    setQuickForm((prev) => ({ ...prev, due_date: "" }));
+  }
+
+  function toggleDuePicker() {
+    if (!duePickerOpen) {
+      setDueDraftStartISO(dueRangeStartISO);
+      setDueDraftEndISO(dueRangeEndISO);
+    }
+    setDuePickerOpen((prev) => !prev);
+  }
+
   function openQuickTaskSheet(task?: PlannerTask) {
     if (task) {
+      const parsedRange = parseRangeFromNote(task.note);
+      const initialStart = parsedRange?.start ?? (parseDateToISO(task.due_date) ?? "");
+      const initialEnd = parsedRange?.end ?? initialStart;
       setEditingTaskId(task.id);
       setQuickForm({
         title: task.title,
@@ -930,13 +1111,24 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
         duration: task.duration,
         is_high_impact: task.is_high_impact,
         is_mission_linked: task.is_mission_linked,
-        due_date: task.due_date ?? "",
-        note: task.note ?? ""
+        due_date: parseDateToISO(task.due_date) ?? "",
+        note: visibleTaskNote(task.note)
       });
+      setDueRangeStartISO(initialStart);
+      setDueRangeEndISO(initialEnd);
+      setDueDraftStartISO(initialStart);
+      setDueDraftEndISO(initialEnd);
+      setDuePickerMonthISO(monthStartISO(initialStart ? new Date(`${initialStart}T00:00:00.000Z`) : new Date()));
     } else {
       setEditingTaskId(null);
       setQuickForm(defaultQuickTaskForm());
+      setDueRangeStartISO("");
+      setDueRangeEndISO("");
+      setDueDraftStartISO("");
+      setDueDraftEndISO("");
+      setDuePickerMonthISO(monthStartISO(new Date()));
     }
+    setDuePickerOpen(false);
     setQuickTaskOpen(true);
   }
 
@@ -944,12 +1136,23 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
     setQuickTaskOpen(false);
     setEditingTaskId(null);
     setQuickForm(defaultQuickTaskForm());
+    setDuePickerOpen(false);
+    setDueRangeStartISO("");
+    setDueRangeEndISO("");
+    setDueDraftStartISO("");
+    setDueDraftEndISO("");
+    setDuePickerMonthISO(monthStartISO(new Date()));
   }
 
   function submitQuickTask(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const title = quickForm.title.trim();
     if (!title) return;
+    const dueStart = parseDateToISO(dueRangeStartISO) ?? parseDateToISO(quickForm.due_date);
+    const dueEnd = parseDateToISO(dueRangeEndISO) ?? dueStart;
+    const normalizedRange = dueStart && dueEnd ? normalizeRange(dueStart, dueEnd) : null;
+    const resolvedDueDate = normalizedRange?.end ?? dueStart ?? undefined;
+    const resolvedNote = composeTaskNote(quickForm.note, normalizedRange?.start ?? null, normalizedRange?.end ?? null, locale);
 
     if (editingTaskId) {
       const edited = tasks.map((task) => {
@@ -963,8 +1166,8 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
           is_high_impact: quickForm.is_high_impact || quickForm.priority === "high" || quickForm.is_mission_linked,
           is_mission_linked: quickForm.is_mission_linked,
           mission_id: quickForm.is_mission_linked ? activeMission?.id : undefined,
-          due_date: parseDateToISO(quickForm.due_date) ?? undefined,
-          note: quickForm.note.trim() || undefined
+          due_date: resolvedDueDate,
+          note: resolvedNote
         };
       });
       updateTasks(edited, isKo ? "작업이 수정됐어요." : "Task updated.");
@@ -983,8 +1186,8 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
       is_completed: false,
       is_mission_linked: quickForm.is_mission_linked,
       mission_id: quickForm.is_mission_linked ? activeMission?.id : undefined,
-      due_date: parseDateToISO(quickForm.due_date) ?? undefined,
-      note: quickForm.note.trim() || undefined,
+      due_date: resolvedDueDate,
+      note: resolvedNote,
       created_at: nowISO()
     };
 
@@ -1209,10 +1412,10 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
                               <Clock3 size={12} />
                               {formatTaskMinutes(task.duration, locale)}
                             </span>
-                            {task.due_date && (
+                            {taskDueChipLabel(task, locale) && (
                               <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-700">
                                 <CalendarClock size={11} />
-                                {isKo ? "마감" : "Due"} {formatDueDateLabel(task.due_date, locale)}
+                                {isKo ? "마감" : "Due"} {taskDueChipLabel(task, locale)}
                               </span>
                             )}
                             {task.is_mission_linked && (
@@ -1222,7 +1425,7 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
                               </span>
                             )}
                           </div>
-                          {task.note && <p className="mt-1 max-h-9 overflow-hidden text-xs text-slate-500">{task.note}</p>}
+                          {visibleTaskNote(task.note) && <p className="mt-1 max-h-9 overflow-hidden text-xs text-slate-500">{visibleTaskNote(task.note)}</p>}
 
                           <div className="mt-2 flex flex-wrap items-center gap-1">
                             <button
@@ -1330,17 +1533,17 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
                             <Clock3 size={12} />
                             {formatTaskMinutes(task.duration, locale)}
                           </span>
-                          {task.due_date && (
+                          {taskDueChipLabel(task, locale) && (
                             <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-700">
                               <CalendarClock size={11} />
-                              {isKo ? "마감" : "Due"} {formatDueDateLabel(task.due_date, locale)}
+                              {isKo ? "마감" : "Due"} {taskDueChipLabel(task, locale)}
                             </span>
                           )}
                           <span className="whitespace-nowrap rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-slate-500">
                             {priorityLabel(task.priority, locale)}
                           </span>
                         </div>
-                        {task.note && <p className="mt-1 max-h-9 overflow-hidden text-xs text-slate-500">{task.note}</p>}
+                        {visibleTaskNote(task.note) && <p className="mt-1 max-h-9 overflow-hidden text-xs text-slate-500">{visibleTaskNote(task.note)}</p>}
 
                         <div className="mt-2 flex flex-wrap items-center gap-1">
                           <button
@@ -1435,9 +1638,9 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
                       </button>
                       <div className="min-w-0 flex-1">
                         <p className="truncate whitespace-nowrap text-sm font-semibold text-slate-400 line-through">{task.title}</p>
-                        {task.due_date && (
+                        {taskDueChipLabel(task, locale) && (
                           <p className="mt-0.5 whitespace-nowrap text-[11px] font-semibold text-slate-400">
-                            {isKo ? "마감" : "Due"} {formatDueDateLabel(task.due_date, locale)}
+                            {isKo ? "마감" : "Due"} {taskDueChipLabel(task, locale)}
                           </p>
                         )}
                       </div>
@@ -1734,18 +1937,98 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
                   />
                 </label>
 
-                <label className="rounded-2xl bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600">
+                <div className="rounded-2xl bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600">
                   {isKo ? "마감일" : "Due date"}
-                  <input
-                    className="mt-1 w-full rounded-xl border-none bg-white px-2 py-1 text-sm"
-                    onChange={(event) => setQuickForm((prev) => ({ ...prev, due_date: event.target.value }))}
-                    placeholder={isKo ? "예: 2026-04-01" : "e.g. 2026-04-01"}
-                    type="text"
-                    value={quickForm.due_date}
-                  />
-                  <p className="mt-1 text-[10px] text-slate-500">{isKo ? "영문 형식 권장: YYYY-MM-DD" : "Use YYYY-MM-DD format"}</p>
-                </label>
+                  <button
+                    className="mt-1 flex w-full items-center justify-between rounded-xl bg-white px-3 py-2 text-left text-sm font-semibold text-slate-700"
+                    onClick={toggleDuePicker}
+                    type="button"
+                  >
+                    <span className="truncate whitespace-nowrap">
+                      {selectedDuePreview}
+                    </span>
+                    <CalendarClock className="shrink-0 text-blue-600" size={15} />
+                  </button>
+                  <p className="mt-1 text-[10px] text-slate-500">
+                    {isKo
+                      ? "시작일 터치 후 종료일 터치 = 기간, 시작일만 선택 후 적용 = 당일"
+                      : "Tap start date then end date for a range. Select one date then Apply for same-day."}
+                  </p>
+                </div>
               </div>
+
+              {duePickerOpen && (
+                <div className="rounded-2xl border border-blue-100 bg-blue-50/50 p-3">
+                  <div className="mb-2 flex items-center justify-between">
+                    <button
+                      aria-label={isKo ? "이전 달" : "Previous month"}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-blue-100 bg-white text-blue-700 transition hover:bg-blue-100"
+                      onClick={() => setDuePickerMonthISO((prev) => shiftMonthISO(prev, -1))}
+                      type="button"
+                    >
+                      <ChevronLeft size={15} />
+                    </button>
+                    <p className="text-sm font-black text-slate-800">{dueMonthLabel}</p>
+                    <button
+                      aria-label={isKo ? "다음 달" : "Next month"}
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-blue-100 bg-white text-blue-700 transition hover:bg-blue-100"
+                      onClick={() => setDuePickerMonthISO((prev) => shiftMonthISO(prev, 1))}
+                      type="button"
+                    >
+                      <ChevronRight size={15} />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-7 gap-1">
+                    {dueWeekdayLabels.map((label) => (
+                      <span className="py-1 text-center text-[10px] font-black uppercase tracking-[0.08em] text-slate-500" key={label}>
+                        {label}
+                      </span>
+                    ))}
+
+                    {dueMonthCells.map((cell, index) => {
+                      if (!cell) {
+                        return <span className="h-8 rounded-lg" key={`empty-${index}`} />;
+                      }
+                      const isStart = dueDraftStartISO === cell.iso;
+                      const isEnd = dueDraftEndISO === cell.iso;
+                      const inRange = isISOInSelectedRange(cell.iso);
+                      return (
+                        <button
+                          className={`h-8 rounded-lg text-xs font-bold transition ${isStart || isEnd
+                            ? "bg-blue-600 text-white shadow-[0_8px_20px_rgba(37,99,235,0.3)]"
+                            : inRange
+                              ? "bg-blue-100 text-blue-700"
+                              : "bg-white text-slate-600 hover:bg-blue-50"}`}
+                          key={cell.iso}
+                          onClick={() => handleDueDateCellClick(cell.iso)}
+                          type="button"
+                        >
+                          {cell.day}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-between gap-2">
+                    <button
+                      className="rounded-full bg-white px-3 py-1.5 text-xs font-bold text-slate-600 shadow-sm"
+                      onClick={clearDueDateSelection}
+                      type="button"
+                    >
+                      {isKo ? "초기화" : "Clear"}
+                    </button>
+                    <button
+                      className="rounded-full bg-blue-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
+                      disabled={!dueDraftStartISO}
+                      onClick={applyDueDateSelection}
+                      type="button"
+                    >
+                      {isKo ? "적용" : "Apply"}
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div className="space-y-2 rounded-2xl bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600">
                 <label className="flex items-center gap-2">
