@@ -503,6 +503,7 @@ export function QuestionsFlow({ locale, readOnly = false, initialSubmission = nu
       throw new Error(result.error ?? "Failed to save check-in.");
     }
 
+    setSubmitError("");
     return result;
   }, [
     canEdit,
