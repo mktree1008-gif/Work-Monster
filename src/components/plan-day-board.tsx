@@ -634,28 +634,73 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
     return chunks.join(" • ");
   }, [activeMission, missionDdayLabel]);
 
-  const topInsight = useMemo(() => {
+  const energyCompass = useMemo(() => {
     const recovery = sleepSummary.recovery;
+    const clampedRecovery = Math.max(0, Math.min(100, Math.round(recovery)));
+    const hasSleepLog = Boolean(sleepSummary.latest);
     const workloadMinutes = pendingTasks.reduce((sum, task) => sum + task.duration, 0);
+    let action = "";
+    let title = "";
+    let zone = "";
+    let emoji = "🧭";
+    let trackClass = "from-rose-300 via-amber-300 to-blue-500";
+
+    if (!hasSleepLog) {
+      title = isKo ? "에너지 데이터 없음" : "No energy data yet";
+      zone = isKo ? "빠른 체크인 필요" : "Need quick check-in";
+      emoji = "🫧";
+      trackClass = "from-slate-300 via-blue-200 to-blue-500";
+      action = isKo
+        ? "어제 수면을 아직 기록하지 않았어요. 오늘은 25분짜리 가벼운 시작 작업으로 리듬을 만들어요."
+        : "No sleep log yet. Start with one light 25-minute task to build momentum.";
+      return {
+        recovery: clampedRecovery,
+        title,
+        zone,
+        emoji,
+        trackClass,
+        action
+      };
+    }
 
     if (activeMission && missionOpenTaskCount === 0) {
-      return `${isKo ? "회복" : "Recovery"} ${recovery}% — ${isKo ? "오늘 미션을 High Impact에 먼저 추가하세요." : "Add your mission to High Impact first."}`;
+      action = isKo ? "오늘 미션을 High Impact에 먼저 추가하세요." : "Add your mission to High Impact first.";
+    } else if (clampedRecovery < 65) {
+      action = isKo ? "저강도 작업 중심으로 리듬을 유지해요." : "Low recovery: keep your plan light and focused.";
+    } else if (workloadMinutes > 300 || pendingTasks.length > 6) {
+      action = isKo ? "Top 3 우선순위에만 집중하세요." : "Focus on your top 3 priorities today.";
+    } else if (workoutSummary.minutes < 20) {
+      action = isKo ? "짧은 움직임 세션을 일정에 추가해보세요." : "Add a short movement block to keep momentum.";
+    } else {
+      action = isKo ? "핵심 작업부터 빠르게 실행해요." : "You are ready: execute your key tasks first.";
     }
 
-    if (recovery < 65) {
-      return `${isKo ? "회복" : "Recovery"} ${recovery}% — ${isKo ? "저강도 작업 중심으로 리듬을 유지해요." : "Low recovery: keep your plan light and focused."}`;
+    if (clampedRecovery >= 80) {
+      title = isKo ? "에너지 파도 높음" : "Energy wave is high";
+      zone = isKo ? "Deep Work Zone" : "Deep Work Zone";
+      emoji = "🚀";
+      trackClass = "from-sky-300 via-cyan-300 to-blue-600";
+    } else if (clampedRecovery >= 55) {
+      title = isKo ? "안정적인 집중 구간" : "Steady focus window";
+      zone = isKo ? "Balanced Zone" : "Balanced Zone";
+      emoji = "⚡";
+      trackClass = "from-amber-200 via-sky-300 to-blue-600";
+    } else {
+      title = isKo ? "회복 우선 구간" : "Recovery-first window";
+      zone = isKo ? "Recharge Zone" : "Recharge Zone";
+      emoji = "🌱";
+      trackClass = "from-rose-300 via-orange-300 to-amber-500";
     }
 
-    if (workloadMinutes > 300 || pendingTasks.length > 6) {
-      return `${isKo ? "회복" : "Recovery"} ${recovery}% — ${isKo ? "Top 3 우선순위에만 집중하세요." : "Focus on your top 3 priorities today."}`;
-    }
-
-    if (workoutSummary.minutes < 20) {
-      return `${isKo ? "회복" : "Recovery"} ${recovery}% — ${isKo ? "짧은 움직임 세션을 일정에 추가해보세요." : "Add a short movement block to keep momentum."}`;
-    }
-
-    return `${isKo ? "회복" : "Recovery"} ${recovery}% — ${isKo ? "핵심 작업부터 빠르게 실행해요." : "You are ready: execute your key tasks first."}`;
-  }, [activeMission, isKo, missionOpenTaskCount, pendingTasks, sleepSummary.recovery, workoutSummary.minutes]);
+    return {
+      recovery: clampedRecovery,
+      title,
+      zone,
+      emoji,
+      trackClass,
+      action
+    };
+  }, [activeMission, isKo, missionOpenTaskCount, pendingTasks, sleepSummary.latest, sleepSummary.recovery, workoutSummary.minutes]);
 
   const previousWeekStats = useMemo(() => {
     let previousTotal = 0;
@@ -1307,16 +1352,53 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
   const celebrationRadius = 42;
   const celebrationCircumference = 2 * Math.PI * celebrationRadius;
   const celebrationDashOffset = celebrationCircumference - (celebrationPercent / 100) * celebrationCircumference;
+  const energyRingFill = Math.max(6, energyCompass.recovery);
+  const energySegments = Array.from({ length: 10 }, (_, index) => {
+    const threshold = (index + 1) * 10;
+    return energyCompass.recovery >= threshold;
+  });
 
   return (
     <section className="space-y-5 pb-28">
-      <article className="rounded-[1.6rem] border border-blue-200/70 bg-blue-50/60 px-4 py-3 shadow-sm">
-        <p className="flex items-center gap-2 overflow-hidden text-sm font-medium text-slate-700">
-          <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white text-blue-600 shadow-sm">
-            <Sparkles size={16} />
+      <article className="rounded-[1.6rem] border border-blue-200/70 bg-gradient-to-br from-white to-blue-50/70 px-4 py-3 shadow-[0_10px_28px_rgba(59,130,246,0.12)]">
+        <div className="flex items-center gap-3">
+          <div
+            className="relative h-16 w-16 shrink-0 rounded-full p-[5px]"
+            style={{ background: `conic-gradient(#2563eb ${energyRingFill}%, #dbeafe ${energyRingFill}% 100%)` }}
+          >
+            <div className="flex h-full w-full items-center justify-center rounded-full bg-white text-2xl">
+              {energyCompass.emoji}
+            </div>
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-black uppercase tracking-[0.12em] text-blue-600">
+              {isKo ? "에너지 컴퍼스" : "Energy Compass"}
+            </p>
+            <p className="truncate whitespace-nowrap text-base font-black text-slate-900">{energyCompass.title}</p>
+            <p className="truncate whitespace-nowrap text-xs font-semibold text-blue-700">{energyCompass.zone}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-2xl font-black tracking-tight text-blue-700">{energyCompass.recovery}%</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-500">
+              {isKo ? "회복도" : "Recovery"}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-3 flex items-center gap-1.5">
+          {energySegments.map((filled, idx) => (
+            <span
+              className={`h-2 flex-1 rounded-full transition ${filled ? `bg-gradient-to-r ${energyCompass.trackClass}` : "bg-slate-200"}`}
+              key={`energy-segment-${idx}`}
+            />
+          ))}
+        </div>
+        <p className="mt-2 flex items-center gap-2 text-sm font-semibold text-slate-700">
+          <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white text-blue-600 shadow-sm">
+            <Sparkles size={13} />
           </span>
-          <span className="min-w-0 truncate whitespace-nowrap">
-            {topInsight.split("—")[0].trim()} — <span className="font-bold text-blue-700">{topInsight.split("—").slice(1).join("—").trim()}</span>
+          <span className="min-w-0 truncate">
+            {energyCompass.action}
           </span>
         </p>
       </article>
