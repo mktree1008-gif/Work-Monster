@@ -9,6 +9,7 @@ import { ManagerReviewResultPopup } from "@/components/manager-review-result-pop
 import { ManagerRulesSavedPopup } from "@/components/manager-rules-saved-popup";
 import { ManagerUserAnalytics } from "@/components/manager-user-analytics";
 import { NotificationBell } from "@/components/notification-bell";
+import { DateInputPicker } from "@/components/date-input-picker";
 import { SubmissionReviewForm } from "@/components/submission-review-form";
 import { getGameRepository } from "@/lib/repositories/game-repository";
 import { getSession } from "@/lib/session";
@@ -377,14 +378,8 @@ export default async function ManagerPage({ searchParams }: Props) {
               <input className="input" name="mission_title" placeholder="Mission title" required />
               <textarea className="input h-24 resize-none" name="mission_objective" placeholder="Objective" required />
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                <label className="text-xs font-semibold text-slate-600">
-                  Start date
-                  <input className="input mt-1" name="start_date" type="date" />
-                </label>
-                <label className="text-xs font-semibold text-slate-600">
-                  Due date
-                  <input className="input mt-1" name="due_date" type="date" />
-                </label>
+                <DateInputPicker label="Start date" name="start_date" />
+                <DateInputPicker label="Due date" name="due_date" />
                 <label className="text-xs font-semibold text-slate-600">
                   Duration (days)
                   <input className="input mt-1" min={0} name="duration_days" placeholder="Optional" step={1} type="number" />
@@ -470,14 +465,8 @@ export default async function ManagerPage({ searchParams }: Props) {
                         required
                       />
                       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                        <label className="text-xs font-semibold text-slate-600">
-                          Start date
-                          <input className="input mt-1" defaultValue={row.startDate} name="start_date" type="date" />
-                        </label>
-                        <label className="text-xs font-semibold text-slate-600">
-                          Due date
-                          <input className="input mt-1" defaultValue={row.dueDate} name="due_date" type="date" />
-                        </label>
+                        <DateInputPicker defaultValue={row.startDate} label="Start date" name="start_date" />
+                        <DateInputPicker defaultValue={row.dueDate} label="Due date" name="due_date" />
                         <label className="text-xs font-semibold text-slate-600">
                           Duration (days)
                           <input
