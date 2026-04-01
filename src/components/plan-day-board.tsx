@@ -12,14 +12,12 @@ import {
   ChevronRight,
   ChevronDown,
   ChevronUp,
-  Clock3,
   CornerDownRight,
   GripVertical,
   Pencil,
   Plus,
   Sparkles,
   Star,
-  Target,
   Trash2,
   TriangleAlert,
   TrendingUp,
@@ -118,13 +116,13 @@ const ACTIVE_MISSION_KEY = "workmonster-active-mission";
 const RANGE_NOTE_REGEX = /\[(?:Range|기간):\s*(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})\]/i;
 
 const CATEGORY_COLOR: Record<Category, string> = {
-  work: "bg-blue-100 text-blue-700",
-  health: "bg-violet-100 text-violet-700",
-  study: "bg-cyan-100 text-cyan-700",
-  personal: "bg-emerald-100 text-emerald-700",
-  admin: "bg-slate-200 text-slate-700",
-  mission: "bg-fuchsia-100 text-fuchsia-700",
-  custom: "bg-amber-100 text-amber-700"
+  work: "border border-blue-200 bg-blue-50 text-blue-700",
+  health: "border border-blue-200 bg-blue-50 text-blue-700",
+  study: "border border-blue-200 bg-blue-50 text-blue-700",
+  personal: "border border-blue-200 bg-blue-50 text-blue-700",
+  admin: "border border-blue-200 bg-blue-50 text-blue-700",
+  mission: "border border-blue-200 bg-blue-50 text-blue-700",
+  custom: "border border-blue-200 bg-blue-50 text-blue-700"
 };
 
 function canUseStorage(): boolean {
@@ -1503,7 +1501,7 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
 
     return (
       <article
-        className={`${cardBase} cursor-pointer p-3 transition hover:border-blue-300`}
+        className={`${cardBase} cursor-pointer px-3 py-2.5 transition hover:border-blue-300`}
         draggable
         key={task.id}
         onClick={() => setExpandedTaskId((prev) => (prev === task.id ? null : task.id))}
@@ -1516,7 +1514,7 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
           setDraggingTaskId(null);
         }}
       >
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-2.5">
           <button
             className={`mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 ${
               task.is_completed ? "border-blue-500 bg-blue-500 text-white" : "border-blue-500 text-transparent"
@@ -1532,7 +1530,7 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
 
           <div className="min-w-0 flex-1">
             <div className="flex items-start gap-2">
-              <p className="line-clamp-2 flex-1 break-words text-[1.04rem] font-black leading-snug text-slate-900">
+              <p className="line-clamp-1 flex-1 break-words text-[1.01rem] font-extrabold leading-snug text-slate-900">
                 {task.title}
               </p>
               <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/95 text-slate-300 shadow-sm">
@@ -1540,35 +1538,34 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
               </span>
             </div>
 
-            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-              <span className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[10px] font-black ${CATEGORY_COLOR[task.category]}`}>
+            <div className="no-scrollbar mt-1.5 flex items-center gap-2 overflow-x-auto whitespace-nowrap">
+              <span className={`inline-flex shrink-0 items-center rounded-full px-2.5 py-0.5 text-[10px] font-black uppercase tracking-[0.06em] ${CATEGORY_COLOR[task.category]}`}>
                 {categoryLabel(task.category, locale)}
               </span>
-              <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-slate-500">
-                <Clock3 size={11} />
+
+              <span className="text-[11px] font-semibold text-slate-500">
                 {formatTaskMinutes(task.duration, locale)}
               </span>
+
               {dueChip && (
-                <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-700">
-                  <CalendarClock size={11} />
+                <span className="text-[11px] font-semibold text-slate-500">
                   {isKo ? "마감" : "Due"} {dueChip}
                 </span>
               )}
               {task.is_mission_linked && (
-                <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-fuchsia-100 px-2 py-0.5 text-[10px] font-black text-fuchsia-700">
-                  <Target size={11} />
-                  {isKo ? "매니저 미션" : "MISSION"}
+                <span className="text-[11px] font-semibold text-slate-500">
+                  {isKo ? "매니저 미션 연결" : "Manager mission linked"}
                 </span>
               )}
               {!task.is_mission_linked && (
-                <span className="whitespace-nowrap rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-slate-500">
+                <span className="text-[11px] font-semibold text-slate-500">
                   {priorityLabel(task.priority, locale)}
                 </span>
               )}
             </div>
 
             {visibleTaskNote(task.note) && (
-              <p className="mt-1.5 line-clamp-2 text-xs text-slate-500">{visibleTaskNote(task.note)}</p>
+              <p className="mt-1.5 line-clamp-1 text-[11px] text-slate-500">{visibleTaskNote(task.note)}</p>
             )}
 
             <div
@@ -1631,79 +1628,82 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
 
   return (
     <section className="space-y-5 pb-28">
-      <article className="relative overflow-hidden rounded-[1.7rem] border border-blue-200/70 bg-gradient-to-br from-[#f8fbff] via-white to-[#eef4ff] px-4 py-4 shadow-[0_12px_30px_rgba(59,130,246,0.14)]">
-        <div className={`absolute right-5 top-4 h-2.5 w-2.5 animate-pulse rounded-full ${snapshotPulseClass}`} />
+      <article className="relative overflow-hidden rounded-[1.45rem] border border-blue-200/70 bg-gradient-to-r from-[#f9fbff] via-white to-[#eff4ff] px-3.5 py-3 shadow-[0_10px_22px_rgba(59,130,246,0.12)]">
+        <div className={`absolute right-4 top-3 h-2 w-2 animate-pulse rounded-full ${snapshotPulseClass}`} />
         <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[11px] font-black uppercase tracking-[0.14em] text-blue-700">
-              {isKo ? "모닝 모멘텀 스냅샷" : "Momentum Snapshot"}
-            </p>
-            <p className="mt-1 text-sm font-bold text-slate-700">
-              {isKo ? "오늘의 속도를 만드는 아침 런치패드" : "Your morning launchpad for a focused day"}
-            </p>
-          </div>
-          <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-black text-blue-700">
-            {isKo ? "플랜 모드" : "Plan Mode"}
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-blue-700">
+            {isKo ? "모닝 모멘텀" : "Morning Momentum"}
+          </p>
+          <span className="rounded-full bg-blue-100 px-2 py-1 text-[10px] font-black text-blue-700">
+            {isKo ? "어제 기준" : "Yesterday-based"}
           </span>
         </div>
 
-        <div className="mt-3 grid grid-cols-3 gap-2.5">
-          <div className="rounded-xl border border-blue-100 bg-white/85 p-2.5">
-            <p className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-500">{isKo ? "어제 완료율" : "Yesterday completion"}</p>
-            <p className="mt-1 truncate whitespace-nowrap text-lg font-black text-slate-900">
-              {yesterdayCompletionPercent === null ? (isKo ? "기록 없음" : "No record yet") : `${yesterdayCompletionPercent}%`}
-            </p>
-            <p className="text-[11px] font-semibold text-slate-500">
+        <div className="mt-2.5 grid grid-cols-[4.4rem_1fr] gap-3">
+          <div className="flex flex-col items-center justify-center gap-1">
+            <div
+              className="relative h-[4.4rem] w-[4.4rem] rounded-full p-[4px]"
+              style={{
+                background: `conic-gradient(#2563eb ${yesterdayCompletionPercent ?? 0}%, #c7d8f7 ${yesterdayCompletionPercent ?? 0}% 100%)`
+              }}
+            >
+              <div className="flex h-full w-full flex-col items-center justify-center rounded-full bg-white">
+                <p className="text-[1.05rem] font-black leading-none text-slate-900">
+                  {yesterdayCompletionPercent === null ? "—" : `${yesterdayCompletionPercent}%`}
+                </p>
+                <p className="mt-0.5 text-[9px] font-bold uppercase tracking-[0.08em] text-slate-500">
+                  {isKo ? "어제" : "Yesterday"}
+                </p>
+              </div>
+            </div>
+            <p className="text-[10px] font-bold text-slate-500">
               {yesterdayTasks.length === 0 ? "—" : `${yesterdayDoneCount}/${yesterdayTasks.length}`}
             </p>
           </div>
-          <div className="rounded-xl border border-blue-100 bg-white/85 p-2.5">
-            <p className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-500">{isKo ? "이월 작업" : "Carry-over"}</p>
-            <p className="mt-1 text-lg font-black text-slate-900">{yesterdayUnfinished.length}</p>
-            <p className="text-[11px] font-semibold text-slate-500">{isKo ? "오늘로 가져올 수 있음" : "can be moved into today"}</p>
-          </div>
-          <div className="rounded-xl border border-blue-100 bg-white/85 p-2.5">
-            <p className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-500">{isKo ? "오늘 로드" : "Today load"}</p>
-            <p className="mt-1 text-lg font-black text-slate-900">{todayLoadMinutes}m</p>
-            <p className="text-[11px] font-semibold text-slate-500">{activeTaskCount} {isKo ? "활성 작업" : "active tasks"}</p>
+
+          <div className="space-y-2">
+            <div className="rounded-xl border border-blue-100 bg-white/80 px-2.5 py-2">
+              <div className="flex items-center justify-between text-[11px] font-bold text-slate-600">
+                <span>{isKo ? "이월" : "Carry-over"}</span>
+                <span className="font-black text-slate-900">{yesterdayUnfinished.length}</span>
+              </div>
+              <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-200">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-indigo-400 to-blue-600 transition-all duration-700"
+                  style={{ width: `${Math.min(100, yesterdayUnfinished.length * 20)}%` }}
+                />
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-blue-100 bg-white/80 px-2.5 py-2">
+              <div className="flex items-center justify-between text-[11px] font-bold text-slate-600">
+                <span>{isKo ? "오늘 로드" : "Today load"}</span>
+                <span className="font-black text-slate-900">{todayLoadMinutes}m</span>
+              </div>
+              <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-slate-200">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-cyan-400 to-blue-500 transition-all duration-700"
+                  style={{ width: `${Math.min(100, Math.round((todayLoadMinutes / 240) * 100))}%` }}
+                />
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-blue-100">
-          <div
-            className="h-full rounded-full bg-gradient-to-r from-blue-500 via-indigo-500 to-violet-500 transition-all duration-700"
-            style={{ width: `${yesterdayCompletionPercent ?? 0}%` }}
-          />
-        </div>
-        <p className="mt-2 flex items-center gap-2 text-sm font-semibold text-slate-700">
-          <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white text-blue-600 shadow-sm">
-            <Sparkles size={13} />
-          </span>
-          <span className="min-w-0 truncate">{snapshotActionLine}</span>
-        </p>
-
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <button
-            className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-3 py-2 text-sm font-black text-white shadow-[0_10px_20px_rgba(43,80,214,0.3)] transition hover:brightness-105 active:scale-[0.98]"
-            onClick={openQuickAddSheet}
-            type="button"
-          >
-            <Plus size={15} />
-            {isKo ? "Quick Add" : "Quick Add"}
-          </button>
-          <button
-            className={`inline-flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-black transition ${
-              yesterdayUnfinished.length > 0
-                ? "border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100"
-                : "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400"
-            }`}
-            disabled={yesterdayUnfinished.length === 0}
-            onClick={carryForwardFromYesterday}
-            type="button"
-          >
-            <ArrowUpRight size={15} />
-            {isKo ? "Carry Forward" : "Carry Forward"}
-          </button>
+        <div className="mt-2.5 flex items-center justify-between gap-2 rounded-xl border border-blue-100 bg-white/85 px-2.5 py-2">
+          <p className="min-w-0 truncate text-[12px] font-semibold text-slate-700">
+            {snapshotActionLine}
+          </p>
+          {yesterdayUnfinished.length > 0 && (
+            <button
+              className="inline-flex shrink-0 items-center gap-1 rounded-full border border-blue-300 bg-blue-50 px-2 py-1 text-[10px] font-black text-blue-700 transition hover:bg-blue-100"
+              onClick={carryForwardFromYesterday}
+              type="button"
+            >
+              <ArrowUpRight size={12} />
+              {isKo ? "이월" : "Carry"}
+            </button>
+          )}
         </div>
       </article>
 
