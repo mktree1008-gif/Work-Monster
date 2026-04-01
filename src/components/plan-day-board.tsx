@@ -560,6 +560,10 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
   const [quickAddDefaults, setQuickAddDefaults] = useState<QuickAddDefaults>(defaultQuickAddDefaults);
   const [quickAddRangeStartISO, setQuickAddRangeStartISO] = useState("");
   const [quickAddRangeEndISO, setQuickAddRangeEndISO] = useState("");
+  const [quickAddPickerOpen, setQuickAddPickerOpen] = useState(false);
+  const [quickAddPickerMonthISO, setQuickAddPickerMonthISO] = useState(() => monthStartISO(new Date()));
+  const [quickAddDraftStartISO, setQuickAddDraftStartISO] = useState("");
+  const [quickAddDraftEndISO, setQuickAddDraftEndISO] = useState("");
   const [duePickerOpen, setDuePickerOpen] = useState(false);
   const [duePickerMonthISO, setDuePickerMonthISO] = useState(() => monthStartISO(new Date()));
   const [dueRangeStartISO, setDueRangeStartISO] = useState("");
@@ -768,6 +772,21 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
     const normalized = normalizeRange(dueRangeStartISO, dueRangeEndISO);
     return `${formatLongDateLabel(normalized.start, locale)} ${isKo ? "~" : "→"} ${formatLongDateLabel(normalized.end, locale)}`;
   }, [dueRangeEndISO, dueRangeStartISO, isKo, locale]);
+  const quickAddMonthCells = useMemo(() => buildMonthCells(quickAddPickerMonthISO), [quickAddPickerMonthISO]);
+  const quickAddMonthLabel = useMemo(() => {
+    const parsed = new Date(`${quickAddPickerMonthISO}T00:00:00.000Z`);
+    if (!Number.isFinite(parsed.getTime())) return quickAddPickerMonthISO;
+    return parsed.toLocaleDateString(locale === "ko" ? "ko-KR" : "en-US", {
+      year: "numeric",
+      month: "long"
+    });
+  }, [quickAddPickerMonthISO, locale]);
+  const selectedQuickAddPreview = useMemo(() => {
+    if (!quickAddRangeStartISO) return isKo ? "미설정" : "Not set";
+    if (!quickAddRangeEndISO || quickAddRangeStartISO === quickAddRangeEndISO) return formatLongDateLabel(quickAddRangeStartISO, locale);
+    const normalized = normalizeRange(quickAddRangeStartISO, quickAddRangeEndISO);
+    return `${formatLongDateLabel(normalized.start, locale)} ${isKo ? "~" : "→"} ${formatLongDateLabel(normalized.end, locale)}`;
+  }, [quickAddRangeEndISO, quickAddRangeStartISO, isKo, locale]);
 
   function celebrateCompletion(nextTasks: PlannerTask[], taskTitle: string) {
     const done = nextTasks.filter((task) => task.is_completed).length;
@@ -1136,6 +1155,62 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
     setDuePickerOpen((prev) => !prev);
   }
 
+  function isISOInQuickAddSelectedRange(iso: string): boolean {
+    if (!quickAddDraftStartISO || !quickAddDraftEndISO) return false;
+    const normalized = normalizeRange(quickAddDraftStartISO, quickAddDraftEndISO);
+    return iso >= normalized.start && iso <= normalized.end;
+  }
+
+  function handleQuickAddDateCellClick(iso: string) {
+    if (!quickAddDraftStartISO || quickAddDraftEndISO) {
+      setQuickAddDraftStartISO(iso);
+      setQuickAddDraftEndISO("");
+      return;
+    }
+
+    if (iso === quickAddDraftStartISO) {
+      setQuickAddDraftEndISO(iso);
+      return;
+    }
+
+    const normalized = normalizeRange(quickAddDraftStartISO, iso);
+    setQuickAddDraftStartISO(normalized.start);
+    setQuickAddDraftEndISO(normalized.end);
+  }
+
+  function applyQuickAddDateSelection() {
+    const start = parseDateToISO(quickAddDraftStartISO);
+    if (!start) {
+      setQuickAddRangeStartISO("");
+      setQuickAddRangeEndISO("");
+      setQuickAddDefaults((prev) => ({ ...prev, due_date: "" }));
+      setQuickAddPickerOpen(false);
+      return;
+    }
+    const end = parseDateToISO(quickAddDraftEndISO) ?? start;
+    const normalized = normalizeRange(start, end);
+    setQuickAddRangeStartISO(normalized.start);
+    setQuickAddRangeEndISO(normalized.end);
+    setQuickAddDefaults((prev) => ({ ...prev, due_date: normalized.end }));
+    setQuickAddPickerOpen(false);
+  }
+
+  function clearQuickAddDateSelection() {
+    setQuickAddRangeStartISO("");
+    setQuickAddRangeEndISO("");
+    setQuickAddDraftStartISO("");
+    setQuickAddDraftEndISO("");
+    setQuickAddDefaults((prev) => ({ ...prev, due_date: "" }));
+  }
+
+  function toggleQuickAddPicker() {
+    if (!quickAddPickerOpen) {
+      setQuickAddDraftStartISO(quickAddRangeStartISO);
+      setQuickAddDraftEndISO(quickAddRangeEndISO);
+    }
+    setQuickAddPickerOpen((prev) => !prev);
+  }
+
   function openQuickTaskSheet(task?: PlannerTask) {
     if (task) {
       const parsedRange = parseRangeFromNote(task.note);
@@ -1187,10 +1262,15 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
     setQuickAddDefaults(defaultQuickAddDefaults());
     setQuickAddRangeStartISO("");
     setQuickAddRangeEndISO("");
+    setQuickAddDraftStartISO("");
+    setQuickAddDraftEndISO("");
+    setQuickAddPickerMonthISO(monthStartISO(new Date()));
+    setQuickAddPickerOpen(false);
     setQuickAddOpen(true);
   }
 
   function closeQuickAddSheet() {
+    setQuickAddPickerOpen(false);
     setQuickAddOpen(false);
   }
 
@@ -2088,7 +2168,7 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
                   </select>
                 </div>
 
-                <div className="mt-2 grid grid-cols-3 gap-2">
+                <div className="mt-2 grid grid-cols-2 gap-2">
                   <label className="rounded-xl bg-white px-3 py-2 text-[11px] font-bold text-slate-600">
                     {isKo ? "분" : "Mins"}
                     <input
@@ -2101,29 +2181,96 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
                       value={quickAddDefaults.duration}
                     />
                   </label>
-                  <label className="rounded-xl bg-white px-3 py-2 text-[11px] font-bold text-slate-600">
-                    {isKo ? "시작일" : "Start"}
-                    <input
-                      className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1 text-sm"
-                      onChange={(event) => setQuickAddRangeStartISO(event.target.value)}
-                      type="date"
-                      value={quickAddRangeStartISO}
-                    />
-                  </label>
-                  <label className="rounded-xl bg-white px-3 py-2 text-[11px] font-bold text-slate-600">
-                    {isKo ? "종료일" : "End"}
-                    <input
-                      className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1 text-sm"
-                      onChange={(event) => {
-                        const nextEnd = event.target.value;
-                        setQuickAddRangeEndISO(nextEnd);
-                        setQuickAddDefaults((prev) => ({ ...prev, due_date: nextEnd || quickAddRangeStartISO }));
-                      }}
-                      type="date"
-                      value={quickAddRangeEndISO}
-                    />
-                  </label>
+                  <div className="rounded-xl bg-white px-3 py-2 text-[11px] font-bold text-slate-600">
+                    {isKo ? "기간 설정" : "Date range"}
+                    <button
+                      className="mt-1 flex w-full items-center justify-between rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-left text-sm font-semibold text-slate-700"
+                      onClick={toggleQuickAddPicker}
+                      type="button"
+                    >
+                      <span className="truncate whitespace-nowrap">{selectedQuickAddPreview}</span>
+                      <CalendarClock className="shrink-0 text-blue-600" size={15} />
+                    </button>
+                    <p className="mt-1 text-[10px] text-slate-500">
+                      {isKo
+                        ? "시작일 터치 후 종료일 터치 = 기간, 시작일만 선택 후 적용 = 당일"
+                        : "Tap start then end for range. Tap one day and Apply for same-day."}
+                    </p>
+                  </div>
                 </div>
+
+                {quickAddPickerOpen && (
+                  <div className="mt-2 rounded-2xl border border-blue-100 bg-blue-50/50 p-3">
+                    <div className="mb-2 flex items-center justify-between">
+                      <button
+                        aria-label={isKo ? "이전 달" : "Previous month"}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-blue-100 bg-white text-blue-700 transition hover:bg-blue-100"
+                        onClick={() => setQuickAddPickerMonthISO((prev) => shiftMonthISO(prev, -1))}
+                        type="button"
+                      >
+                        <ChevronLeft size={15} />
+                      </button>
+                      <p className="text-sm font-black text-slate-800">{quickAddMonthLabel}</p>
+                      <button
+                        aria-label={isKo ? "다음 달" : "Next month"}
+                        className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-blue-100 bg-white text-blue-700 transition hover:bg-blue-100"
+                        onClick={() => setQuickAddPickerMonthISO((prev) => shiftMonthISO(prev, 1))}
+                        type="button"
+                      >
+                        <ChevronRight size={15} />
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-7 gap-1">
+                      {dueWeekdayLabels.map((label) => (
+                        <span className="py-1 text-center text-[10px] font-black uppercase tracking-[0.08em] text-slate-500" key={`quick-add-${label}`}>
+                          {label}
+                        </span>
+                      ))}
+
+                      {quickAddMonthCells.map((cell, index) => {
+                        if (!cell) return <span className="h-8 rounded-lg" key={`quick-add-empty-${index}`} />;
+                        const isStart = quickAddDraftStartISO === cell.iso;
+                        const isEnd = quickAddDraftEndISO === cell.iso;
+                        const inRange = isISOInQuickAddSelectedRange(cell.iso);
+                        return (
+                          <button
+                            className={`h-8 rounded-lg text-xs font-bold transition ${
+                              isStart || isEnd
+                                ? "bg-blue-600 text-white shadow-[0_8px_20px_rgba(37,99,235,0.3)]"
+                                : inRange
+                                  ? "bg-blue-100 text-blue-700"
+                                  : "bg-white text-slate-600 hover:bg-blue-50"
+                            }`}
+                            key={`quick-add-date-${cell.iso}`}
+                            onClick={() => handleQuickAddDateCellClick(cell.iso)}
+                            type="button"
+                          >
+                            {cell.day}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <div className="mt-3 flex items-center justify-between gap-2">
+                      <button
+                        className="rounded-full bg-white px-3 py-1.5 text-xs font-bold text-slate-600 shadow-sm"
+                        onClick={clearQuickAddDateSelection}
+                        type="button"
+                      >
+                        {isKo ? "초기화" : "Clear"}
+                      </button>
+                      <button
+                        className="rounded-full bg-blue-600 px-3 py-1.5 text-xs font-bold text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
+                        disabled={!quickAddDraftStartISO}
+                        onClick={applyQuickAddDateSelection}
+                        type="button"
+                      >
+                        {isKo ? "적용" : "Apply"}
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 <div className="mt-2 grid grid-cols-2 gap-2 rounded-xl bg-white px-3 py-2 text-xs font-semibold text-slate-600">
                   <label className="flex items-center gap-2">
@@ -2158,13 +2305,13 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
 
               <div className="grid grid-cols-2 gap-2 pt-1">
                 <button
-                  className="btn btn-muted w-full"
+                  className="btn btn-primary w-full"
                   onClick={() => createTasksFromQuickAdd(false)}
                   type="button"
                 >
                   {isKo ? "한 번에 생성" : "Create only"}
                 </button>
-                <button className="btn btn-primary w-full" type="submit">
+                <button className="btn btn-muted w-full" type="submit">
                   {isKo ? "생성 후 검토" : "Create + Review"}
                 </button>
               </div>
