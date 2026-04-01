@@ -665,73 +665,35 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
     return chunks.join(" • ");
   }, [activeMission, missionDdayLabel]);
 
-  const energyCompass = useMemo(() => {
-    const recovery = sleepSummary.recovery;
-    const clampedRecovery = Math.max(0, Math.min(100, Math.round(recovery)));
-    const hasSleepLog = Boolean(sleepSummary.latest);
-    const workloadMinutes = pendingTasks.reduce((sum, task) => sum + task.duration, 0);
-    let action = "";
-    let title = "";
-    let zone = "";
-    let emoji = "🧭";
-    let trackClass = "from-rose-300 via-amber-300 to-blue-500";
-
-    if (!hasSleepLog) {
-      title = isKo ? "에너지 데이터 없음" : "No energy data yet";
-      zone = isKo ? "빠른 체크인 필요" : "Need quick check-in";
-      emoji = "🫧";
-      trackClass = "from-slate-300 via-blue-200 to-blue-500";
-      action = isKo
-        ? "어제 수면을 아직 기록하지 않았어요. 오늘은 25분짜리 가벼운 시작 작업으로 리듬을 만들어요."
-        : "No sleep log yet. Start with one light 25-minute task to build momentum.";
-      return {
-        recovery: clampedRecovery,
-        title,
-        zone,
-        emoji,
-        trackClass,
-        action
-      };
+  const yesterdayTasks = useMemo(
+    () => readTasksForDate(userId, yesterdayISO),
+    [userId, yesterdayISO]
+  );
+  const yesterdayDoneCount = useMemo(
+    () => yesterdayTasks.filter((task) => task.is_completed).length,
+    [yesterdayTasks]
+  );
+  const yesterdayCompletionPercent = useMemo(
+    () => (yesterdayTasks.length > 0 ? Math.round((yesterdayDoneCount / yesterdayTasks.length) * 100) : null),
+    [yesterdayDoneCount, yesterdayTasks.length]
+  );
+  const todayLoadMinutes = useMemo(
+    () => pendingTasks.reduce((sum, task) => sum + task.duration, 0),
+    [pendingTasks]
+  );
+  const snapshotActionLine = useMemo(() => {
+    if (pendingTasks.length === 0) {
+      return isKo ? "지금 Quick Add로 오늘의 첫 집중 블록을 만들어볼까요?" : "No tasks yet. Kick off your morning with Quick Add.";
     }
-
-    if (activeMission && missionOpenTaskCount === 0) {
-      action = isKo ? "오늘 미션을 High Impact에 먼저 추가하세요." : "Add your mission to High Impact first.";
-    } else if (clampedRecovery < 65) {
-      action = isKo ? "저강도 작업 중심으로 리듬을 유지해요." : "Low recovery: keep your plan light and focused.";
-    } else if (workloadMinutes > 300 || pendingTasks.length > 6) {
-      action = isKo ? "Top 3 우선순위에만 집중하세요." : "Focus on your top 3 priorities today.";
-    } else if (workoutSummary.minutes < 20) {
-      action = isKo ? "짧은 움직임 세션을 일정에 추가해보세요." : "Add a short movement block to keep momentum.";
-    } else {
-      action = isKo ? "핵심 작업부터 빠르게 실행해요." : "You are ready: execute your key tasks first.";
+    if (highImpactTasks.length > 0) {
+      return isKo ? "가장 중요한 High Impact 작업부터 시작해 흐름을 잡아보세요." : "Start with your top High Impact task to build momentum.";
     }
-
-    if (clampedRecovery >= 80) {
-      title = isKo ? "에너지 파도 높음" : "Energy wave is high";
-      zone = isKo ? "Deep Work Zone" : "Deep Work Zone";
-      emoji = "🚀";
-      trackClass = "from-sky-300 via-cyan-300 to-blue-600";
-    } else if (clampedRecovery >= 55) {
-      title = isKo ? "안정적인 집중 구간" : "Steady focus window";
-      zone = isKo ? "Balanced Zone" : "Balanced Zone";
-      emoji = "⚡";
-      trackClass = "from-amber-200 via-sky-300 to-blue-600";
-    } else {
-      title = isKo ? "회복 우선 구간" : "Recovery-first window";
-      zone = isKo ? "Recharge Zone" : "Recharge Zone";
-      emoji = "🌱";
-      trackClass = "from-rose-300 via-orange-300 to-amber-500";
-    }
-
-    return {
-      recovery: clampedRecovery,
-      title,
-      zone,
-      emoji,
-      trackClass,
-      action
-    };
-  }, [activeMission, isKo, missionOpenTaskCount, pendingTasks, sleepSummary.latest, sleepSummary.recovery, workoutSummary.minutes]);
+    return isKo ? "첫 번째 작업을 바로 완료해 오늘의 속도를 올려보세요." : "Complete your first task early to raise today’s pace.";
+  }, [highImpactTasks.length, isKo, pendingTasks.length]);
+  const snapshotPulseClass = useMemo(
+    () => (pendingTasks.length === 0 ? "bg-blue-200/80" : "bg-emerald-300/80"),
+    [pendingTasks.length]
+  );
 
   const previousWeekStats = useMemo(() => {
     let previousTotal = 0;
@@ -1586,55 +1548,83 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
   const celebrationRadius = 42;
   const celebrationCircumference = 2 * Math.PI * celebrationRadius;
   const celebrationDashOffset = celebrationCircumference - (celebrationPercent / 100) * celebrationCircumference;
-  const energyRingFill = Math.max(6, energyCompass.recovery);
-  const energySegments = Array.from({ length: 10 }, (_, index) => {
-    const threshold = (index + 1) * 10;
-    return energyCompass.recovery >= threshold;
-  });
 
   return (
     <section className="space-y-5 pb-28">
-      <article className="rounded-[1.6rem] border border-blue-200/70 bg-gradient-to-br from-white to-blue-50/70 px-4 py-3 shadow-[0_10px_28px_rgba(59,130,246,0.12)]">
-        <div className="flex items-center gap-3">
-          <div
-            className="relative h-16 w-16 shrink-0 rounded-full p-[5px]"
-            style={{ background: `conic-gradient(#2563eb ${energyRingFill}%, #dbeafe ${energyRingFill}% 100%)` }}
-          >
-            <div className="flex h-full w-full items-center justify-center rounded-full bg-white text-2xl">
-              {energyCompass.emoji}
-            </div>
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[11px] font-black uppercase tracking-[0.12em] text-blue-600">
-              {isKo ? "에너지 컴퍼스" : "Energy Compass"}
+      <article className="relative overflow-hidden rounded-[1.7rem] border border-blue-200/70 bg-gradient-to-br from-[#f8fbff] via-white to-[#eef4ff] px-4 py-4 shadow-[0_12px_30px_rgba(59,130,246,0.14)]">
+        <div className={`absolute right-5 top-4 h-2.5 w-2.5 animate-pulse rounded-full ${snapshotPulseClass}`} />
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-[11px] font-black uppercase tracking-[0.14em] text-blue-700">
+              {isKo ? "모닝 모멘텀 스냅샷" : "Momentum Snapshot"}
             </p>
-            <p className="truncate whitespace-nowrap text-base font-black text-slate-900">{energyCompass.title}</p>
-            <p className="truncate whitespace-nowrap text-xs font-semibold text-blue-700">{energyCompass.zone}</p>
-          </div>
-          <div className="text-right">
-            <p className="text-2xl font-black tracking-tight text-blue-700">{energyCompass.recovery}%</p>
-            <p className="text-[10px] font-bold uppercase tracking-[0.1em] text-slate-500">
-              {isKo ? "회복도" : "Recovery"}
+            <p className="mt-1 text-sm font-bold text-slate-700">
+              {isKo ? "오늘의 속도를 만드는 아침 런치패드" : "Your morning launchpad for a focused day"}
             </p>
+          </div>
+          <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-black text-blue-700">
+            {isKo ? "플랜 모드" : "Plan Mode"}
+          </span>
+        </div>
+
+        <div className="mt-3 grid grid-cols-3 gap-2.5">
+          <div className="rounded-xl border border-blue-100 bg-white/85 p-2.5">
+            <p className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-500">{isKo ? "어제 완료율" : "Yesterday completion"}</p>
+            <p className="mt-1 truncate whitespace-nowrap text-lg font-black text-slate-900">
+              {yesterdayCompletionPercent === null ? (isKo ? "기록 없음" : "No record yet") : `${yesterdayCompletionPercent}%`}
+            </p>
+            <p className="text-[11px] font-semibold text-slate-500">
+              {yesterdayTasks.length === 0 ? "—" : `${yesterdayDoneCount}/${yesterdayTasks.length}`}
+            </p>
+          </div>
+          <div className="rounded-xl border border-blue-100 bg-white/85 p-2.5">
+            <p className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-500">{isKo ? "이월 작업" : "Carry-over"}</p>
+            <p className="mt-1 text-lg font-black text-slate-900">{yesterdayUnfinished.length}</p>
+            <p className="text-[11px] font-semibold text-slate-500">{isKo ? "오늘로 가져올 수 있음" : "can be moved into today"}</p>
+          </div>
+          <div className="rounded-xl border border-blue-100 bg-white/85 p-2.5">
+            <p className="text-[10px] font-black uppercase tracking-[0.09em] text-slate-500">{isKo ? "오늘 로드" : "Today load"}</p>
+            <p className="mt-1 text-lg font-black text-slate-900">{todayLoadMinutes}m</p>
+            <p className="text-[11px] font-semibold text-slate-500">{activeTaskCount} {isKo ? "활성 작업" : "active tasks"}</p>
           </div>
         </div>
 
-        <div className="mt-3 flex items-center gap-1.5">
-          {energySegments.map((filled, idx) => (
-            <span
-              className={`h-2 flex-1 rounded-full transition ${filled ? `bg-gradient-to-r ${energyCompass.trackClass}` : "bg-slate-200"}`}
-              key={`energy-segment-${idx}`}
-            />
-          ))}
+        <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-blue-100">
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-blue-500 via-indigo-500 to-violet-500 transition-all duration-700"
+            style={{ width: `${yesterdayCompletionPercent ?? 0}%` }}
+          />
         </div>
         <p className="mt-2 flex items-center gap-2 text-sm font-semibold text-slate-700">
           <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-white text-blue-600 shadow-sm">
             <Sparkles size={13} />
           </span>
-          <span className="min-w-0 truncate">
-            {energyCompass.action}
-          </span>
+          <span className="min-w-0 truncate">{snapshotActionLine}</span>
         </p>
+
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <button
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-3 py-2 text-sm font-black text-white shadow-[0_10px_20px_rgba(43,80,214,0.3)] transition hover:brightness-105 active:scale-[0.98]"
+            onClick={openQuickAddSheet}
+            type="button"
+          >
+            <Plus size={15} />
+            {isKo ? "Quick Add" : "Quick Add"}
+          </button>
+          <button
+            className={`inline-flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-black transition ${
+              yesterdayUnfinished.length > 0
+                ? "border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100"
+                : "cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400"
+            }`}
+            disabled={yesterdayUnfinished.length === 0}
+            onClick={carryForwardFromYesterday}
+            type="button"
+          >
+            <ArrowUpRight size={15} />
+            {isKo ? "Carry Forward" : "Carry Forward"}
+          </button>
+        </div>
       </article>
 
       <section>
