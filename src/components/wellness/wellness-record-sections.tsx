@@ -229,24 +229,15 @@ export function WellnessRecordSections({ initialSection, submissions, rewardClai
               <span className="rounded-full bg-indigo-50 px-2 py-1 text-[10px] font-bold text-indigo-700">{days}D</span>
             </div>
 
-            <div className="no-scrollbar mt-2 flex gap-1.5 overflow-x-auto pb-0.5 text-center">
-              <div className="shrink-0 rounded-xl bg-slate-50 px-3 py-2">
-                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Recovery</p>
-                <p className="mt-1 text-base font-black text-indigo-900">{avgRecovery}%</p>
-              </div>
-              <div className="shrink-0 rounded-xl bg-slate-50 px-3 py-2">
-                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Food</p>
-                <p className="mt-1 text-base font-black text-indigo-900">{avgFood} kcal</p>
-              </div>
-              <div className="shrink-0 rounded-xl bg-slate-50 px-3 py-2">
-                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Move</p>
-                <p className="mt-1 text-base font-black text-indigo-900">{avgWorkout} min</p>
-              </div>
+            <div className="no-scrollbar mt-2 flex gap-1.5 overflow-x-auto pb-0.5">
+              <div className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">💙 {avgRecovery}% recovery</div>
+              <div className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">🍽 {avgFood} kcal/day</div>
+              <div className="shrink-0 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-700">🏃 {avgWorkout} min/day</div>
             </div>
 
-            <p className="mt-2 text-center text-sm font-semibold leading-tight text-slate-700">
+            <p className="mt-2 text-sm font-semibold leading-tight text-slate-700">
               {wellnessBalanceClamped >= 75
-                ? "Great balance. Keep this rhythm."
+                ? "Great balance. Keep this pace."
                 : wellnessBalanceClamped >= 55
                   ? "Solid baseline. One small habit can lift your trend."
                   : "Rebuild mode: prioritize sleep + one focused movement block."}

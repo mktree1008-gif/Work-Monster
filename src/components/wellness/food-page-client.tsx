@@ -104,6 +104,11 @@ function formatOne(value: number) {
   return roundOne(value).toFixed(1);
 }
 
+function formatCompact(value: number) {
+  const rounded = roundOne(value);
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+}
+
 function macroProgressTone(value: number, goal: number) {
   if (goal <= 0) return "bg-white/10 text-white";
   const ratio = value / goal;
@@ -722,7 +727,7 @@ export function FoodPageClient({ labels }: { labels: Labels }) {
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="truncate text-sm font-black text-slate-900">Quick Total Calories</p>
-            <p className="truncate text-[11px] text-slate-500">Fast save for kcal + macros.</p>
+            <p className="truncate text-[11px] text-slate-500">Fast save: kcal + macros</p>
           </div>
           <span className="shrink-0 rounded-full bg-blue-50 px-2 py-1 text-[10px] font-semibold text-blue-700">Optional</span>
         </div>
@@ -747,34 +752,37 @@ export function FoodPageClient({ labels }: { labels: Labels }) {
         </div>
 
         <div className="mt-2.5 grid grid-cols-3 gap-2">
-          <label className="text-[10px] font-semibold text-slate-500">
-            P (g)
+          <label className="rounded-xl border border-slate-200 bg-slate-50 px-2 py-1.5 text-[10px] font-semibold text-slate-500">
+            P
             <input
-              className="mt-1 h-9 w-full rounded-xl border border-slate-200 px-2 text-sm text-slate-800"
+              className="mt-1 h-7 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm text-slate-800"
               min={0}
               onChange={(event) => setManualProteinInput(event.target.value)}
+              placeholder="g"
               step={0.1}
               type="number"
               value={manualProteinInput}
             />
           </label>
-          <label className="text-[10px] font-semibold text-slate-500">
-            F (g)
+          <label className="rounded-xl border border-slate-200 bg-slate-50 px-2 py-1.5 text-[10px] font-semibold text-slate-500">
+            F
             <input
-              className="mt-1 h-9 w-full rounded-xl border border-slate-200 px-2 text-sm text-slate-800"
+              className="mt-1 h-7 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm text-slate-800"
               min={0}
               onChange={(event) => setManualFatInput(event.target.value)}
+              placeholder="g"
               step={0.1}
               type="number"
               value={manualFatInput}
             />
           </label>
-          <label className="text-[10px] font-semibold text-slate-500">
-            C (g)
+          <label className="rounded-xl border border-slate-200 bg-slate-50 px-2 py-1.5 text-[10px] font-semibold text-slate-500">
+            C
             <input
-              className="mt-1 h-9 w-full rounded-xl border border-slate-200 px-2 text-sm text-slate-800"
+              className="mt-1 h-7 w-full rounded-lg border border-slate-200 bg-white px-2 text-sm text-slate-800"
               min={0}
               onChange={(event) => setManualCarbsInput(event.target.value)}
+              placeholder="g"
               step={0.1}
               type="number"
               value={manualCarbsInput}
@@ -782,16 +790,16 @@ export function FoodPageClient({ labels }: { labels: Labels }) {
           </label>
         </div>
 
-        <p className="mt-1.5 text-[10px] text-slate-500">Set to 0 + Save to clear.</p>
+        <p className="mt-1.5 text-[10px] text-slate-500">Clear: enter 0 and tap Save.</p>
         <div className="no-scrollbar mt-2 flex gap-1.5 overflow-x-auto pb-0.5">
           <p className={`shrink-0 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-semibold ${macroGoalCardTone(summary.protein, goals.protein_goal)}`}>
-            P {formatOne(summary.protein)}/{formatOne(goals.protein_goal)}g
+            P {formatCompact(summary.protein)}/{formatCompact(goals.protein_goal)}
           </p>
           <p className={`shrink-0 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-semibold ${macroGoalCardTone(summary.fat, goals.fat_goal)}`}>
-            F {formatOne(summary.fat)}/{formatOne(goals.fat_goal)}g
+            F {formatCompact(summary.fat)}/{formatCompact(goals.fat_goal)}
           </p>
           <p className={`shrink-0 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-semibold ${macroGoalCardTone(summary.carbs, goals.carb_goal)}`}>
-            C {formatOne(summary.carbs)}/{formatOne(goals.carb_goal)}g
+            C {formatCompact(summary.carbs)}/{formatCompact(goals.carb_goal)}
           </p>
         </div>
       </section>
