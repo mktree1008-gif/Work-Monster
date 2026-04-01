@@ -405,30 +405,42 @@ export function WelcomeDashboardClient({ mission, checkinState, labels, score, r
             </div>
           </section>
 
-          <section className="card card-standard mb-4 p-4">
-            <div className="flex items-start justify-between gap-2">
+          <section className="card card-standard relative mb-4 overflow-hidden border border-blue-100 bg-gradient-to-br from-white via-blue-50/60 to-cyan-50 p-4 shadow-[0_16px_34px_rgba(59,130,246,0.16)]">
+            <div className="pointer-events-none absolute -right-12 -top-14 h-40 w-40 rounded-full bg-blue-300/20 blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-16 -left-8 h-36 w-36 rounded-full bg-cyan-300/20 blur-3xl" />
+
+            <div className="relative flex items-start justify-between gap-2">
               <div>
-                <h3 className="text-card-title font-black text-slate-900">Daily Check-in</h3>
-                <p className="mt-1 text-sm text-slate-600">Guided 7-step reflection with manager review.</p>
+                <h3 className="text-[clamp(1.85rem,8.8vw,2.45rem)] font-black leading-[0.98] tracking-[-0.02em] text-slate-900">
+                  Daily Check-in
+                </h3>
+                <p className="mt-2 text-[15px] font-semibold leading-snug text-slate-700">
+                  End your day strong with a 7-step reflection and manager review.
+                </p>
               </div>
-              <span className="min-w-fit whitespace-nowrap rounded-full bg-slate-100 px-3 py-1 text-[11px] font-bold text-slate-700">
+              <span className="min-w-fit whitespace-nowrap rounded-full bg-white/90 px-3 py-1 text-[11px] font-black text-blue-700 ring-1 ring-blue-100">
                 {statusBadgeText(checkinState)}
               </span>
             </div>
-            <div className="mt-3 grid grid-cols-2 gap-2 text-xs font-semibold text-slate-600">
-              <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1">💭 State</span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1">🎯 Execution</span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1">⚡ Productivity</span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1">🧾 Summary</span>
+
+            <div className="relative mt-3 grid grid-cols-2 gap-2 text-xs font-bold text-slate-700">
+              <span className="inline-flex items-center gap-1 rounded-full bg-white/90 px-3 py-1.5 ring-1 ring-slate-200">💭 State</span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-white/90 px-3 py-1.5 ring-1 ring-slate-200">🎯 Execution</span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-white/90 px-3 py-1.5 ring-1 ring-slate-200">⚡ Productivity</span>
+              <span className="inline-flex items-center gap-1 rounded-full bg-white/90 px-3 py-1.5 ring-1 ring-slate-200">🧾 Summary</span>
             </div>
+
             <Link
-              className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full bg-gradient-to-r from-blue-700 to-blue-500 px-4 py-3 text-sm font-black text-white shadow-[0_12px_24px_rgba(37,99,235,0.32)]"
+              className="anim-cta-pulse relative mt-4 inline-flex w-full items-center justify-center gap-2 rounded-[1.1rem] bg-gradient-to-r from-blue-700 via-blue-600 to-cyan-500 px-6 py-4 text-[clamp(1.08rem,4.8vw,1.32rem)] font-black text-white shadow-[0_18px_34px_rgba(37,99,235,0.42)] ring-1 ring-white/30 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_22px_40px_rgba(37,99,235,0.5)]"
               href="/app/questions/check-in"
               style={{ color: "#ffffff" }}
             >
-              <Target size={15} />
+              <Flame size={18} />
               Start check-in
             </Link>
+            <p className="mt-2 text-center text-xs font-semibold text-blue-700/85">
+              Finish today with momentum and lock in the win.
+            </p>
             {checkinState !== "none" && (
               <p className="mt-3 inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
                 <CheckCircle2 size={12} />
@@ -467,57 +479,75 @@ export function WelcomeDashboardClient({ mission, checkinState, labels, score, r
       ) : (
         <>
           <section className="card card-hero mb-4 bg-gradient-to-br from-[#0f57d8] to-[#2c4fa7] p-5 text-white shadow-[0_20px_45px_rgba(20,72,210,0.24)]">
-            <h3 className="text-[clamp(1.9rem,9.2vw,2.55rem)] font-black leading-none">Today&apos;s Energy</h3>
-            <p className="mt-2 text-sm text-blue-100">Your recovery context supports productivity. Keep the rhythm steady.</p>
+            <h3 className="text-[clamp(1.55rem,7.3vw,1.98rem)] font-black leading-tight tracking-[-0.01em]">Today&apos;s Energy</h3>
+            <p className="mt-2 text-[14px] font-medium text-blue-100/95">Your recovery context supports productivity. Keep the rhythm steady.</p>
           </section>
 
           <section className="space-y-3">
-            <Link className="card card-standard block p-4" href="/app/food" onClick={refreshLiveCards}>
+            <Link className="card card-standard block border border-slate-200/80 p-4" href="/app/food" onClick={refreshLiveCards}>
               <div className="flex items-center justify-between">
-                <p className="inline-flex items-center gap-2 text-sm font-bold text-slate-900">
+                <p className="inline-flex items-center gap-2 text-[17px] font-semibold tracking-[-0.01em] text-slate-900">
                   <Utensils className="text-amber-600" size={15} />
                   Food
-                  <span className="anim-bounce-soft text-base leading-none" role="img" aria-label="food">
+                  <span className="text-[15px] leading-none opacity-90" role="img" aria-label="food">
                     🥗
                   </span>
                 </p>
-                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-700">Consumed</span>
+                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">Consumed</span>
               </div>
-              <p className="mt-2 text-[clamp(1.45rem,7.1vw,1.95rem)] font-black text-slate-900">{food.calories} kcal</p>
+              <p className="mt-2 flex items-end gap-1.5">
+                <span className="text-[clamp(1.34rem,6vw,1.68rem)] font-black leading-none tracking-[-0.015em] text-slate-900 tabular-nums">
+                  {food.calories}
+                </span>
+                <span className="pb-0.5 text-[13px] font-semibold text-slate-500">kcal</span>
+              </p>
+              <p className="mt-1 text-[11px] font-medium text-slate-500">Today&apos;s intake</p>
               <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200">
                 <div className="h-full rounded-full bg-amber-700" style={{ width: `${food.percent}%` }} />
               </div>
             </Link>
 
-            <Link className="card card-standard block p-4" href="/app/workout" onClick={refreshLiveCards}>
+            <Link className="card card-standard block border border-slate-200/80 p-4" href="/app/workout" onClick={refreshLiveCards}>
               <div className="flex items-center justify-between">
-                <p className="inline-flex items-center gap-2 text-sm font-bold text-slate-900">
+                <p className="inline-flex items-center gap-2 text-[17px] font-semibold tracking-[-0.01em] text-slate-900">
                   <Dumbbell className="text-blue-600" size={15} />
                   Workout
-                  <span className="anim-bounce-soft text-base leading-none" role="img" aria-label="workout">
+                  <span className="text-[15px] leading-none opacity-90" role="img" aria-label="workout">
                     💪
                   </span>
                 </p>
-                <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-bold text-blue-700">Active</span>
+                <span className="rounded-full bg-blue-100 px-2 py-0.5 text-[11px] font-semibold text-blue-700">Active</span>
               </div>
-              <p className="mt-2 text-[clamp(1.45rem,7.1vw,1.95rem)] font-black text-slate-900">{workout.minutes} mins</p>
+              <p className="mt-2 flex items-end gap-1.5">
+                <span className="text-[clamp(1.34rem,6vw,1.68rem)] font-black leading-none tracking-[-0.015em] text-slate-900 tabular-nums">
+                  {workout.minutes}
+                </span>
+                <span className="pb-0.5 text-[13px] font-semibold text-slate-500">mins</span>
+              </p>
+              <p className="mt-1 text-[11px] font-medium text-slate-500">Today&apos;s movement</p>
               <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200">
                 <div className="h-full rounded-full bg-blue-600" style={{ width: `${workout.percent}%` }} />
               </div>
             </Link>
 
-            <Link className="card card-standard block p-4" href="/app/sleep" onClick={refreshLiveCards}>
+            <Link className="card card-standard block border border-slate-200/80 p-4" href="/app/sleep" onClick={refreshLiveCards}>
               <div className="flex items-center justify-between">
-                <p className="inline-flex items-center gap-2 text-sm font-bold text-slate-900">
+                <p className="inline-flex items-center gap-2 text-[17px] font-semibold tracking-[-0.01em] text-slate-900">
                   <MoonStar className="text-indigo-600" size={15} />
                   Sleep
-                  <span className="anim-bounce-soft text-base leading-none" role="img" aria-label="sleep">
+                  <span className="text-[15px] leading-none opacity-90" role="img" aria-label="sleep">
                     😴
                   </span>
                 </p>
-                <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-bold text-slate-700">Recovery</span>
+                <span className="rounded-full bg-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-700">Recovery</span>
               </div>
-              <p className="mt-2 text-[clamp(1.45rem,7.1vw,1.95rem)] font-black text-slate-900">{sleep.recovery}%</p>
+              <p className="mt-2 flex items-end gap-1.5">
+                <span className="text-[clamp(1.34rem,6vw,1.68rem)] font-black leading-none tracking-[-0.015em] text-slate-900 tabular-nums">
+                  {sleep.recovery}
+                </span>
+                <span className="pb-0.5 text-[13px] font-semibold text-slate-500">%</span>
+              </p>
+              <p className="mt-1 text-[11px] font-medium text-slate-500">Recovery score</p>
               <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200">
                 <div className="h-full rounded-full bg-slate-700" style={{ width: `${sleep.recovery}%` }} />
               </div>

@@ -331,7 +331,7 @@ export async function submitDailyCheckIn(
   const reviewedSameDate = sameDateSubmissions.find((item) => item.status === "approved" || item.status === "rejected");
   if (reviewedSameDate) {
     throw new DailyCheckInAlreadySubmittedError(
-      "You already submitted today. Check your score after manager review.",
+      "You already submitted for this date. Check your score after manager review.",
       reviewedSameDate.id
     );
   }

@@ -8,6 +8,7 @@ import {
   ArrowRight,
   BatteryLow,
   Bolt,
+  CalendarDays,
   Check,
   CheckCircle2,
   Circle,
@@ -21,11 +22,14 @@ import {
   X
 } from "lucide-react";
 import type { Locale, Submission, SubmissionStatus } from "@/lib/types";
+import { isISODateString } from "@/lib/utils";
 
 type Props = {
   locale: Locale;
   readOnly?: boolean;
   initialSubmission?: Submission | null;
+  selectedDate: string;
+  maxSelectableDate: string;
 };
 
 type CheckInDraft = {
@@ -288,7 +292,13 @@ function dedupe(values: string[]): string[] {
   return [...new Set(values.map((item) => item.trim()).filter(Boolean))];
 }
 
-export function QuestionsFlow({ locale, readOnly = false, initialSubmission = null }: Props) {
+export function QuestionsFlow({
+  locale,
+  readOnly = false,
+  initialSubmission = null,
+  selectedDate,
+  maxSelectableDate
+}: Props) {
   const router = useRouter();
   const isKo = locale === "ko";
   const initialStatus = (initialSubmission?.status ?? "") as SubmissionStatus | "";
@@ -297,7 +307,7 @@ export function QuestionsFlow({ locale, readOnly = false, initialSubmission = nu
 
   const [currentStep, setCurrentStep] = useState(0);
   const [clientTimeZone, setClientTimeZone] = useState("UTC");
-  const [clientLocalDate, setClientLocalDate] = useState("");
+  const [clientLocalDate, setClientLocalDate] = useState(selectedDate);
   const [draft, setDraft] = useState<CheckInDraft>({ ...DEFAULT_DRAFT });
   const [hydrated, setHydrated] = useState(false);
   const [isAutoSaving, setIsAutoSaving] = useState(false);
@@ -316,6 +326,22 @@ export function QuestionsFlow({ locale, readOnly = false, initialSubmission = nu
   const topFocusSummary = useMemo(() => buildTopFocusSummary(draft), [draft]);
   const energyPeakSummary = useMemo(() => buildEnergyPeakSummary(draft), [draft]);
   const coachInsightText = useMemo(() => buildCoachInsight(draft), [draft]);
+  const selectedDateLabel = useMemo(() => {
+    if (!isISODateString(clientLocalDate)) {
+      return isKo ? "날짜 선택" : "Select date";
+    }
+    const parsed = new Date(`${clientLocalDate}T12:00:00.000Z`);
+    if (!Number.isFinite(parsed.getTime())) {
+      return clientLocalDate;
+    }
+    return new Intl.DateTimeFormat(isKo ? "ko-KR" : "en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      weekday: "short",
+      timeZone: "UTC"
+    }).format(parsed);
+  }, [clientLocalDate, isKo]);
 
   const storageKey = useMemo(
     () => (clientLocalDate ? `${STORAGE_PREFIX}-${clientLocalDate}` : ""),
@@ -355,22 +381,15 @@ export function QuestionsFlow({ locale, readOnly = false, initialSubmission = nu
   useEffect(() => {
     try {
       const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
-      const parts = new Intl.DateTimeFormat("en-CA", {
-        timeZone,
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit"
-      }).formatToParts(new Date());
-      const year = parts.find((part) => part.type === "year")?.value;
-      const month = parts.find((part) => part.type === "month")?.value;
-      const day = parts.find((part) => part.type === "day")?.value;
       setClientTimeZone(timeZone);
-      setClientLocalDate(year && month && day ? `${year}-${month}-${day}` : "");
     } catch {
       setClientTimeZone("UTC");
-      setClientLocalDate("");
     }
   }, []);
+
+  useEffect(() => {
+    setClientLocalDate(selectedDate);
+  }, [selectedDate]);
 
   useEffect(() => {
     if (!storageKey || initialLoadedRef.current) return;
@@ -494,8 +513,8 @@ export function QuestionsFlow({ locale, readOnly = false, initialSubmission = nu
         setAlreadyDoneMessage(
           result.error
             ?? (isKo
-              ? "오늘 Daily Check-in은 이미 제출됐어요. 매니저 리뷰 결과를 확인해 주세요."
-              : "Today's check-in is already submitted. Please review the manager result.")
+              ? "선택한 날짜의 Daily Check-in은 이미 제출됐어요. 매니저 리뷰 결과를 확인해 주세요."
+              : "Check-in for the selected date is already submitted. Please review the manager result.")
         );
         setShowAlreadyDonePopup(true);
         return null;
@@ -636,6 +655,9 @@ export function QuestionsFlow({ locale, readOnly = false, initialSubmission = nu
 
   async function goNext() {
     if (!stepValid || currentStep >= TOTAL_STEPS - 1) return;
+    skipAutosaveOnceRef.current = true;
+    setCurrentStep((prev) => Math.min(TOTAL_STEPS - 1, prev + 1));
+
     if (canEdit) {
       try {
         setIsStepSaving(true);
@@ -650,8 +672,36 @@ export function QuestionsFlow({ locale, readOnly = false, initialSubmission = nu
         setIsStepSaving(false);
       }
     }
-    skipAutosaveOnceRef.current = true;
-    setCurrentStep((prev) => Math.min(TOTAL_STEPS - 1, prev + 1));
+  }
+
+  async function onCheckInDateChange(event: ChangeEvent<HTMLInputElement>) {
+    const raw = event.target.value.trim();
+    if (!isISODateString(raw)) return;
+
+    const nextDate = raw > maxSelectableDate ? maxSelectableDate : raw;
+    if (nextDate === clientLocalDate) return;
+
+    if (canEdit && hydrated) {
+      try {
+        setIsStepSaving(true);
+        if (autosaveTimerRef.current) {
+          window.clearTimeout(autosaveTimerRef.current);
+          autosaveTimerRef.current = null;
+        }
+        await persist("draft");
+      } catch {
+        // keep navigation flow even if draft save fails
+      } finally {
+        setIsStepSaving(false);
+      }
+    }
+
+    setClientLocalDate(nextDate);
+    const nextPath = nextDate === maxSelectableDate
+      ? "/app/questions/check-in"
+      : `/app/questions/check-in?date=${encodeURIComponent(nextDate)}`;
+    router.replace(nextPath);
+    router.refresh();
   }
 
   async function onSubmitToManager() {
@@ -679,7 +729,7 @@ export function QuestionsFlow({ locale, readOnly = false, initialSubmission = nu
 
   function StepShell({ title, description, children }: { title: string; description: string; children: ReactNode }) {
     return (
-      <div key={`${currentStep}-${title}`} className="anim-pop mt-5 rounded-[2rem] bg-white/70 p-5 shadow-[0_16px_44px_rgba(18,32,96,0.08)] ring-1 ring-black/[0.03]">
+      <div className="mt-5 min-h-[32rem] rounded-[2rem] bg-white/70 p-5 shadow-[0_16px_44px_rgba(18,32,96,0.08)] ring-1 ring-black/[0.03] sm:min-h-[34rem]">
         <h2 className="text-page-title font-black leading-[1.08] text-slate-900">{title}</h2>
         <p className="mt-2 text-body-compact text-slate-600">{description}</p>
         <div className="mt-5">{children}</div>
@@ -687,9 +737,36 @@ export function QuestionsFlow({ locale, readOnly = false, initialSubmission = nu
     );
   }
 
+  const stepHeading = `Step ${currentStep + 1} of ${TOTAL_STEPS}`;
+  const dateSelectionPanel = (
+    <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-3">
+      <div className="flex items-center justify-between gap-2">
+        <p className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.14em] text-blue-700">
+          <CalendarDays size={13} />
+          Check-in date
+        </p>
+        <p className="text-[11px] font-semibold text-slate-500">{selectedDateLabel}</p>
+      </div>
+      <div className="mt-2 flex items-center gap-2">
+        <input
+          className="input h-10 w-full rounded-xl border-slate-200 bg-white"
+          disabled={submitting || isStepSaving}
+          max={maxSelectableDate}
+          onChange={onCheckInDateChange}
+          type="date"
+          value={clientLocalDate}
+        />
+      </div>
+      <p className="mt-2 text-[11px] text-slate-500">
+        Missed yesterday? Select a previous date and record it.
+      </p>
+    </div>
+  );
+
   if (readOnly) {
     return (
       <section className="space-y-3">
+        {dateSelectionPanel}
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">
           Manager preview mode: submission save is disabled.
         </div>
@@ -700,6 +777,7 @@ export function QuestionsFlow({ locale, readOnly = false, initialSubmission = nu
   if (lockedByStatus) {
     return (
       <section className="space-y-4">
+        {dateSelectionPanel}
         <article className="rounded-[2rem] border border-blue-100 bg-white p-5 shadow-sm">
           <p className="text-caption font-bold uppercase tracking-[0.16em] text-blue-700">Daily Check-in Status</p>
           <h2 className="mt-2 text-section-title font-black text-slate-900">
@@ -721,8 +799,6 @@ export function QuestionsFlow({ locale, readOnly = false, initialSubmission = nu
     );
   }
 
-  const stepHeading = `Step ${currentStep + 1} of ${TOTAL_STEPS}`;
-
   return (
     <section className="relative -mx-4 min-h-[calc(100dvh-6.4rem)] bg-gradient-to-b from-slate-100 via-slate-50 to-slate-100 px-4 pb-28 pt-2 sm:mx-0 sm:rounded-[2rem] sm:px-6">
       <header className="sticky top-0 z-20 -mx-4 border-b border-white/50 bg-white/80 px-4 pb-3 pt-3 backdrop-blur sm:mx-0 sm:-mt-2 sm:rounded-t-[2rem] sm:px-0">
@@ -734,7 +810,9 @@ export function QuestionsFlow({ locale, readOnly = false, initialSubmission = nu
           <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700">{stepHeading}</span>
         </div>
 
-          <div className="mt-3">
+        <div className="mt-3">{dateSelectionPanel}</div>
+
+        <div className="mt-3">
           <div className="mb-1 flex items-center justify-between text-xs font-semibold text-slate-500">
             <span>{`Step ${currentStep + 1}/${TOTAL_STEPS}`}</span>
             <span className="inline-flex items-center gap-2">
@@ -1191,7 +1269,7 @@ export function QuestionsFlow({ locale, readOnly = false, initialSubmission = nu
               onClick={goNext}
               type="button"
             >
-              {isStepSaving ? "Saving..." : "Next"}
+              Next
               <ArrowRight size={16} />
             </button>
           ) : (
