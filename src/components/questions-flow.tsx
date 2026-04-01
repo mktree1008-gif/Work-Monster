@@ -737,7 +737,9 @@ export function QuestionsFlow({ locale, readOnly = false, initialSubmission = nu
           <div className="mb-1 flex items-center justify-between text-xs font-semibold text-slate-500">
             <span>{`Step ${currentStep + 1}/${TOTAL_STEPS}`}</span>
             <span className="inline-flex items-center gap-2">
-              {isAutoSaving ? "Auto-saving..." : "Draft saved"}
+              <span className="inline-block min-w-[7.4rem] text-right">
+                {isAutoSaving ? "Auto-saving..." : "Draft saved"}
+              </span>
               <span>{progressPercent(currentStep)}% Complete</span>
             </span>
           </div>

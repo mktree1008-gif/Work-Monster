@@ -104,6 +104,23 @@ function normalizeLoginId(loginId: string): string {
   return loginId.trim().toLowerCase();
 }
 
+function stripUndefinedDeep<T>(input: T): T {
+  if (Array.isArray(input)) {
+    return input
+      .map((item) => stripUndefinedDeep(item))
+      .filter((item) => item !== undefined) as T;
+  }
+  if (input && typeof input === "object") {
+    const output: Record<string, unknown> = {};
+    Object.entries(input as Record<string, unknown>).forEach(([key, value]) => {
+      if (value === undefined) return;
+      output[key] = stripUndefinedDeep(value);
+    });
+    return output as T;
+  }
+  return input;
+}
+
 function isValidLoginId(loginId: string): boolean {
   const customIdPattern = /^[a-z0-9._-]{3,32}$/;
   const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -621,8 +638,9 @@ class MemoryGameRepository implements GameRepository {
   }
 
   async saveSubmission(submission: Submission): Promise<Submission> {
-    this.db.submissions.set(submission.id, submission);
-    return submission;
+    const sanitized = stripUndefinedDeep(submission);
+    this.db.submissions.set(submission.id, sanitized);
+    return sanitized;
   }
 
   async listPenaltyEvents(userId: string): Promise<PenaltyEvent[]> {
@@ -1071,8 +1089,9 @@ class FirestoreGameRepository implements GameRepository {
   }
 
   async saveSubmission(submission: Submission): Promise<Submission> {
-    await this.db.collection("submissions").doc(submission.id).set(submission, { merge: true });
-    return submission;
+    const sanitized = stripUndefinedDeep(submission);
+    await this.db.collection("submissions").doc(submission.id).set(sanitized, { merge: true });
+    return sanitized;
   }
 
   async listPenaltyEvents(userId: string): Promise<PenaltyEvent[]> {
