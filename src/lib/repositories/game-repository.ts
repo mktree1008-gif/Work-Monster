@@ -121,6 +121,34 @@ function stripUndefinedDeep<T>(input: T): T {
   return input;
 }
 
+const REVIEW_QUEUE_STATUSES = new Set(["pending", "submitted", "in_review", "needs_revision", "submit", "draft"]);
+
+function normalizeSubmissionStatus(value: unknown): string {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function hasSubmissionReviewPayload(submission: Submission): boolean {
+  const taskCount = Array.isArray(submission.task_list) ? submission.task_list.filter((item) => String(item ?? "").trim().length > 0).length : 0;
+  const hasAnswer = submission.custom_answers
+    ? Object.values(submission.custom_answers).some((value) => String(value ?? "").trim().length > 0)
+    : false;
+  return taskCount > 0 || hasAnswer;
+}
+
+function isSubmissionAwaitingReview(submission: Submission): boolean {
+  const status = normalizeSubmissionStatus(submission.status);
+  const stepIndex = Number(submission.step_index ?? 0);
+  if (status === "approved" || status === "rejected") return false;
+
+  if (status === "draft" || status === "") {
+    return Boolean(submission.submitted_at)
+      || (Number.isFinite(stepIndex) && stepIndex >= 7)
+      || hasSubmissionReviewPayload(submission);
+  }
+
+  return REVIEW_QUEUE_STATUSES.has(status);
+}
+
 function isValidLoginId(loginId: string): boolean {
   const customIdPattern = /^[a-z0-9._-]{3,32}$/;
   const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -629,7 +657,7 @@ class MemoryGameRepository implements GameRepository {
 
   async listPendingSubmissions(): Promise<Submission[]> {
     return [...this.db.submissions.values()]
-      .filter((submission) => submission.status === "pending" || submission.status === "submitted" || submission.status === "in_review")
+      .filter((submission) => isSubmissionAwaitingReview(submission))
       .sort((a, b) => (a.created_at > b.created_at ? -1 : 1));
   }
 
@@ -1076,10 +1104,29 @@ class FirestoreGameRepository implements GameRepository {
   }
 
   async listPendingSubmissions(): Promise<Submission[]> {
-    const snap = await this.db.collection("submissions").where("status", "in", ["pending", "submitted", "in_review"]).get();
-    return snap.docs
-      .map((doc) => doc.data() as Submission)
-      .sort((a, b) => (a.created_at > b.created_at ? -1 : 1));
+    const normalize = (items: Submission[]) =>
+      items
+        .filter((submission) => isSubmissionAwaitingReview(submission))
+        .sort((a, b) => (a.created_at > b.created_at ? -1 : 1));
+
+    try {
+      const primary = await this.db
+        .collection("submissions")
+        .where("status", "in", ["pending", "submitted", "in_review", "needs_revision"])
+        .get();
+
+      const primaryRows = normalize(primary.docs.map((doc) => doc.data() as Submission));
+      if (primaryRows.length > 0) {
+        return primaryRows;
+      }
+    } catch (error) {
+      if (!this.isResourceExhaustedError(error)) {
+        throw error;
+      }
+    }
+
+    const fallback = await this.db.collection("submissions").orderBy("created_at", "desc").limit(240).get();
+    return normalize(fallback.docs.map((doc) => doc.data() as Submission));
   }
 
   async getSubmission(submissionId: string): Promise<Submission | null> {
