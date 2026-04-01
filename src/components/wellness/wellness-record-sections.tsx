@@ -181,80 +181,83 @@ export function WellnessRecordSections({ initialSection, submissions, rewardClai
       </div>
 
       {section === "overview" && (
-        <div className="space-y-3">
-          <article className="rounded-2xl bg-gradient-to-br from-indigo-700 via-blue-600 to-cyan-500 p-4 text-white shadow-[0_16px_32px_rgba(30,64,175,0.28)]">
+        <div className="space-y-2.5">
+          <article className="rounded-2xl bg-gradient-to-br from-indigo-700 via-blue-600 to-cyan-500 p-3.5 text-white shadow-[0_14px_28px_rgba(30,64,175,0.24)]">
             <div className="flex items-center justify-between">
               <p className="text-xs font-bold uppercase tracking-[0.14em] text-blue-100">Wellness Balance</p>
               <span className="rounded-full bg-white/20 px-2 py-1 text-[10px] font-bold">{days}D</span>
             </div>
-            <div className="mt-3 flex items-center gap-4">
-              <div className="relative h-24 w-24 rounded-full p-2" style={ringStyle}>
+            <div className="mt-2.5 flex items-center gap-3">
+              <div className="relative h-20 w-20 rounded-full p-2" style={ringStyle}>
                 <div className="flex h-full w-full items-center justify-center rounded-full bg-white text-center text-indigo-700">
                   <div>
-                    <p className="text-2xl font-black">{wellnessBalance}%</p>
+                    <p className="text-xl font-black">{wellnessBalance}%</p>
                     <p className="text-[10px] font-bold uppercase tracking-[0.12em]">sync</p>
                   </div>
                 </div>
               </div>
-              <div className="space-y-1 text-xs">
-                <p>🍽 Food goal {foodGoalPercent}%</p>
-                <p>🏃 Movement goal {movementGoalPercent}%</p>
-                <p>😴 Sleep goal {sleepGoalPercent}%</p>
-                <p>💙 Recovery {avgRecovery}%</p>
+              <div className="grid flex-1 grid-cols-2 gap-1.5 text-[12px]">
+                <div className="rounded-lg bg-white/15 px-2 py-1 font-semibold">🍽 Food {foodGoalPercent}%</div>
+                <div className="rounded-lg bg-white/15 px-2 py-1 font-semibold">🏃 Move {movementGoalPercent}%</div>
+                <div className="rounded-lg bg-white/15 px-2 py-1 font-semibold">😴 Sleep {sleepGoalPercent}%</div>
+                <div className="rounded-lg bg-white/15 px-2 py-1 font-semibold">💙 Recovery {avgRecovery}%</div>
               </div>
             </div>
           </article>
 
-          <div className="grid grid-cols-3 gap-2">
-            <article className="rounded-xl border border-slate-200 bg-white p-3 text-center">
-              <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Food Avg</p>
-              <p className="mt-1 text-2xl font-black leading-none text-indigo-900">{avgFood}</p>
-              <p className="mt-1 text-[11px] text-slate-500">kcal/day</p>
+          <div className="grid grid-cols-3 gap-1.5">
+            <article className="rounded-xl border border-slate-200 bg-white p-2.5 text-center">
+              <p className="text-[10px] font-bold uppercase tracking-[0.11em] text-slate-500">Food</p>
+              <p className="mt-1 text-[1.75rem] font-black leading-none text-indigo-900">{avgFood}</p>
+              <p className="mt-1 text-[10px] text-slate-500">kcal/day</p>
             </article>
-            <article className="rounded-xl border border-slate-200 bg-white p-3 text-center">
-              <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Workout Avg</p>
-              <p className="mt-1 text-2xl font-black leading-none text-indigo-900">{avgWorkout}</p>
-              <p className="mt-1 text-[11px] text-slate-500">min/day</p>
+            <article className="rounded-xl border border-slate-200 bg-white p-2.5 text-center">
+              <p className="text-[10px] font-bold uppercase tracking-[0.11em] text-slate-500">Move</p>
+              <p className="mt-1 text-[1.75rem] font-black leading-none text-indigo-900">{avgWorkout}</p>
+              <p className="mt-1 text-[10px] text-slate-500">min/day</p>
             </article>
-            <article className="rounded-xl border border-slate-200 bg-white p-3 text-center">
-              <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500">Recovery Avg</p>
-              <p className="mt-1 text-2xl font-black leading-none text-indigo-900">{avgRecovery}%</p>
-              <p className="mt-1 text-[11px] text-slate-500">sleep trend</p>
+            <article className="rounded-xl border border-slate-200 bg-white p-2.5 text-center">
+              <p className="text-[10px] font-bold uppercase tracking-[0.11em] text-slate-500">Recovery</p>
+              <p className="mt-1 text-[1.75rem] font-black leading-none text-indigo-900">{avgRecovery}%</p>
+              <p className="mt-1 text-[10px] text-slate-500">sleep</p>
             </article>
           </div>
 
-          <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <article className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
             <div className="flex items-center justify-between">
               <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Wellness Insight</p>
-              <span className="rounded-full bg-indigo-50 px-2 py-1 text-[10px] font-bold text-indigo-700">{days} day summary</span>
+              <span className="rounded-full bg-indigo-50 px-2 py-1 text-[10px] font-bold text-indigo-700">{days}D</span>
             </div>
 
-            <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-xl bg-slate-50 p-2">
+            <div className="no-scrollbar mt-2 flex gap-1.5 overflow-x-auto pb-0.5 text-center">
+              <div className="shrink-0 rounded-xl bg-slate-50 px-3 py-2">
                 <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Recovery</p>
                 <p className="mt-1 text-base font-black text-indigo-900">{avgRecovery}%</p>
               </div>
-              <div className="rounded-xl bg-slate-50 p-2">
+              <div className="shrink-0 rounded-xl bg-slate-50 px-3 py-2">
                 <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Food</p>
                 <p className="mt-1 text-base font-black text-indigo-900">{avgFood} kcal</p>
               </div>
-              <div className="rounded-xl bg-slate-50 p-2">
-                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Workout</p>
+              <div className="shrink-0 rounded-xl bg-slate-50 px-3 py-2">
+                <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">Move</p>
                 <p className="mt-1 text-base font-black text-indigo-900">{avgWorkout} min</p>
               </div>
             </div>
 
-            <p className="mt-3 text-center text-sm font-semibold text-slate-700">
+            <p className="mt-2 text-center text-sm font-semibold leading-tight text-slate-700">
               {wellnessBalanceClamped >= 75
-                ? "Great balance. Keep this rhythm for consistency."
+                ? "Great balance. Keep this rhythm."
                 : wellnessBalanceClamped >= 55
-                  ? "Solid baseline. One small habit upgrade can lift your trend."
-                  : "Rebuild mode: prioritize sleep and one focused movement block."}
+                  ? "Solid baseline. One small habit can lift your trend."
+                  : "Rebuild mode: prioritize sleep + one focused movement block."}
             </p>
           </article>
-          <article className="rounded-xl bg-slate-50 p-3">
-            <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Daily Trend</p>
-            <div className="mt-2 flex h-20 items-end gap-1">
+          <article className="rounded-xl bg-slate-50 p-2.5">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Daily Trend</p>
+              <p className="text-[10px] font-semibold text-slate-500">{days} days</p>
+            </div>
+            <div className="mt-2 flex h-16 items-end gap-1">
               {dates.map((date) => {
                 const food = foodSeries.find((item) => item.date === date)?.value ?? 0;
                 const move = workoutSeries.find((item) => item.date === date)?.value ?? 0;
@@ -400,7 +403,7 @@ export function WellnessRecordSections({ initialSection, submissions, rewardClai
       )}
 
       <div className="mt-4 rounded-xl bg-indigo-50 p-3 text-sm text-indigo-800">
-        Range: last {days} days • Sleep average {toHourMinuteLabel(Math.round(sleepLogs.slice(0, 7).reduce((sum, item) => sum + item.total_sleep_minutes, 0) / Math.max(1, Math.min(7, sleepLogs.length))))}
+        Last {days}d • Sleep avg {toHourMinuteLabel(Math.round(sleepLogs.slice(0, 7).reduce((sum, item) => sum + item.total_sleep_minutes, 0) / Math.max(1, Math.min(7, sleepLogs.length))))}
       </div>
     </section>
   );

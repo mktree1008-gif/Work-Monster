@@ -719,36 +719,38 @@ export function FoodPageClient({ labels }: { labels: Labels }) {
       </article>
 
       <section className="mt-4 rounded-3xl bg-white p-4 shadow-sm">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-sm font-black text-slate-900">Quick Total Calories</p>
-            <p className="text-xs text-slate-500">Skip item-by-item logging and save today&apos;s total kcal + macros manually.</p>
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="truncate text-sm font-black text-slate-900">Quick Total Calories</p>
+            <p className="truncate text-[11px] text-slate-500">Fast save for kcal + macros.</p>
           </div>
-          <span className="rounded-full bg-blue-50 px-2 py-1 text-[11px] font-semibold text-blue-700">Optional</span>
+          <span className="shrink-0 rounded-full bg-blue-50 px-2 py-1 text-[10px] font-semibold text-blue-700">Optional</span>
         </div>
-        <div className="mt-3 flex items-center gap-2">
+
+        <div className="mt-2.5 flex items-center gap-2">
           <input
-            className="h-11 flex-1 rounded-xl border border-slate-200 px-3 text-sm text-slate-800 outline-none focus:border-blue-400"
+            className="h-10 flex-1 rounded-xl border border-slate-200 px-3 text-sm text-slate-800 outline-none focus:border-blue-400"
             min={0}
             onChange={(event) => setManualCaloriesInput(event.target.value)}
             placeholder="e.g. 1850"
             type="number"
             value={manualCaloriesInput}
           />
-          <span className="text-xs font-semibold text-slate-500">kcal</span>
+          <span className="shrink-0 text-xs font-semibold text-slate-500">kcal</span>
           <button
-            className="h-11 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white"
+            className="h-10 shrink-0 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white"
             onClick={saveManualNutritionTotals}
             type="button"
           >
             Save
           </button>
         </div>
-        <div className="mt-3 grid grid-cols-3 gap-2">
-          <label className="text-[11px] font-semibold text-slate-500">
-            Protein (g)
+
+        <div className="mt-2.5 grid grid-cols-3 gap-2">
+          <label className="text-[10px] font-semibold text-slate-500">
+            P (g)
             <input
-              className="mt-1 h-10 w-full rounded-xl border border-slate-200 px-2 text-sm text-slate-800"
+              className="mt-1 h-9 w-full rounded-xl border border-slate-200 px-2 text-sm text-slate-800"
               min={0}
               onChange={(event) => setManualProteinInput(event.target.value)}
               step={0.1}
@@ -756,10 +758,10 @@ export function FoodPageClient({ labels }: { labels: Labels }) {
               value={manualProteinInput}
             />
           </label>
-          <label className="text-[11px] font-semibold text-slate-500">
-            Fat (g)
+          <label className="text-[10px] font-semibold text-slate-500">
+            F (g)
             <input
-              className="mt-1 h-10 w-full rounded-xl border border-slate-200 px-2 text-sm text-slate-800"
+              className="mt-1 h-9 w-full rounded-xl border border-slate-200 px-2 text-sm text-slate-800"
               min={0}
               onChange={(event) => setManualFatInput(event.target.value)}
               step={0.1}
@@ -767,10 +769,10 @@ export function FoodPageClient({ labels }: { labels: Labels }) {
               value={manualFatInput}
             />
           </label>
-          <label className="text-[11px] font-semibold text-slate-500">
-            Carbs (g)
+          <label className="text-[10px] font-semibold text-slate-500">
+            C (g)
             <input
-              className="mt-1 h-10 w-full rounded-xl border border-slate-200 px-2 text-sm text-slate-800"
+              className="mt-1 h-9 w-full rounded-xl border border-slate-200 px-2 text-sm text-slate-800"
               min={0}
               onChange={(event) => setManualCarbsInput(event.target.value)}
               step={0.1}
@@ -779,16 +781,17 @@ export function FoodPageClient({ labels }: { labels: Labels }) {
             />
           </label>
         </div>
-        <p className="mt-2 text-[11px] text-slate-500">Set to 0 and save to clear this quick total.</p>
-        <div className="mt-2 grid grid-cols-3 gap-2">
-          <p className={`rounded-xl border px-2 py-1 text-[11px] font-semibold ${macroGoalCardTone(summary.protein, goals.protein_goal)}`}>
-            Protein {formatOne(summary.protein)} / {formatOne(goals.protein_goal)}g
+
+        <p className="mt-1.5 text-[10px] text-slate-500">Set to 0 + Save to clear.</p>
+        <div className="no-scrollbar mt-2 flex gap-1.5 overflow-x-auto pb-0.5">
+          <p className={`shrink-0 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-semibold ${macroGoalCardTone(summary.protein, goals.protein_goal)}`}>
+            P {formatOne(summary.protein)}/{formatOne(goals.protein_goal)}g
           </p>
-          <p className={`rounded-xl border px-2 py-1 text-[11px] font-semibold ${macroGoalCardTone(summary.fat, goals.fat_goal)}`}>
-            Fat {formatOne(summary.fat)} / {formatOne(goals.fat_goal)}g
+          <p className={`shrink-0 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-semibold ${macroGoalCardTone(summary.fat, goals.fat_goal)}`}>
+            F {formatOne(summary.fat)}/{formatOne(goals.fat_goal)}g
           </p>
-          <p className={`rounded-xl border px-2 py-1 text-[11px] font-semibold ${macroGoalCardTone(summary.carbs, goals.carb_goal)}`}>
-            Carbs {formatOne(summary.carbs)} / {formatOne(goals.carb_goal)}g
+          <p className={`shrink-0 whitespace-nowrap rounded-full border px-2.5 py-1 text-[11px] font-semibold ${macroGoalCardTone(summary.carbs, goals.carb_goal)}`}>
+            C {formatOne(summary.carbs)}/{formatOne(goals.carb_goal)}g
           </p>
         </div>
       </section>

@@ -247,9 +247,9 @@ export function WelcomeDashboardClient({ mission, checkinState, labels, score, r
       <section className="card card-standard mb-4 overflow-hidden border border-blue-100/80 bg-gradient-to-br from-white via-blue-50/40 to-indigo-50/40 p-1.5 shadow-[0_10px_30px_rgba(59,130,246,0.12)]">
         <div className="grid grid-cols-2 gap-1">
           <button
-            className={`group relative rounded-2xl px-4 py-2.5 text-[1.03rem] font-black tracking-tight transition-all duration-200 ${
+            className={`group relative rounded-2xl px-4 py-2.5 text-[clamp(1.08rem,4.6vw,1.18rem)] font-semibold tracking-[-0.01em] transition-all duration-200 ${
               mode === "productivity"
-                ? "bg-gradient-to-r from-blue-700 via-indigo-600 to-blue-600 text-white shadow-[0_10px_24px_rgba(37,99,235,0.34)]"
+                ? "bg-gradient-to-r from-blue-700 via-indigo-600 to-blue-600 text-white shadow-[0_8px_18px_rgba(37,99,235,0.3)]"
                 : "bg-transparent text-slate-600 hover:bg-white/70"
             }`}
             onClick={() => setMode("productivity")}
@@ -258,7 +258,7 @@ export function WelcomeDashboardClient({ mission, checkinState, labels, score, r
             <span className={`inline-flex items-center gap-1.5 whitespace-nowrap ${mode === "productivity" ? "drop-shadow-sm" : ""}`}>
               <span
                 aria-label="man working on laptop"
-                className={`text-[1.04rem] ${mode === "productivity" ? "animate-[pulse_2.2s_ease-in-out_infinite]" : ""}`}
+                className={`text-[1.02rem] ${mode === "productivity" ? "animate-[pulse_2.2s_ease-in-out_infinite]" : ""}`}
                 role="img"
               >
                 👨‍💻
@@ -266,13 +266,13 @@ export function WelcomeDashboardClient({ mission, checkinState, labels, score, r
               Productivity
             </span>
             {mode === "productivity" && (
-              <span className="pointer-events-none absolute right-3 top-2 h-2 w-2 rounded-full bg-cyan-200 shadow-[0_0_12px_rgba(103,232,249,0.95)]" />
+              <span className="pointer-events-none absolute right-3 top-2 h-1.5 w-1.5 rounded-full bg-cyan-200 shadow-[0_0_10px_rgba(103,232,249,0.9)]" />
             )}
           </button>
           <button
-            className={`group relative rounded-2xl px-4 py-2.5 text-[1.03rem] font-black tracking-tight transition-all duration-200 ${
+            className={`group relative rounded-2xl px-4 py-2.5 text-[clamp(1.08rem,4.6vw,1.18rem)] font-semibold tracking-[-0.01em] transition-all duration-200 ${
               mode === "wellness"
-                ? "bg-gradient-to-r from-emerald-600 via-cyan-600 to-blue-600 text-white shadow-[0_10px_24px_rgba(20,184,166,0.3)]"
+                ? "bg-gradient-to-r from-emerald-600 via-cyan-600 to-blue-600 text-white shadow-[0_8px_18px_rgba(20,184,166,0.28)]"
                 : "bg-transparent text-slate-600 hover:bg-white/70"
             }`}
             onClick={() => setMode("wellness")}
@@ -281,7 +281,7 @@ export function WelcomeDashboardClient({ mission, checkinState, labels, score, r
             <span className={`inline-flex items-center gap-1.5 whitespace-nowrap ${mode === "wellness" ? "drop-shadow-sm" : ""}`}>
               <span
                 aria-label="man lifting weights"
-                className={`text-[1.04rem] ${mode === "wellness" ? "animate-[pulse_2.2s_ease-in-out_infinite]" : ""}`}
+                className={`text-[1.02rem] ${mode === "wellness" ? "animate-[pulse_2.2s_ease-in-out_infinite]" : ""}`}
                 role="img"
               >
                 🏋️‍♂️
@@ -289,7 +289,7 @@ export function WelcomeDashboardClient({ mission, checkinState, labels, score, r
               Wellness
             </span>
             {mode === "wellness" && (
-              <span className="pointer-events-none absolute right-3 top-2 h-2 w-2 rounded-full bg-emerald-200 shadow-[0_0_12px_rgba(110,231,183,0.95)]" />
+              <span className="pointer-events-none absolute right-3 top-2 h-1.5 w-1.5 rounded-full bg-emerald-200 shadow-[0_0_10px_rgba(110,231,183,0.9)]" />
             )}
           </button>
         </div>
@@ -405,56 +405,54 @@ export function WelcomeDashboardClient({ mission, checkinState, labels, score, r
             </div>
           </section>
 
-          <section className="card card-standard relative mb-4 overflow-hidden border border-blue-100 bg-gradient-to-br from-white via-blue-50/60 to-cyan-50 p-4 shadow-[0_16px_34px_rgba(59,130,246,0.16)]">
-            <div className="pointer-events-none absolute -right-12 -top-14 h-40 w-40 rounded-full bg-blue-300/20 blur-3xl" />
-            <div className="pointer-events-none absolute -bottom-16 -left-8 h-36 w-36 rounded-full bg-cyan-300/20 blur-3xl" />
+          <section className="card card-standard relative mb-4 overflow-hidden border border-blue-100 bg-gradient-to-br from-white via-blue-50/50 to-cyan-50/60 p-3.5 shadow-[0_14px_28px_rgba(59,130,246,0.12)]">
+            <div className="pointer-events-none absolute -right-10 -top-10 h-24 w-24 rounded-full bg-blue-300/15 blur-2xl" />
 
-            <div className="relative flex items-start justify-between gap-2">
-              <div>
-                <h3 className="text-[clamp(1.85rem,8.8vw,2.45rem)] font-black leading-[0.98] tracking-[-0.02em] text-slate-900">
+            <div className="relative flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <h3 className="whitespace-nowrap text-[clamp(1.5rem,6.4vw,1.95rem)] font-black leading-none tracking-[-0.02em] text-slate-900">
                   Daily Check-in
                 </h3>
-                <p className="mt-2 text-[15px] font-semibold leading-snug text-slate-700">
+                <p className="mt-1 truncate whitespace-nowrap text-[13px] font-medium text-slate-600">
                   End your day strong with a 7-step reflection and manager review.
                 </p>
               </div>
-              <span className="min-w-fit whitespace-nowrap rounded-full bg-white/90 px-3 py-1 text-[11px] font-black text-blue-700 ring-1 ring-blue-100">
+              <span className="min-w-fit whitespace-nowrap rounded-full bg-white/90 px-2.5 py-0.5 text-[11px] font-bold text-blue-700 ring-1 ring-blue-100">
                 {statusBadgeText(checkinState)}
               </span>
             </div>
 
-            <div className="relative mt-3 grid grid-cols-2 gap-2 text-xs font-bold text-slate-700">
-              <span className="inline-flex items-center gap-1 rounded-full bg-white/90 px-3 py-1.5 ring-1 ring-slate-200">💭 State</span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-white/90 px-3 py-1.5 ring-1 ring-slate-200">🎯 Execution</span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-white/90 px-3 py-1.5 ring-1 ring-slate-200">⚡ Productivity</span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-white/90 px-3 py-1.5 ring-1 ring-slate-200">🧾 Summary</span>
+            <div className="no-scrollbar relative mt-2.5 flex gap-1.5 overflow-x-auto pb-0.5 text-[11px] font-semibold text-slate-700">
+              <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-white/90 px-2.5 py-1 ring-1 ring-slate-200">{locale === "ko" ? "상태" : "State"}</span>
+              <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-white/90 px-2.5 py-1 ring-1 ring-slate-200">{locale === "ko" ? "실행" : "Execution"}</span>
+              <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-white/90 px-2.5 py-1 ring-1 ring-slate-200">{locale === "ko" ? "생산성" : "Productivity"}</span>
+              <span className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full bg-white/90 px-2.5 py-1 ring-1 ring-slate-200">{locale === "ko" ? "요약" : "Summary"}</span>
             </div>
 
             <Link
-              className="anim-cta-pulse relative mt-4 inline-flex w-full items-center justify-center gap-2 rounded-[1.1rem] bg-gradient-to-r from-blue-700 via-blue-600 to-cyan-500 px-6 py-4 text-[clamp(1.08rem,4.8vw,1.32rem)] font-black text-white shadow-[0_18px_34px_rgba(37,99,235,0.42)] ring-1 ring-white/30 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_22px_40px_rgba(37,99,235,0.5)]"
+              className="anim-cta-pulse relative mt-3 inline-flex w-full items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-gradient-to-r from-blue-700 via-blue-600 to-cyan-500 px-5 py-3 text-[clamp(1rem,4.4vw,1.16rem)] font-black text-white shadow-[0_16px_30px_rgba(37,99,235,0.36)] ring-1 ring-white/30 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_20px_34px_rgba(37,99,235,0.45)]"
               href="/app/questions/check-in"
               style={{ color: "#ffffff" }}
             >
-              <Flame size={18} />
+              <Flame size={16} />
               Start check-in
             </Link>
-            <p className="mt-2 text-center text-xs font-semibold text-blue-700/85">
-              Finish today with momentum and lock in the win.
-            </p>
             {checkinState !== "none" && (
-              <p className="mt-3 inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
+              <p className="mt-2 inline-flex max-w-full items-center gap-1 whitespace-nowrap rounded-full bg-amber-100 px-2.5 py-0.5 text-[11px] font-semibold text-amber-700">
                 <CheckCircle2 size={12} />
-                {checkinState === "submitted"
-                  ? "Submitted. Waiting review."
-                  : checkinState === "approved"
-                    ? "Approved by manager."
-                    : checkinState === "rejected"
-                      ? "Rejected by manager."
-                      : checkinState === "needs_revision"
-                        ? "Needs revision before resubmit."
-                        : checkinState === "in_review"
-                          ? "Manager is reviewing now."
-                          : "Draft is saved."}
+                <span className="truncate">
+                  {checkinState === "submitted"
+                    ? "Submitted. Waiting review."
+                    : checkinState === "approved"
+                      ? "Approved by manager."
+                      : checkinState === "rejected"
+                        ? "Rejected by manager."
+                        : checkinState === "needs_revision"
+                          ? "Needs revision before resubmit."
+                          : checkinState === "in_review"
+                            ? "Manager is reviewing now."
+                            : "Draft is saved."}
+                </span>
               </p>
             )}
           </section>

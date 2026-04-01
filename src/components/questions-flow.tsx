@@ -317,6 +317,7 @@ export function QuestionsFlow({
   const [alreadyDoneMessage, setAlreadyDoneMessage] = useState("");
   const [showAlreadyDonePopup, setShowAlreadyDonePopup] = useState(false);
   const [showSubmitSuccess, setShowSubmitSuccess] = useState(false);
+  const [showTaskLogDetails, setShowTaskLogDetails] = useState(false);
   const [attachmentPreviews, setAttachmentPreviews] = useState<AttachmentPreview[]>([]);
   const initialLoadedRef = useRef(false);
   const autosaveTimerRef = useRef<number | null>(null);
@@ -729,27 +730,29 @@ export function QuestionsFlow({
 
   function StepShell({ title, description, children }: { title: string; description: string; children: ReactNode }) {
     return (
-      <div className="mt-5 min-h-[32rem] rounded-[2rem] bg-white/70 p-5 shadow-[0_16px_44px_rgba(18,32,96,0.08)] ring-1 ring-black/[0.03] sm:min-h-[34rem]">
-        <h2 className="text-page-title font-black leading-[1.08] text-slate-900">{title}</h2>
-        <p className="mt-2 text-body-compact text-slate-600">{description}</p>
-        <div className="mt-5">{children}</div>
+      <div className="mt-2 min-h-[23rem] rounded-[1.5rem] bg-white/82 p-3.5 shadow-[0_12px_26px_rgba(18,32,96,0.08)] ring-1 ring-black/[0.03] sm:min-h-[24rem] sm:p-4">
+        <h2 className="truncate whitespace-nowrap text-[clamp(1.35rem,6.1vw,1.8rem)] font-extrabold leading-none tracking-[-0.015em] text-slate-900">
+          {title}
+        </h2>
+        <p className="mt-1 hidden truncate whitespace-nowrap text-[12px] font-medium text-slate-600 sm:block">{description}</p>
+        <div className="mt-2.5">{children}</div>
       </div>
     );
   }
 
   const stepHeading = `Step ${currentStep + 1} of ${TOTAL_STEPS}`;
   const dateSelectionPanel = (
-    <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-3">
+    <div className="rounded-xl border border-blue-100 bg-blue-50/70 p-2">
       <div className="flex items-center justify-between gap-2">
-        <p className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.14em] text-blue-700">
+        <p className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap text-[9px] font-bold uppercase tracking-[0.1em] text-blue-700">
           <CalendarDays size={13} />
           Check-in date
         </p>
-        <p className="text-[11px] font-semibold text-slate-500">{selectedDateLabel}</p>
+        <p className="hidden truncate text-[11px] font-semibold text-slate-500 sm:block">{selectedDateLabel}</p>
       </div>
-      <div className="mt-2 flex items-center gap-2">
+      <div className="mt-1 flex items-center gap-2">
         <input
-          className="input h-10 w-full rounded-xl border-slate-200 bg-white"
+          className="input h-8 w-full rounded-lg border-slate-200 bg-white py-1.5 text-[13px]"
           disabled={submitting || isStepSaving}
           max={maxSelectableDate}
           onChange={onCheckInDateChange}
@@ -757,9 +760,6 @@ export function QuestionsFlow({
           value={clientLocalDate}
         />
       </div>
-      <p className="mt-2 text-[11px] text-slate-500">
-        Missed yesterday? Select a previous date and record it.
-      </p>
     </div>
   );
 
@@ -800,26 +800,26 @@ export function QuestionsFlow({
   }
 
   return (
-    <section className="relative -mx-4 min-h-[calc(100dvh-6.4rem)] bg-gradient-to-b from-slate-100 via-slate-50 to-slate-100 px-4 pb-28 pt-2 sm:mx-0 sm:rounded-[2rem] sm:px-6">
-      <header className="sticky top-0 z-20 -mx-4 border-b border-white/50 bg-white/80 px-4 pb-3 pt-3 backdrop-blur sm:mx-0 sm:-mt-2 sm:rounded-t-[2rem] sm:px-0">
+    <section className="relative -mx-4 min-h-[calc(100dvh-6.4rem)] bg-gradient-to-b from-slate-100 via-slate-50 to-slate-100 px-4 pb-[calc(5.8rem+var(--safe-bottom))] pt-1 sm:mx-0 sm:rounded-[2rem] sm:px-6">
+      <header className="sticky top-0 z-20 -mx-4 border-b border-white/50 bg-white/80 px-4 pb-1.5 pt-1.5 backdrop-blur sm:mx-0 sm:-mt-2 sm:rounded-t-[2rem] sm:px-0">
         <div className="flex items-center justify-between gap-2">
           <Link className="rounded-full p-2 text-blue-700 hover:bg-blue-50" href="/app/welcome">
             <X size={20} />
           </Link>
-          <h1 className="text-section-title font-black text-slate-900">Daily Check-in</h1>
-          <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700">{stepHeading}</span>
+          <h1 className="whitespace-nowrap text-base font-black tracking-[-0.01em] text-slate-900">Daily Check-in</h1>
+          <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-[11px] font-bold text-blue-700">{stepHeading}</span>
         </div>
 
-        <div className="mt-3">{dateSelectionPanel}</div>
+        <div className="mt-2">{dateSelectionPanel}</div>
 
-        <div className="mt-3">
-          <div className="mb-1 flex items-center justify-between text-xs font-semibold text-slate-500">
+        <div className="mt-1.5">
+          <div className="mb-1 flex items-center justify-between text-[11px] font-semibold text-slate-500">
             <span>{`Step ${currentStep + 1}/${TOTAL_STEPS}`}</span>
             <span className="inline-flex items-center gap-2">
-              <span className="inline-block min-w-[7.4rem] text-right">
+              <span className="inline-block min-w-[6.1rem] text-right">
                 {isAutoSaving ? "Auto-saving..." : "Draft saved"}
               </span>
-              <span>{progressPercent(currentStep)}% Complete</span>
+              <span>{progressPercent(currentStep)}%</span>
             </span>
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-slate-200">
@@ -833,15 +833,15 @@ export function QuestionsFlow({
 
       {currentStep === 0 && (
         <StepShell
-          description="Take a moment to breathe. Identifying your current state is the first step toward peak performance."
-          title="How do you feel right now?"
+          description="Quickly select your current state."
+          title="How are you feeling now?"
         >
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2">
             {FEELING_OPTIONS.map((option) => {
               const active = draft.feeling_state === option.label;
               return (
                 <button
-                  className={`rounded-[1.8rem] border p-4 text-left transition ${
+                  className={`rounded-[1.25rem] border p-3 text-left transition ${
                     active
                       ? "border-blue-300 bg-blue-50 shadow-[0_10px_22px_rgba(37,99,235,0.18)]"
                       : "border-slate-200 bg-white"
@@ -850,16 +850,16 @@ export function QuestionsFlow({
                   onClick={() => patchDraft({ feeling_state: option.label })}
                   type="button"
                 >
-                  <span className={`inline-flex h-11 w-11 items-center justify-center rounded-2xl text-2xl ${active ? "bg-blue-600 text-white" : "bg-slate-100"}`}>
+                  <span className={`inline-flex h-9 w-9 items-center justify-center rounded-xl text-xl ${active ? "bg-blue-600 text-white" : "bg-slate-100"}`}>
                     {option.icon}
                   </span>
-                  <p className="mt-3 text-card-title font-black text-slate-900">{option.label}</p>
+                  <p className="mt-2 truncate whitespace-nowrap text-[15px] font-extrabold text-slate-900">{option.label}</p>
                 </button>
               );
             })}
           </div>
 
-          <article className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <article className="mt-2 hidden rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:block">
             <div className="flex items-start gap-3">
               <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-xl">🧑‍🏫</span>
               <div>
@@ -875,15 +875,15 @@ export function QuestionsFlow({
 
       {currentStep === 1 && (
         <StepShell
-          description="Choose the factor that most shaped your performance today."
-          title="What impacted your productivity most today?"
+          description="Pick one primary factor."
+          title="Biggest productivity factor?"
         >
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-1.5">
             {PRODUCTIVITY_FACTORS.map((item) => {
               const active = draft.primary_productivity_factor === item;
               return (
                 <button
-                  className={`rounded-2xl border px-3 py-3 text-sm font-bold transition ${
+                  className={`truncate whitespace-nowrap rounded-xl border px-2.5 py-2.5 text-[13px] font-bold transition ${
                     active ? "border-blue-300 bg-blue-600 text-white" : "border-slate-200 bg-white text-slate-700"
                   }`}
                   key={item}
@@ -897,7 +897,7 @@ export function QuestionsFlow({
           </div>
 
           {draft.primary_productivity_factor === "Other" && (
-            <label className="mt-4 block text-sm font-semibold text-slate-700">
+            <label className="mt-3 hidden text-sm font-semibold text-slate-700 sm:block">
               Optional note
               <input
                 className="input mt-2"
@@ -912,15 +912,15 @@ export function QuestionsFlow({
 
       {currentStep === 2 && (
         <StepShell
-          description="Reflect on your impact and focus areas."
+          description="Choose the execution outcomes."
           title="How did you execute today?"
         >
-          <div className="space-y-3">
+          <div className="space-y-1.5">
             {EXECUTION_ITEMS.map((item) => {
               const active = draft[item.key];
               return (
                 <button
-                  className={`w-full rounded-[1.5rem] border p-4 text-left transition ${
+                  className={`w-full rounded-[1.1rem] border p-2.5 text-left transition ${
                     active ? "border-blue-300 bg-blue-50" : "border-slate-200 bg-white"
                   }`}
                   key={item.key}
@@ -937,13 +937,13 @@ export function QuestionsFlow({
                   }}
                   type="button"
                 >
-                  <div className="flex items-start gap-3">
+                  <div className="flex items-start gap-2">
                     <span className={`mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full border ${active ? "border-blue-600 bg-blue-600 text-white" : "border-slate-300 text-transparent"}`}>
                       <Check size={14} />
                     </span>
-                    <span>
-                      <span className="block text-card-title font-black text-slate-900">{item.title}</span>
-                      <span className="mt-1 block text-sm text-slate-600">{item.desc}</span>
+                    <span className="min-w-0">
+                      <span className="block truncate whitespace-nowrap text-[14px] font-extrabold text-slate-900">{item.title}</span>
+                      <span className="mt-0.5 hidden truncate whitespace-nowrap text-[12px] text-slate-600 sm:block">{item.desc}</span>
                     </span>
                   </div>
                 </button>
@@ -955,16 +955,16 @@ export function QuestionsFlow({
 
       {currentStep === 3 && (
         <StepShell
-          description="Be honest with yourself. How effectively did you move the needle?"
+          description="Rate today in one tap."
           title="Rate your productivity today"
         >
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-1.5">
             {PRODUCTIVITY_RATINGS.map((option) => {
               const active = draft.self_productivity_rating === option.key;
               const emphasis = option.key === "strong" || option.key === "peak";
               return (
                 <button
-                  className={`rounded-[1.8rem] border p-4 text-left transition ${
+                  className={`rounded-[1.1rem] border p-2.5 text-left transition ${
                     active
                       ? "border-blue-400 bg-gradient-to-br from-blue-700 to-blue-500 text-white shadow-[0_16px_28px_rgba(37,99,235,0.28)]"
                       : emphasis
@@ -975,9 +975,9 @@ export function QuestionsFlow({
                   onClick={() => patchDraft({ self_productivity_rating: option.key })}
                   type="button"
                 >
-                  <p className={`text-4xl ${active ? "anim-bounce-soft" : ""}`}>{option.emoji}</p>
-                  <p className={`mt-2 text-card-title font-black ${active ? "text-white" : "text-slate-900"}`}>{option.label}</p>
-                  <p className={`mt-1 text-sm ${active ? "text-blue-100" : "text-slate-600"}`}>{option.desc}</p>
+                  <p className={`text-[1.8rem] leading-none ${active ? "anim-bounce-soft" : ""}`}>{option.emoji}</p>
+                  <p className={`mt-1 truncate whitespace-nowrap text-[14px] font-extrabold ${active ? "text-white" : "text-slate-900"}`}>{option.label}</p>
+                  <p className={`mt-0.5 hidden truncate whitespace-nowrap text-[12px] ${active ? "text-blue-100" : "text-slate-600"} sm:block`}>{option.desc}</p>
                 </button>
               );
             })}
@@ -987,16 +987,16 @@ export function QuestionsFlow({
 
       {currentStep === 4 && (
         <StepShell
-          description="Select your primary focus for tomorrow."
+          description="Select one improvement focus."
           title="What will you improve tomorrow?"
         >
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2">
             {TOMORROW_FOCUS_OPTIONS.map((option, idx) => {
               const active = draft.tomorrow_improvement_focus === option.key;
               const wide = idx === 0;
               return (
                 <button
-                  className={`rounded-[1.6rem] border p-4 text-left transition ${
+                  className={`rounded-[1.2rem] border p-3 text-left transition ${
                     wide ? "col-span-2" : ""
                   } ${
                     active
@@ -1007,15 +1007,15 @@ export function QuestionsFlow({
                   onClick={() => patchDraft({ tomorrow_improvement_focus: option.key })}
                   type="button"
                 >
-                  <span className={`inline-flex h-10 w-10 items-center justify-center rounded-xl text-xl ${active ? "bg-blue-600 text-white" : "bg-slate-100"}`}>{option.icon}</span>
-                  <p className="mt-2 text-card-title font-black text-slate-900">{option.label}</p>
-                  <p className="mt-1 text-sm text-slate-600">{option.desc}</p>
+                  <span className={`inline-flex h-8 w-8 items-center justify-center rounded-lg text-lg ${active ? "bg-blue-600 text-white" : "bg-slate-100"}`}>{option.icon}</span>
+                  <p className="mt-1.5 truncate whitespace-nowrap text-[15px] font-extrabold text-slate-900">{option.label}</p>
+                  <p className="mt-0.5 hidden truncate whitespace-nowrap text-[12px] text-slate-600 sm:block">{option.desc}</p>
                 </button>
               );
             })}
           </div>
 
-          <label className="mt-4 block text-sm font-semibold text-slate-700">
+          <label className="mt-3 hidden text-sm font-semibold text-slate-700 sm:block">
             Optional note
             <input
               className="input mt-2"
@@ -1029,17 +1029,17 @@ export function QuestionsFlow({
 
       {currentStep === 5 && (
         <StepShell
-          description="Summarize the milestones you've crossed today. Option-first logging is enabled."
+          description="Capture key outcomes in a compact log."
           title="Task Log"
         >
-          <article className="rounded-2xl bg-white p-4 ring-1 ring-black/[0.04]">
+          <article className="rounded-2xl bg-white p-3 ring-1 ring-black/[0.04]">
             <p className="text-caption font-bold uppercase tracking-[0.16em] text-slate-500">Completed Work (quick select)</p>
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="no-scrollbar mt-2 flex gap-1.5 overflow-x-auto pb-0.5">
               {QUICK_WORK_CHIPS.map((chip) => {
                 const active = draft.quick_completed_work.includes(chip);
                 return (
                   <button
-                    className={`rounded-full px-3 py-2 text-xs font-bold transition ${
+                    className={`shrink-0 truncate whitespace-nowrap rounded-full px-2.5 py-1.5 text-[11px] font-bold transition ${
                       active ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-700"
                     }`}
                     key={chip}
@@ -1052,116 +1052,134 @@ export function QuestionsFlow({
               })}
             </div>
 
-            <label className="mt-3 block text-sm font-semibold text-slate-700">
-              Optional detail summary
+            <label className="mt-2 block text-sm font-semibold text-slate-700">
+              <span className="text-[11px] uppercase tracking-[0.12em] text-slate-500">Optional detail summary</span>
+              <input
+                className="input mt-1 h-9 text-[13px] sm:hidden"
+                onChange={(event) => patchDraft({ completed_work_summary: event.target.value })}
+                placeholder="One-line summary"
+                value={draft.completed_work_summary}
+              />
               <textarea
-                className="input mt-2 min-h-24 resize-none"
+                className="input mt-1.5 hidden min-h-20 resize-none text-[14px] sm:block"
                 onChange={(event) => patchDraft({ completed_work_summary: event.target.value })}
                 placeholder="Optional: add one short summary"
                 value={draft.completed_work_summary}
               />
-              <span className="mt-1 inline-flex items-center gap-1 text-caption text-slate-500">
+              <span className="mt-1 inline-flex items-center gap-1 text-[11px] text-slate-500">
                 <Sparkles size={12} /> Auto-saving
               </span>
             </label>
           </article>
 
-          <article className="mt-3 rounded-2xl bg-white p-4 ring-1 ring-black/[0.04]">
-            <div className="mb-2 flex items-center justify-between">
-              <p className="text-caption font-bold uppercase tracking-[0.16em] text-slate-500">Mission Tags</p>
-              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700">RECOMMENDED</span>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {MISSION_TAGS.map((tag) => {
-                const active = draft.mission_tags.includes(tag);
-                return (
-                  <button
-                    className={`rounded-full px-3 py-2 text-xs font-bold transition ${
-                      active ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-700"
-                    }`}
-                    key={tag}
-                    onClick={() => toggleMissionTag(tag)}
-                    type="button"
-                  >
-                    {tag}
+          <button
+            className="mt-2 inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-[11px] font-bold text-slate-700"
+            onClick={() => setShowTaskLogDetails((prev) => !prev)}
+            type="button"
+          >
+            {showTaskLogDetails ? "Hide extra details" : "Add mission tags / evidence"}
+          </button>
+
+          {showTaskLogDetails && (
+            <>
+              <article className="mt-2 rounded-2xl bg-white p-3 ring-1 ring-black/[0.04]">
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-caption font-bold uppercase tracking-[0.16em] text-slate-500">Mission Tags</p>
+                  <span className="hidden rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700 sm:inline-flex">RECOMMENDED</span>
+                </div>
+                <div className="no-scrollbar flex gap-1.5 overflow-x-auto pb-0.5">
+                  {MISSION_TAGS.map((tag) => {
+                    const active = draft.mission_tags.includes(tag);
+                    return (
+                      <button
+                        className={`shrink-0 truncate whitespace-nowrap rounded-full px-2.5 py-1.5 text-[11px] font-bold transition ${
+                          active ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-700"
+                        }`}
+                        key={tag}
+                        onClick={() => toggleMissionTag(tag)}
+                        type="button"
+                      >
+                        {tag}
+                      </button>
+                    );
+                  })}
+                </div>
+              </article>
+
+              <article className="mt-2 rounded-2xl bg-white p-3 ring-1 ring-black/[0.04]">
+                <p className="text-caption font-bold uppercase tracking-[0.16em] text-slate-500">Evidence & Files</p>
+
+                <div className="no-scrollbar mt-2 flex gap-1.5 overflow-x-auto pb-0.5">
+                  {QUICK_EVIDENCE.map((evidence) => {
+                    const active = draft.evidence_files.includes(evidence);
+                    return (
+                      <button
+                        className={`shrink-0 truncate whitespace-nowrap rounded-full px-2.5 py-1.5 text-[11px] font-bold transition ${
+                          active ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-700"
+                        }`}
+                        key={evidence}
+                        onClick={() => addQuickEvidence(evidence)}
+                        type="button"
+                      >
+                        {evidence}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <label className="mt-2 flex cursor-pointer items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] font-semibold text-slate-700">
+                  <span className="inline-flex items-center gap-2 truncate whitespace-nowrap"><CloudUpload size={14} /> Upload screenshot / file</span>
+                  <input className="hidden" multiple onChange={onFilesSelected} type="file" />
+                  <span className="shrink-0 text-blue-700">+ Add</span>
+                </label>
+
+                {draft.evidence_files.length > 0 && (
+                  <ul className="mt-3 space-y-2">
+                    {draft.evidence_files.map((name) => {
+                      const preview = attachmentPreviews.find((item) => item.name === name);
+                      return (
+                        <li className="rounded-xl bg-slate-50 p-2" key={name}>
+                          <div className="flex items-center justify-between gap-2 text-xs font-semibold text-slate-700">
+                            <span className="truncate">{name}</span>
+                            <button
+                              className="rounded-full bg-white px-2 py-1 text-[10px] font-bold text-slate-600"
+                              onClick={() => removeAttachment(name)}
+                              type="button"
+                            >
+                              Remove
+                            </button>
+                          </div>
+                          {preview?.isImage && preview.previewUrl && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img alt={name} className="mt-2 h-24 w-full rounded-lg object-cover" src={preview.previewUrl} />
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+
+                <div className="mt-3 flex items-center gap-2">
+                  <button className="rounded-full bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700" onClick={addEvidenceLink} type="button">
+                    + Add link
                   </button>
-                );
-              })}
-            </div>
-          </article>
-
-          <article className="mt-3 rounded-2xl bg-white p-4 ring-1 ring-black/[0.04]">
-            <p className="text-caption font-bold uppercase tracking-[0.16em] text-slate-500">Evidence & Files</p>
-
-            <div className="mt-2 flex flex-wrap gap-2">
-              {QUICK_EVIDENCE.map((evidence) => {
-                const active = draft.evidence_files.includes(evidence);
-                return (
-                  <button
-                    className={`rounded-full px-3 py-2 text-xs font-bold transition ${
-                      active ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-700"
-                    }`}
-                    key={evidence}
-                    onClick={() => addQuickEvidence(evidence)}
-                    type="button"
-                  >
-                    {evidence}
-                  </button>
-                );
-              })}
-            </div>
-
-            <label className="mt-3 flex cursor-pointer items-center justify-between rounded-2xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm font-semibold text-slate-700">
-              <span className="inline-flex items-center gap-2"><CloudUpload size={16} /> Upload screenshot / file</span>
-              <input className="hidden" multiple onChange={onFilesSelected} type="file" />
-              <span className="text-blue-700">+ Add</span>
-            </label>
-
-            {draft.evidence_files.length > 0 && (
-              <ul className="mt-3 space-y-2">
-                {draft.evidence_files.map((name) => {
-                  const preview = attachmentPreviews.find((item) => item.name === name);
-                  return (
-                    <li className="rounded-xl bg-slate-50 p-2" key={name}>
-                      <div className="flex items-center justify-between gap-2 text-xs font-semibold text-slate-700">
-                        <span className="truncate">{name}</span>
-                        <button
-                          className="rounded-full bg-white px-2 py-1 text-[10px] font-bold text-slate-600"
-                          onClick={() => removeAttachment(name)}
-                          type="button"
-                        >
+                  <span className="text-[11px] text-slate-500">Optional</span>
+                </div>
+                {draft.evidence_links.length > 0 && (
+                  <ul className="mt-2 space-y-1">
+                    {draft.evidence_links.map((link) => (
+                      <li className="flex items-center justify-between gap-2 rounded-lg bg-slate-50 px-2 py-1.5" key={link}>
+                        <span className="truncate text-xs text-slate-700">{link}</span>
+                        <button className="text-[10px] font-bold text-slate-500" onClick={() => removeEvidenceLink(link)} type="button">
                           Remove
                         </button>
-                      </div>
-                      {preview?.isImage && preview.previewUrl && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img alt={name} className="mt-2 h-24 w-full rounded-lg object-cover" src={preview.previewUrl} />
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-
-            <div className="mt-3 flex items-center gap-2">
-              <button className="rounded-full bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700" onClick={addEvidenceLink} type="button">
-                + Add link
-              </button>
-              <span className="text-[11px] text-slate-500">Optional</span>
-            </div>
-            {draft.evidence_links.length > 0 && (
-              <ul className="mt-2 space-y-1">
-                {draft.evidence_links.map((link) => (
-                  <li className="flex items-center justify-between gap-2 rounded-lg bg-slate-50 px-2 py-1.5" key={link}>
-                    <span className="truncate text-xs text-slate-700">{link}</span>
-                    <button className="text-[10px] font-bold text-slate-500" onClick={() => removeEvidenceLink(link)} type="button">
-                      Remove
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </article>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </article>
+            </>
+          )}
         </StepShell>
       )}
 
