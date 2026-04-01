@@ -1322,7 +1322,7 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
       </article>
 
       <section>
-        <div className="mb-3 flex items-center justify-between px-1">
+        <div className="mb-3 px-1">
           <div>
             <h2 className="text-3xl font-black text-slate-900">{sectionTitleChecklist}</h2>
             <p className="mt-1 inline-flex items-center gap-1 whitespace-nowrap text-xs font-semibold text-slate-500">
@@ -1330,19 +1330,12 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
               {isKo ? "드래그 또는 ↑↓ 버튼으로 우선순위를 바꿀 수 있어요." : "Drag rows or use ↑↓ buttons to reorder priority."}
             </p>
             {focusText.trim().length > 0 && (
-              <p className="mt-2 inline-flex max-w-[24rem] items-center gap-2 rounded-full bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 px-3 py-1.5 text-xs font-black text-white shadow-[0_8px_20px_rgba(43,80,214,0.32)]">
-                <Zap size={13} />
-                {isKo ? "오늘의 포커스:" : "Today focus:"} <span className="truncate">{focusText.trim()}</span>
+              <p className="mt-2 inline-flex max-w-[31rem] items-center gap-2 rounded-full bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 px-4 py-2 text-sm font-black text-white shadow-[0_10px_24px_rgba(43,80,214,0.34)] sm:text-base">
+                <Zap size={15} />
+                {isKo ? "오늘의 포커스:" : "Today focus:"} <span className="truncate font-black">{focusText.trim()}</span>
               </p>
             )}
           </div>
-          <button
-            className="text-sm font-bold text-blue-700 hover:underline"
-            onClick={() => showSaveMessage(isKo ? "개별 작업은 스와이프해서 수정할 수 있어요." : "Swipe a task row to edit quickly.")}
-            type="button"
-          >
-            {isKo ? "리스트 편집" : "Edit List"}
-          </button>
         </div>
 
         <article className="overflow-hidden rounded-[2rem] border border-slate-200/60 bg-white shadow-[0_16px_40px_rgba(33,72,165,0.09)]">
