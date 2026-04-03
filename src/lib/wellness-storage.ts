@@ -113,7 +113,8 @@ const STORAGE_KEYS = {
   sleep: "wm-sleep-logs-v1",
   focus: "wm-focus-sessions-v1",
   goals: "wm-wellness-goals-v1",
-  waterMap: "wm-water-map-v1"
+  waterMap: "wm-water-map-v1",
+  seedCleanupDone: "wm-wellness-seed-cleanup-v1"
 } as const;
 
 const WATER_ML_PER_CUP = 250;
@@ -169,190 +170,15 @@ function createId(prefix: string): string {
 }
 
 function seedFoodLogs(): FoodLog[] {
-  const today = todayLocalISO();
-  return [
-    {
-      id: createId("food"),
-      date: today,
-      meal_type: "Breakfast",
-      food_name: "Avocado Toast",
-      grams: 180,
-      calories: 340,
-      protein: 18,
-      fat: 18,
-      carbs: 28,
-      water: 1,
-      ingredients: ["Bread", "Avocado", "Egg", "Olive oil"],
-      note: "Light and balanced",
-      appetite_level: "Good",
-      balanced_meal_rating: 4,
-      overeating: false,
-      image_url: "",
-      created_at: nowISO()
-    },
-    {
-      id: createId("food"),
-      date: today,
-      meal_type: "Lunch",
-      food_name: "Salmon Salad",
-      grams: 320,
-      calories: 520,
-      protein: 34,
-      fat: 28,
-      carbs: 29,
-      water: 1,
-      ingredients: ["Salmon", "Lettuce", "Tomato", "Quinoa", "Olive oil"],
-      note: "Protein-focused",
-      appetite_level: "Normal",
-      balanced_meal_rating: 5,
-      overeating: false,
-      image_url: "",
-      created_at: nowISO()
-    },
-    {
-      id: createId("food"),
-      date: today,
-      meal_type: "Snack",
-      food_name: "Almonds (30g)",
-      grams: 30,
-      calories: 170,
-      protein: 6,
-      fat: 14,
-      carbs: 6,
-      water: 0,
-      ingredients: ["Almonds", "Sea salt"],
-      note: "Afternoon snack",
-      appetite_level: "Low",
-      balanced_meal_rating: 3,
-      overeating: false,
-      image_url: "",
-      created_at: nowISO()
-    },
-    {
-      id: createId("food"),
-      date: shiftDate(today, -1),
-      meal_type: "Dinner",
-      food_name: "Chicken Bowl",
-      grams: 420,
-      calories: 640,
-      protein: 42,
-      fat: 20,
-      carbs: 62,
-      water: 1,
-      ingredients: ["Chicken breast", "Brown rice", "Broccoli", "Sauce"],
-      note: "Late dinner",
-      appetite_level: "High",
-      balanced_meal_rating: 3,
-      overeating: false,
-      image_url: "",
-      created_at: nowISO()
-    }
-  ];
+  return [];
 }
 
 function seedWorkoutLogs(): WorkoutLog[] {
-  const today = todayLocalISO();
-  return [
-    {
-      id: createId("workout"),
-      date: today,
-      workout_type: "Run",
-      title: "Morning Run",
-      start_time: "07:30",
-      duration: 30,
-      intensity: "medium",
-      calories_burned: 220,
-      steps: 4200,
-      location: "Outdoor",
-      fatigue: 2,
-      note: "Comfort pace",
-      mission_linked: true,
-      created_at: nowISO()
-    },
-    {
-      id: createId("workout"),
-      date: today,
-      workout_type: "Stretch",
-      title: "Yoga Stretch",
-      start_time: "08:15",
-      duration: 15,
-      intensity: "low",
-      calories_burned: 100,
-      steps: 4200,
-      location: "Home",
-      fatigue: 1,
-      note: "Recovery",
-      mission_linked: false,
-      created_at: nowISO()
-    },
-    {
-      id: createId("workout"),
-      date: shiftDate(today, -2),
-      workout_type: "Gym",
-      title: "Strength Session",
-      start_time: "18:20",
-      duration: 48,
-      intensity: "high",
-      calories_burned: 320,
-      steps: 7800,
-      location: "Gym",
-      fatigue: 3,
-      note: "Push day",
-      mission_linked: false,
-      created_at: nowISO()
-    }
-  ];
+  return [];
 }
 
 function seedSleepLogs(): SleepLog[] {
-  const today = todayLocalISO();
-  const yesterday = shiftDate(today, -1);
-  return [
-    {
-      id: createId("sleep"),
-      date: today,
-      sleep_start: "23:30",
-      wake_time: "07:15",
-      total_sleep_minutes: 465,
-      recovery_percent: 88,
-      sleep_quality: "High Quality",
-      naps_minutes: 0,
-      wakeups: 1,
-      latency_minutes: 15,
-      mood_after_waking: "Fresh",
-      late_caffeine: false,
-      note: "Solid deep sleep",
-      stages: [
-        { type: "REM", minutes: 95 },
-        { type: "Light", minutes: 180 },
-        { type: "Deep", minutes: 150 },
-        { type: "Awake", minutes: 40 }
-      ],
-      created_at: nowISO()
-    },
-    {
-      id: createId("sleep"),
-      date: yesterday,
-      sleep_start: "00:05",
-      wake_time: "07:00",
-      total_sleep_minutes: 415,
-      recovery_percent: 76,
-      sleep_quality: "Medium",
-      naps_minutes: 20,
-      wakeups: 2,
-      latency_minutes: 20,
-      mood_after_waking: "Okay",
-      late_caffeine: true,
-      note: "Slept later than target",
-      stages: [
-        { type: "REM", minutes: 80 },
-        { type: "Light", minutes: 165 },
-        { type: "Deep", minutes: 120 },
-        { type: "Awake", minutes: 50 }
-      ],
-      created_at: nowISO()
-    }
-  ];
+  return [];
 }
 
 function seedWorkoutRoutines(): WorkoutRoutine[] {
@@ -403,13 +229,113 @@ function seedWorkoutRoutines(): WorkoutRoutine[] {
 }
 
 function seedFocusSessions(): FocusSession[] {
-  const today = todayLocalISO();
-  return [
-    { id: createId("focus"), date: today, label: "Deep Work", minutes: 135, created_at: nowISO() },
-    { id: createId("focus"), date: today, label: "Collaboration", minutes: 45, created_at: nowISO() },
-    { id: createId("focus"), date: today, label: "Study", minutes: 35, created_at: nowISO() },
-    { id: createId("focus"), date: today, label: "Admin", minutes: 25, created_at: nowISO() }
-  ];
+  return [];
+}
+
+const LEGACY_FOOD_SAMPLE_SIGNATURES = new Set<string>([
+  "Breakfast|Avocado Toast|Light and balanced|340|18|18|28",
+  "Lunch|Salmon Salad|Protein-focused|520|34|28|29",
+  "Snack|Almonds (30g)|Afternoon snack|170|6|14|6",
+  "Dinner|Chicken Bowl|Late dinner|640|42|20|62"
+]);
+
+const LEGACY_WORKOUT_SAMPLE_SIGNATURES = new Set<string>([
+  "Run|Morning Run|Comfort pace|30|220|4200",
+  "Stretch|Yoga Stretch|Recovery|15|100|4200",
+  "Gym|Strength Session|Push day|48|320|7800"
+]);
+
+const LEGACY_SLEEP_SAMPLE_SIGNATURES = new Set<string>([
+  "Solid deep sleep|465|88|High Quality",
+  "Slept later than target|415|76|Medium"
+]);
+
+const LEGACY_FOCUS_SAMPLE_SIGNATURES = new Set<string>([
+  "Deep Work|135",
+  "Collaboration|45",
+  "Study|35",
+  "Admin|25"
+]);
+
+function isLegacyFoodSeed(log: FoodLog): boolean {
+  const signature = [
+    log.meal_type,
+    log.food_name,
+    String(log.note ?? "").trim(),
+    String(Math.round(Number(log.calories ?? 0))),
+    String(roundOne(Number(log.protein ?? 0))),
+    String(roundOne(Number(log.fat ?? 0))),
+    String(roundOne(Number(log.carbs ?? 0)))
+  ].join("|");
+  return LEGACY_FOOD_SAMPLE_SIGNATURES.has(signature);
+}
+
+function isLegacyWorkoutSeed(log: WorkoutLog): boolean {
+  const signature = [
+    log.workout_type,
+    log.title,
+    String(log.note ?? "").trim(),
+    String(Math.round(Number(log.duration ?? 0))),
+    String(Math.round(Number(log.calories_burned ?? 0))),
+    String(Math.round(Number(log.steps ?? 0)))
+  ].join("|");
+  return LEGACY_WORKOUT_SAMPLE_SIGNATURES.has(signature);
+}
+
+function isLegacySleepSeed(log: SleepLog): boolean {
+  const signature = [
+    String(log.note ?? "").trim(),
+    String(Math.round(Number(log.total_sleep_minutes ?? 0))),
+    String(Math.round(Number(log.recovery_percent ?? 0))),
+    String(log.sleep_quality ?? "")
+  ].join("|");
+  return LEGACY_SLEEP_SAMPLE_SIGNATURES.has(signature);
+}
+
+function isLegacyFocusSeed(session: FocusSession): boolean {
+  const signature = `${session.label}|${Math.round(Number(session.minutes ?? 0))}`;
+  return LEGACY_FOCUS_SAMPLE_SIGNATURES.has(signature);
+}
+
+function cleanupLegacySeedDataOnce() {
+  if (!canUseStorage()) return;
+  if (window.localStorage.getItem(STORAGE_KEYS.seedCleanupDone) === "1") return;
+
+  const food = readJSON<FoodLog[]>(STORAGE_KEYS.food, []);
+  const nextFood = food.filter((item) => !isLegacyFoodSeed(item));
+  if (nextFood.length !== food.length) writeJSON(STORAGE_KEYS.food, nextFood);
+
+  const workout = readJSON<WorkoutLog[]>(STORAGE_KEYS.workout, []);
+  const nextWorkout = workout.filter((item) => !isLegacyWorkoutSeed(item));
+  if (nextWorkout.length !== workout.length) writeJSON(STORAGE_KEYS.workout, nextWorkout);
+
+  const sleep = readJSON<SleepLog[]>(STORAGE_KEYS.sleep, []);
+  const nextSleep = sleep.filter((item) => !isLegacySleepSeed(item));
+  if (nextSleep.length !== sleep.length) writeJSON(STORAGE_KEYS.sleep, nextSleep);
+
+  const focus = readJSON<FocusSession[]>(STORAGE_KEYS.focus, []);
+  const nextFocus = focus.filter((item) => !isLegacyFocusSeed(item));
+  if (nextFocus.length !== focus.length) writeJSON(STORAGE_KEYS.focus, nextFocus);
+
+  const waterMap = readJSON<WaterMap>(STORAGE_KEYS.waterMap, {});
+  const normalizedWaterMap: WaterMap = {};
+  Object.entries(waterMap).forEach(([date, cups]) => {
+    const next = Math.max(0, Math.round(Number(cups) || 0));
+    if (next > 0) normalizedWaterMap[date] = next;
+  });
+  const waterKeys = Object.keys(normalizedWaterMap);
+  if (waterKeys.length === 1) {
+    const onlyDate = waterKeys[0];
+    if (onlyDate === todayLocalISO() && normalizedWaterMap[onlyDate] === 5) {
+      writeJSON(STORAGE_KEYS.waterMap, {});
+    } else {
+      writeJSON(STORAGE_KEYS.waterMap, normalizedWaterMap);
+    }
+  } else if (waterKeys.length !== Object.keys(waterMap).length) {
+    writeJSON(STORAGE_KEYS.waterMap, normalizedWaterMap);
+  }
+
+  window.localStorage.setItem(STORAGE_KEYS.seedCleanupDone, "1");
 }
 
 function ensureSeeded<T>(key: string, seed: T): T {
@@ -423,6 +349,7 @@ function ensureSeeded<T>(key: string, seed: T): T {
 }
 
 export function getWellnessGoals(): WellnessGoals {
+  cleanupLegacySeedDataOnce();
   const seeded = ensureSeeded<WellnessGoals>(STORAGE_KEYS.goals, {
     calorie_goal: 2100,
     protein_goal: 120,
@@ -482,6 +409,7 @@ export function setWellnessGoals(next: Partial<WellnessGoals>) {
 }
 
 export function getFoodLogs(): FoodLog[] {
+  cleanupLegacySeedDataOnce();
   const seeded = ensureSeeded<FoodLog[]>(STORAGE_KEYS.food, seedFoodLogs());
   const normalized = seeded.map((item) => {
     const calories = Math.max(0, Math.round(Number(item.calories ?? 0)));
@@ -562,6 +490,7 @@ export function duplicateFoodLog(id: string): FoodLog | null {
 }
 
 export function getWorkoutLogs(): WorkoutLog[] {
+  cleanupLegacySeedDataOnce();
   const seeded = ensureSeeded<WorkoutLog[]>(STORAGE_KEYS.workout, seedWorkoutLogs());
   const normalized = seeded.map((item) => ({
     ...item,
@@ -582,6 +511,7 @@ export function getWorkoutLogs(): WorkoutLog[] {
 }
 
 export function getWorkoutRoutines(): WorkoutRoutine[] {
+  cleanupLegacySeedDataOnce();
   const seeded = ensureSeeded<WorkoutRoutine[]>(STORAGE_KEYS.workoutRoutines, seedWorkoutRoutines());
   const normalized = seeded.map((item) => ({
     id: item.id?.trim() || createId("routine"),
@@ -687,6 +617,7 @@ export function deleteWorkoutLog(id: string) {
 }
 
 export function getSleepLogs(): SleepLog[] {
+  cleanupLegacySeedDataOnce();
   const seeded = ensureSeeded<SleepLog[]>(STORAGE_KEYS.sleep, seedSleepLogs());
   return [...seeded].sort((a, b) => (a.created_at > b.created_at ? -1 : 1));
 }
@@ -745,6 +676,7 @@ export function deleteSleepLog(id: string) {
 }
 
 export function getFocusSessions(): FocusSession[] {
+  cleanupLegacySeedDataOnce();
   const seeded = ensureSeeded<FocusSession[]>(STORAGE_KEYS.focus, seedFocusSessions());
   return [...seeded].sort((a, b) => (a.created_at > b.created_at ? -1 : 1));
 }
@@ -754,7 +686,8 @@ export function saveFocusSessions(next: FocusSession[]) {
 }
 
 export function getWaterMap(): WaterMap {
-  return ensureSeeded<WaterMap>(STORAGE_KEYS.waterMap, { [todayLocalISO()]: 5 });
+  cleanupLegacySeedDataOnce();
+  return ensureSeeded<WaterMap>(STORAGE_KEYS.waterMap, {});
 }
 
 export function setWaterByDate(date: string, cups: number) {

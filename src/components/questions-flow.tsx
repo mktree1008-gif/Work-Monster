@@ -109,6 +109,12 @@ function rawLabelOf(questionId: CheckInChoiceQuestionId, value: string): string 
   return option?.label ?? "";
 }
 
+function rawLabelsOf(questionId: CheckInChoiceQuestionId, values: string[]): string[] {
+  return values
+    .map((value) => rawLabelOf(questionId, value))
+    .filter((label) => label.trim().length > 0);
+}
+
 function mapQ5ToLegacyRating(value: string): "poor" | "average" | "strong" | "peak" | "" {
   if (value === "poor") return "poor";
   if (value === "okay") return "average";
@@ -124,10 +130,10 @@ function buildCoachInsight(draft: DailyCheckInDraft, totalScore: number): string
   if (totalScore >= 65) {
     return "Good baseline. Tighten one blocker and your score can move up quickly.";
   }
-  if (draft.q6 === "distractions") {
+  if (draft.q6.includes("distractions")) {
     return "Distractions were the biggest drag. Plan one strict no-notification block tomorrow.";
   }
-  if (draft.q6 === "stress_mood") {
+  if (draft.q6.includes("stress_mood")) {
     return "Stress impacted execution. Keep tomorrow's plan lighter and more concrete.";
   }
   return "Use this report to choose one small behavior to improve tomorrow.";
@@ -145,7 +151,7 @@ function normalizeInitialDraft(initialSubmission?: Submission | null): DailyChec
   const q3Raw = String(fromAnswers.q3 ?? "");
   const q4Raw = String(fromAnswers.q4 ?? "");
   const q5Raw = String(fromAnswers.q5 ?? "");
-  const q6Raw = String(fromAnswers.q6 ?? initialSubmission.primary_productivity_factor ?? "");
+  const q6Raw = String(fromAnswers.q6 ?? "");
   const q7Raw = String(fromAnswers.q7 ?? "");
   const q8Raw = String(fromAnswers.q8 ?? "");
   const q9Raw = String(fromAnswers.q9 ?? "");
@@ -167,7 +173,16 @@ function normalizeInitialDraft(initialSubmission?: Submission | null): DailyChec
   next.q3 = normalizeChoiceValue("q3", q3Raw);
   next.q4 = normalizeChoiceValue("q4", q4Raw);
   next.q5 = normalizeChoiceValue("q5", q5Raw) || legacyQ5;
-  next.q6 = normalizeChoiceValue("q6", q6Raw);
+  const q6Candidates = [
+    ...parseStringList(q6Raw),
+    ...parseStringList(fromAnswers.blocker ?? ""),
+    ...parseStringList(initialSubmission.primary_productivity_factor ?? "")
+  ];
+  next.q6 = dedupe(
+    q6Candidates
+      .map((item) => normalizeChoiceValue("q6", item))
+      .filter(Boolean)
+  );
   next.q7 = normalizeChoiceValue("q7", q7Raw);
   next.q8 = normalizeChoiceValue("q8", q8Raw);
   next.q9 = normalizeChoiceValue("q9", q9Raw);
@@ -218,6 +233,7 @@ export function QuestionsFlow({
   const [showSubmitSuccess, setShowSubmitSuccess] = useState(false);
   const [attachmentPreviews, setAttachmentPreviews] = useState<AttachmentPreview[]>([]);
   const [animatedScore, setAnimatedScore] = useState(0);
+  const [isTextFieldFocused, setIsTextFieldFocused] = useState(false);
 
   const initialLoadedRef = useRef(false);
   const autosaveTimerRef = useRef<number | null>(null);
@@ -258,6 +274,10 @@ export function QuestionsFlow({
       return Number.isFinite(draft.q10) && draft.q10 >= 1 && draft.q10 <= 10;
     }
 
+    if (currentQuestion.id === "q6") {
+      return draft.q6.length > 0;
+    }
+
     const key = currentQuestion.id as CheckInChoiceQuestionId;
     return String(draft[key] ?? "").trim().length > 0;
   }, [currentQuestion, currentStep, draft]);
@@ -270,9 +290,12 @@ export function QuestionsFlow({
       { label: "Productivity level", value: labelOf("q5", draft.q5) },
       {
         label: "Blocker",
-        value: draft.blocker_other.trim()
-          ? `${labelOf("q6", draft.q6)} + ${draft.blocker_other.trim()}`
-          : labelOf("q6", draft.q6)
+        value: (() => {
+          const blockerLabel = rawLabelsOf("q6", draft.q6).join(", ") || "-";
+          return draft.blocker_other.trim()
+            ? `${blockerLabel} + ${draft.blocker_other.trim()}`
+            : blockerLabel;
+        })()
       },
       {
         label: "Sleep / Activity / Food",
@@ -309,6 +332,7 @@ export function QuestionsFlow({
         if (parsed?.draft && typeof parsed.draft === "object") {
           Object.assign(merged, {
             ...parsed.draft,
+            q6: dedupe(parseStringList(parsed.draft.q6)),
             evidence_files: dedupe(parseStringList(parsed.draft.evidence_files)),
             evidence_links: dedupe(parseStringList(parsed.draft.evidence_links))
           });
@@ -360,9 +384,11 @@ export function QuestionsFlow({
   const persist = useCallback(async (mode: "draft" | "submit"): Promise<ApiResponse | null> => {
     if (!canEdit) return null;
 
-    const blockerLabel = rawLabelOf("q6", draft.q6);
+    const blockerLabel = rawLabelsOf("q6", draft.q6).join(", ");
     const blockerDetail = draft.blocker_other.trim();
-    const blockerSummary = blockerDetail ? `${blockerLabel} / ${blockerDetail}` : blockerLabel;
+    const blockerSummary = blockerLabel && blockerDetail
+      ? `${blockerLabel} / ${blockerDetail}`
+      : blockerDetail || blockerLabel;
 
     const quickTagLabel = pickOptionLabel(QUICK_TAG_OPTIONS, draft.quick_tag);
     const managerQuickLabel = pickOptionLabel(MANAGER_QUICK_MESSAGE_OPTIONS, draft.manager_quick_message);
@@ -405,7 +431,7 @@ export function QuestionsFlow({
         q3: draft.q3,
         q4: draft.q4,
         q5: draft.q5,
-        q6: draft.q6,
+        q6: draft.q6.join(","),
         q7: draft.q7,
         q8: draft.q8,
         q9: draft.q9,
@@ -475,6 +501,10 @@ export function QuestionsFlow({
       return;
     }
 
+    if (isTextFieldFocused) {
+      return;
+    }
+
     autosaveTimerRef.current = window.setTimeout(async () => {
       try {
         setIsAutoSaving(true);
@@ -492,7 +522,7 @@ export function QuestionsFlow({
         autosaveTimerRef.current = null;
       }
     };
-  }, [canEdit, currentStep, draft, hydrated, isStepSaving, persist, storageKey, submitting]);
+  }, [canEdit, currentStep, draft, hydrated, isStepSaving, isTextFieldFocused, persist, storageKey, submitting]);
 
   function patchDraft(next: Partial<DailyCheckInDraft>) {
     setDraft((prev) => ({ ...prev, ...next }));
@@ -724,16 +754,30 @@ export function QuestionsFlow({
           progressPercent={progressPercent(currentStep)}
           title={currentQuestion.title}
         >
+          {currentQuestion.id === "q6" && (
+            <p className="mb-2 text-xs font-semibold text-slate-400">다중 선택 가능</p>
+          )}
           <div className="grid grid-cols-1 gap-2">
             {currentQuestion.options?.map((option) => {
               const key = currentQuestion.id as CheckInChoiceQuestionId;
-              const selected = draft[key] === option.value;
+              const selected = currentQuestion.id === "q6"
+                ? draft.q6.includes(option.value)
+                : draft[key] === option.value;
               return (
                 <AnswerChip
                   emoji={option.emoji}
                   key={option.value}
                   label={option.label}
-                  onClick={() => patchDraft({ [key]: option.value } as Partial<DailyCheckInDraft>)}
+                  onClick={() => {
+                    if (currentQuestion.id === "q6") {
+                      const next = draft.q6.includes(option.value)
+                        ? draft.q6.filter((item) => item !== option.value)
+                        : dedupe([...draft.q6, option.value]);
+                      patchDraft({ q6: next });
+                      return;
+                    }
+                    patchDraft({ [key]: option.value } as Partial<DailyCheckInDraft>);
+                  }}
                   selected={selected}
                 />
               );
@@ -746,6 +790,8 @@ export function QuestionsFlow({
               <input
                 className="input mt-2"
                 onChange={(event) => patchDraft({ blocker_other: event.target.value })}
+                onBlur={() => setIsTextFieldFocused(false)}
+                onFocus={() => setIsTextFieldFocused(true)}
                 placeholder="Add context if needed"
                 value={draft.blocker_other}
               />
@@ -837,6 +883,8 @@ export function QuestionsFlow({
               <textarea
                 className="input mt-2 min-h-24 resize-none"
                 onChange={(event) => patchDraft({ work_note: event.target.value })}
+                onBlur={() => setIsTextFieldFocused(false)}
+                onFocus={() => setIsTextFieldFocused(true)}
                 placeholder="Write a short work summary"
                 value={draft.work_note}
               />
@@ -847,6 +895,8 @@ export function QuestionsFlow({
               <textarea
                 className="input mt-2 min-h-20 resize-none"
                 onChange={(event) => patchDraft({ manager_message: event.target.value })}
+                onBlur={() => setIsTextFieldFocused(false)}
+                onFocus={() => setIsTextFieldFocused(true)}
                 placeholder="Optional message"
                 value={draft.manager_message}
               />

@@ -34,7 +34,7 @@ export type DailyCheckInDraft = {
   q3: string;
   q4: string;
   q5: string;
-  q6: string;
+  q6: string[];
   q7: string;
   q8: string;
   q9: string;
@@ -54,7 +54,7 @@ export const DEFAULT_DAILY_CHECKIN_DRAFT: DailyCheckInDraft = {
   q3: "",
   q4: "",
   q5: "",
-  q6: "",
+  q6: [],
   q7: "",
   q8: "",
   q9: "",
@@ -132,7 +132,7 @@ export const DAILY_CHECKIN_QUESTIONS: CheckInQuestion[] = [
   {
     id: "q6",
     title: "What was your biggest blocker?",
-    description: "Single tap to answer",
+    description: "Tap one or more blockers",
     type: "choice",
     options: [
       { value: "low_energy", emoji: "😴", label: "Low energy" },

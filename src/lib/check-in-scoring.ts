@@ -102,7 +102,9 @@ export function calculateCheckInScore(draft: DailyCheckInDraft): CheckInScoreBre
   const productivity = round(productivityAverage * 25);
   const wellness = round(wellnessAverage * 20);
 
-  const blockerPenaltyBase = BLOCKER_PENALTY[draft.q6] ?? 0;
+  const blockerPenaltyBase = draft.q6.length > 0
+    ? Math.max(...draft.q6.map((item) => BLOCKER_PENALTY[item] ?? 0))
+    : 0;
   const blockerPenalty = blockerPenaltyBase + (draft.blocker_other.trim().length > 0 ? 2 : 0);
 
   const sliderValue = Number.isFinite(draft.q10) ? draft.q10 : 5;
