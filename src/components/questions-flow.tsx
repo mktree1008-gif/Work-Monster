@@ -1,28 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
-import {
-  ArrowLeft,
-  ArrowRight,
-  BatteryLow,
-  Bolt,
-  CalendarDays,
-  Check,
-  CheckCircle2,
-  Circle,
-  CloudUpload,
-  Eye,
-  Flame,
-  ListChecks,
-  Sparkles,
-  Target,
-  Waves,
-  X
-} from "lucide-react";
+import { ArrowLeft, ArrowRight, CalendarDays, CloudUpload, Link2, X } from "lucide-react";
 import type { Locale, Submission, SubmissionStatus } from "@/lib/types";
 import { isISODateString } from "@/lib/utils";
+import {
+  DAILY_CHECKIN_QUESTIONS,
+  DEFAULT_DAILY_CHECKIN_DRAFT,
+  MANAGER_QUICK_MESSAGE_OPTIONS,
+  QUICK_TAG_OPTIONS,
+  findOptionLabel,
+  findQuestionById,
+  pickOptionLabel,
+  type CheckInChoiceQuestionId,
+  type DailyCheckInDraft
+} from "@/lib/check-in-model";
+import { calculateCheckInScore } from "@/lib/check-in-scoring";
+import { AnswerChip } from "@/components/check-in/answer-chip";
+import { QuestionCard } from "@/components/check-in/question-card";
+import { CheckInSummaryCard } from "@/components/check-in/check-in-summary-card";
 
 type Props = {
   locale: Locale;
@@ -30,23 +28,6 @@ type Props = {
   initialSubmission?: Submission | null;
   selectedDate: string;
   maxSelectableDate: string;
-};
-
-type CheckInDraft = {
-  feeling_state: string;
-  primary_productivity_factor: string;
-  primary_productivity_factor_note: string;
-  completed_top_priorities: boolean;
-  worked_on_high_impact: boolean;
-  avoided_low_value_work: boolean;
-  self_productivity_rating: "poor" | "average" | "strong" | "peak" | "";
-  tomorrow_improvement_focus: string;
-  tomorrow_improvement_note: string;
-  quick_completed_work: string[];
-  completed_work_summary: string;
-  mission_tags: string[];
-  evidence_files: string[];
-  evidence_links: string[];
 };
 
 type AttachmentPreview = {
@@ -65,87 +46,10 @@ type ApiResponse = {
   code?: string;
 };
 
-const TOTAL_STEPS = 7;
-const STORAGE_PREFIX = "wm-checkin-draft";
-
-const FEELING_OPTIONS = [
-  { key: "focused_ready", label: "Focused and ready", icon: "⚡" },
-  { key: "steady_low_energy", label: "Steady but low energy", icon: "🔋" },
-  { key: "overwhelmed", label: "Overwhelmed", icon: "🌊" },
-  { key: "distracted", label: "Distracted", icon: "🫧" }
-] as const;
-
-const PRODUCTIVITY_FACTORS = [
-  "Sleep / recovery",
-  "Energy level",
-  "Distractions",
-  "Workload",
-  "Lack of clarity",
-  "Communication / feedback",
-  "Other"
-] as const;
-
-const EXECUTION_ITEMS = [
-  {
-    key: "completed_top_priorities",
-    title: "Completed top priorities",
-    desc: "You tackled the most critical items on your list today."
-  },
-  {
-    key: "worked_on_high_impact",
-    title: "Worked on high-impact tasks",
-    desc: "Your effort moved the needle on long-term goals."
-  },
-  {
-    key: "avoided_low_value_work",
-    title: "Avoided low-value work",
-    desc: "You stayed disciplined and avoided busywork distractions."
-  }
-] as const;
-
-const PRODUCTIVITY_RATINGS = [
-  { key: "poor", label: "Poor", emoji: "😞", desc: "I struggled to make progress." },
-  { key: "average", label: "Average", emoji: "🙂", desc: "I made some progress." },
-  { key: "strong", label: "Strong", emoji: "😎", desc: "I tackled most tasks efficiently." },
-  { key: "peak", label: "Peak", emoji: "🔥", desc: "I delivered at my highest level." }
-] as const;
-
-const TOMORROW_FOCUS_OPTIONS = [
-  { key: "Start earlier", label: "Start earlier", desc: "Seize the morning energy", icon: "⏰" },
-  { key: "Focus on fewer tasks", label: "Focus on fewer tasks", desc: "Trim down and execute deeply", icon: "🎯" },
-  { key: "Reduce distractions", label: "Reduce distractions", desc: "Protect focus blocks", icon: "🚫" },
-  { key: "Plan more clearly", label: "Plan more clearly", desc: "Turn intent into concrete actions", icon: "🗺️" },
-  { key: "Improve energy", label: "Improve energy", desc: "Sleep/recovery and rhythm first", icon: "⚡" }
-] as const;
-
-const QUICK_WORK_CHIPS = [
-  "Finished a priority task",
-  "Worked on mission-aligned item",
-  "Resolved blocker",
-  "Delivered collaboration output",
-  "Prepared tomorrow plan"
-] as const;
-
-const MISSION_TAGS = ["High-Impact", "Collaboration", "Technical", "Strategic"] as const;
-
-const QUICK_EVIDENCE = ["Screenshot attached", "PR / commit link", "Document update", "Meeting notes"] as const;
-
-const DEFAULT_DRAFT: CheckInDraft = {
-  feeling_state: "",
-  primary_productivity_factor: "",
-  primary_productivity_factor_note: "",
-  completed_top_priorities: false,
-  worked_on_high_impact: false,
-  avoided_low_value_work: false,
-  self_productivity_rating: "",
-  tomorrow_improvement_focus: "",
-  tomorrow_improvement_note: "",
-  quick_completed_work: [],
-  completed_work_summary: "",
-  mission_tags: [],
-  evidence_files: [],
-  evidence_links: []
-};
+const TOTAL_QUESTIONS = DAILY_CHECKIN_QUESTIONS.length;
+const FINAL_STEP_INDEX = TOTAL_QUESTIONS;
+const TOTAL_STEPS = TOTAL_QUESTIONS + 1;
+const STORAGE_PREFIX = "wm-checkin-v2-draft";
 
 function parseStringList(value: unknown): string[] {
   if (Array.isArray(value)) {
@@ -153,11 +57,15 @@ function parseStringList(value: unknown): string[] {
   }
   if (typeof value === "string") {
     return value
-      .split(/\n|,/)
+      .split(/\n|,|;/)
       .map((item) => item.trim())
       .filter(Boolean);
   }
   return [];
+}
+
+function dedupe(values: string[]): string[] {
+  return [...new Set(values.map((item) => item.trim()).filter(Boolean))];
 }
 
 function isEditableStatus(status: SubmissionStatus | ""): boolean {
@@ -168,128 +76,119 @@ function isWaitingReviewStatus(status: SubmissionStatus | ""): boolean {
   return status === "pending" || status === "submitted" || status === "in_review";
 }
 
-function normalizeInitialDraft(initialSubmission?: Submission | null): CheckInDraft {
-  if (!initialSubmission) return { ...DEFAULT_DRAFT };
+function progressPercent(step: number): number {
+  if (step >= FINAL_STEP_INDEX) return 100;
+  return Math.max(8, Math.round(((step + 1) / TOTAL_QUESTIONS) * 100));
+}
+
+function normalizeChoiceValue(questionId: CheckInChoiceQuestionId, raw: string): string {
+  const question = findQuestionById(questionId);
+  const options = question?.options ?? [];
+  const normalized = raw.trim().toLowerCase();
+  if (!normalized) return "";
+
+  const byValue = options.find((option) => option.value === normalized);
+  if (byValue) return byValue.value;
+
+  const byLabel = options.find((option) => option.label.toLowerCase() === normalized);
+  if (byLabel) return byLabel.value;
+
+  const byEmojiLabel = options.find((option) => `${option.emoji} ${option.label}`.toLowerCase() === normalized);
+  if (byEmojiLabel) return byEmojiLabel.value;
+
+  return "";
+}
+
+function labelOf(questionId: CheckInChoiceQuestionId, value: string): string {
+  return findOptionLabel(questionId, value);
+}
+
+function rawLabelOf(questionId: CheckInChoiceQuestionId, value: string): string {
+  const question = findQuestionById(questionId);
+  const option = question?.options?.find((item) => item.value === value);
+  return option?.label ?? "";
+}
+
+function mapQ5ToLegacyRating(value: string): "poor" | "average" | "strong" | "peak" | "" {
+  if (value === "poor") return "poor";
+  if (value === "okay") return "average";
+  if (value === "good") return "strong";
+  if (value === "great") return "peak";
+  return "";
+}
+
+function buildCoachInsight(draft: DailyCheckInDraft, totalScore: number): string {
+  if (totalScore >= 85) {
+    return "Strong momentum today. Keep the same execution structure and protect your focus windows tomorrow.";
+  }
+  if (totalScore >= 65) {
+    return "Good baseline. Tighten one blocker and your score can move up quickly.";
+  }
+  if (draft.q6 === "distractions") {
+    return "Distractions were the biggest drag. Plan one strict no-notification block tomorrow.";
+  }
+  if (draft.q6 === "stress_mood") {
+    return "Stress impacted execution. Keep tomorrow's plan lighter and more concrete.";
+  }
+  return "Use this report to choose one small behavior to improve tomorrow.";
+}
+
+function normalizeInitialDraft(initialSubmission?: Submission | null): DailyCheckInDraft {
+  if (!initialSubmission) return { ...DEFAULT_DAILY_CHECKIN_DRAFT };
 
   const fromAnswers = initialSubmission.custom_answers ?? {};
-  const quickCompletedFromAnswers = parseStringList(fromAnswers.quick_completed_work);
-  const missionTagsFromAnswers = parseStringList(fromAnswers.mission_tags);
-  const evidenceLinksFromAnswers = parseStringList(fromAnswers.evidence_links);
-  const evidenceFilesFromAnswers = parseStringList(fromAnswers.evidence_files);
 
-  return {
-    feeling_state:
-      (initialSubmission.feeling_state ?? fromAnswers.feeling_state ?? initialSubmission.feeling ?? "").trim(),
-    primary_productivity_factor:
-      (initialSubmission.primary_productivity_factor ?? fromAnswers.primary_productivity_factor ?? "").trim(),
-    primary_productivity_factor_note:
-      (initialSubmission.primary_productivity_factor_note ?? fromAnswers.primary_productivity_factor_note ?? "").trim(),
-    completed_top_priorities:
-      typeof initialSubmission.completed_top_priorities === "boolean"
-        ? initialSubmission.completed_top_priorities
-        : String(fromAnswers.completed_top_priorities ?? "").toLowerCase() === "true",
-    worked_on_high_impact:
-      typeof initialSubmission.worked_on_high_impact === "boolean"
-        ? initialSubmission.worked_on_high_impact
-        : String(fromAnswers.worked_on_high_impact ?? "").toLowerCase() === "true",
-    avoided_low_value_work:
-      typeof initialSubmission.avoided_low_value_work === "boolean"
-        ? initialSubmission.avoided_low_value_work
-        : String(fromAnswers.avoided_low_value_work ?? "").toLowerCase() === "true",
-    self_productivity_rating: (
-      initialSubmission.self_productivity_rating
-      ?? fromAnswers.self_productivity_rating
-      ?? ""
-    ).toLowerCase() as CheckInDraft["self_productivity_rating"],
-    tomorrow_improvement_focus:
-      (initialSubmission.tomorrow_improvement_focus ?? fromAnswers.tomorrow_improvement_focus ?? "").trim(),
-    tomorrow_improvement_note:
-      (initialSubmission.tomorrow_improvement_note ?? fromAnswers.tomorrow_improvement_note ?? "").trim(),
-    quick_completed_work:
-      (initialSubmission.task_list?.length ? initialSubmission.task_list : quickCompletedFromAnswers)
-        .map((item) => String(item).trim())
-        .filter(Boolean),
-    completed_work_summary:
-      (initialSubmission.completed_work_summary ?? fromAnswers.completed_work_summary ?? "").trim(),
-    mission_tags:
-      (initialSubmission.mission_tags?.length ? initialSubmission.mission_tags : missionTagsFromAnswers)
-        .map((item) => String(item).trim())
-        .filter(Boolean),
-    evidence_files:
-      (initialSubmission.evidence_files?.length ? initialSubmission.evidence_files : evidenceFilesFromAnswers)
-        .map((item) => String(item).trim())
-        .filter(Boolean),
-    evidence_links:
-      (initialSubmission.evidence_links?.length ? initialSubmission.evidence_links : evidenceLinksFromAnswers)
-        .map((item) => String(item).trim())
-        .filter(Boolean)
-  };
-}
+  const next = { ...DEFAULT_DAILY_CHECKIN_DRAFT };
 
-function computePreviewScore(draft: CheckInDraft): number {
-  let total = 0;
-  if (draft.completed_top_priorities) total += 25;
-  if (draft.worked_on_high_impact) total += 25;
-  if (draft.avoided_low_value_work) total += 15;
+  const q1Raw = String(fromAnswers.q1 ?? "");
+  const q2Raw = String(fromAnswers.q2 ?? "");
+  const q3Raw = String(fromAnswers.q3 ?? "");
+  const q4Raw = String(fromAnswers.q4 ?? "");
+  const q5Raw = String(fromAnswers.q5 ?? "");
+  const q6Raw = String(fromAnswers.q6 ?? initialSubmission.primary_productivity_factor ?? "");
+  const q7Raw = String(fromAnswers.q7 ?? "");
+  const q8Raw = String(fromAnswers.q8 ?? "");
+  const q9Raw = String(fromAnswers.q9 ?? "");
+  const q10Raw = Number(fromAnswers.q10 ?? fromAnswers.self_score ?? 7);
 
-  const ratingScore: Record<Exclude<CheckInDraft["self_productivity_rating"], "">, number> = {
-    poor: 5,
-    average: 10,
-    strong: 20,
-    peak: 25
-  };
+  const q5Legacy = String(initialSubmission.self_productivity_rating ?? "").toLowerCase();
+  const legacyQ5 = q5Legacy === "poor"
+    ? "poor"
+    : q5Legacy === "average"
+      ? "okay"
+      : q5Legacy === "strong"
+        ? "good"
+        : q5Legacy === "peak"
+          ? "great"
+          : "";
 
-  if (draft.self_productivity_rating) {
-    total += ratingScore[draft.self_productivity_rating] ?? 0;
-  }
+  next.q1 = normalizeChoiceValue("q1", q1Raw) || (initialSubmission.completed_top_priorities ? "most" : "");
+  next.q2 = normalizeChoiceValue("q2", q2Raw) || (initialSubmission.worked_on_high_impact ? "yes" : "");
+  next.q3 = normalizeChoiceValue("q3", q3Raw);
+  next.q4 = normalizeChoiceValue("q4", q4Raw);
+  next.q5 = normalizeChoiceValue("q5", q5Raw) || legacyQ5;
+  next.q6 = normalizeChoiceValue("q6", q6Raw);
+  next.q7 = normalizeChoiceValue("q7", q7Raw);
+  next.q8 = normalizeChoiceValue("q8", q8Raw);
+  next.q9 = normalizeChoiceValue("q9", q9Raw);
+  next.q10 = Number.isFinite(q10Raw) ? Math.max(1, Math.min(10, Math.round(q10Raw))) : 7;
+  next.blocker_other = String(fromAnswers.blocker_other ?? initialSubmission.primary_productivity_factor_note ?? "").trim();
+  next.quick_tag = String(fromAnswers.quick_tag ?? "").trim();
+  next.work_note = String(fromAnswers.work_note ?? initialSubmission.completed_work_summary ?? "").trim();
+  next.manager_message = String(fromAnswers.manager_message ?? initialSubmission.tomorrow_improvement_note ?? "").trim();
+  next.manager_quick_message = String(fromAnswers.manager_quick_message ?? "").trim();
+  next.evidence_files = dedupe(
+    (initialSubmission.evidence_files?.length ? initialSubmission.evidence_files : parseStringList(fromAnswers.evidence_files))
+      .map((item) => String(item).trim())
+      .filter(Boolean)
+  );
+  next.evidence_links = dedupe(
+    (initialSubmission.evidence_links?.length ? initialSubmission.evidence_links : parseStringList(fromAnswers.evidence_links))
+      .map((item) => String(item).trim())
+      .filter(Boolean)
+  );
 
-  const hasWorkSummary =
-    draft.completed_work_summary.trim().length > 0 || draft.quick_completed_work.length > 0;
-  if (hasWorkSummary) total += 10;
-
-  const hasEvidence =
-    draft.mission_tags.length > 0 || draft.evidence_files.length > 0 || draft.evidence_links.length > 0;
-  if (hasEvidence) total += 10;
-
-  return Math.min(100, total);
-}
-
-function buildTopFocusSummary(draft: CheckInDraft): string {
-  if (draft.tomorrow_improvement_focus.trim().length > 0) {
-    return draft.tomorrow_improvement_focus;
-  }
-  if (draft.worked_on_high_impact) return "High-impact execution";
-  if (draft.completed_top_priorities) return "Priority completion";
-  return "Consistency building";
-}
-
-function buildEnergyPeakSummary(draft: CheckInDraft): string {
-  if (draft.feeling_state === "Focused and ready") return "10:30 AM - High";
-  if (draft.feeling_state === "Steady but low energy") return "2:10 PM - Moderate";
-  if (draft.feeling_state === "Overwhelmed") return "Recovery mode - Protect focus";
-  if (draft.feeling_state === "Distracted") return "Late afternoon - Fragmented";
-  return "No signal yet";
-}
-
-function buildCoachInsight(draft: CheckInDraft): string {
-  if (draft.worked_on_high_impact && draft.self_productivity_rating === "peak") {
-    return "Your high-impact focus was excellent today. Repeat the same execution pattern tomorrow.";
-  }
-  if (draft.completed_top_priorities && draft.self_productivity_rating === "strong") {
-    return "Solid consistency today. Keep your priorities narrow and protect your deep-work windows.";
-  }
-  if (!draft.completed_top_priorities && draft.primary_productivity_factor) {
-    return `You identified '${draft.primary_productivity_factor}' as the key blocker. Build one guardrail for it tomorrow.`;
-  }
-  return "You're building awareness through reflection. Keep choosing one concrete improvement each day.";
-}
-
-function progressPercent(step: number): number {
-  return Math.max(14, Math.round(((step + 1) / TOTAL_STEPS) * 100));
-}
-
-function dedupe(values: string[]): string[] {
-  return [...new Set(values.map((item) => item.trim()).filter(Boolean))];
+  return next;
 }
 
 export function QuestionsFlow({
@@ -308,7 +207,7 @@ export function QuestionsFlow({
   const [currentStep, setCurrentStep] = useState(0);
   const [clientTimeZone, setClientTimeZone] = useState("UTC");
   const [clientLocalDate, setClientLocalDate] = useState(selectedDate);
-  const [draft, setDraft] = useState<CheckInDraft>({ ...DEFAULT_DRAFT });
+  const [draft, setDraft] = useState<DailyCheckInDraft>({ ...DEFAULT_DAILY_CHECKIN_DRAFT });
   const [hydrated, setHydrated] = useState(false);
   const [isAutoSaving, setIsAutoSaving] = useState(false);
   const [isStepSaving, setIsStepSaving] = useState(false);
@@ -317,16 +216,15 @@ export function QuestionsFlow({
   const [alreadyDoneMessage, setAlreadyDoneMessage] = useState("");
   const [showAlreadyDonePopup, setShowAlreadyDonePopup] = useState(false);
   const [showSubmitSuccess, setShowSubmitSuccess] = useState(false);
-  const [showTaskLogDetails, setShowTaskLogDetails] = useState(false);
   const [attachmentPreviews, setAttachmentPreviews] = useState<AttachmentPreview[]>([]);
+  const [animatedScore, setAnimatedScore] = useState(0);
+
   const initialLoadedRef = useRef(false);
   const autosaveTimerRef = useRef<number | null>(null);
   const skipAutosaveOnceRef = useRef(false);
 
-  const previewScore = useMemo(() => computePreviewScore(draft), [draft]);
-  const topFocusSummary = useMemo(() => buildTopFocusSummary(draft), [draft]);
-  const energyPeakSummary = useMemo(() => buildEnergyPeakSummary(draft), [draft]);
-  const coachInsightText = useMemo(() => buildCoachInsight(draft), [draft]);
+  const score = useMemo(() => calculateCheckInScore(draft), [draft]);
+
   const selectedDateLabel = useMemo(() => {
     if (!isISODateString(clientLocalDate)) {
       return isKo ? "날짜 선택" : "Select date";
@@ -350,34 +248,40 @@ export function QuestionsFlow({
   );
 
   const canEdit = !readOnly && !lockedByStatus;
+  const currentQuestion = currentStep < TOTAL_QUESTIONS ? DAILY_CHECKIN_QUESTIONS[currentStep] : null;
 
   const stepValid = useMemo(() => {
-    if (currentStep === 0) {
-      return draft.feeling_state.trim().length > 0;
+    if (currentStep >= FINAL_STEP_INDEX) return true;
+    if (!currentQuestion) return false;
+
+    if (currentQuestion.id === "q10") {
+      return Number.isFinite(draft.q10) && draft.q10 >= 1 && draft.q10 <= 10;
     }
-    if (currentStep === 1) {
-      return draft.primary_productivity_factor.trim().length > 0;
-    }
-    if (currentStep === 2) {
-      return draft.completed_top_priorities || draft.worked_on_high_impact || draft.avoided_low_value_work;
-    }
-    if (currentStep === 3) {
-      return draft.self_productivity_rating.trim().length > 0;
-    }
-    if (currentStep === 4) {
-      return draft.tomorrow_improvement_focus.trim().length > 0;
-    }
-    if (currentStep === 5) {
-      return (
-        draft.quick_completed_work.length > 0
-        || draft.mission_tags.length > 0
-        || draft.evidence_files.length > 0
-        || draft.evidence_links.length > 0
-        || draft.completed_work_summary.trim().length > 0
-      );
-    }
-    return true;
-  }, [currentStep, draft]);
+
+    const key = currentQuestion.id as CheckInChoiceQuestionId;
+    return String(draft[key] ?? "").trim().length > 0;
+  }, [currentQuestion, currentStep, draft]);
+
+  const summaryRows = useMemo(
+    () => [
+      { label: "Plan completion", value: labelOf("q1", draft.q1) },
+      { label: "Main task result", value: labelOf("q2", draft.q2) },
+      { label: "Focus level", value: labelOf("q4", draft.q4) },
+      { label: "Productivity level", value: labelOf("q5", draft.q5) },
+      {
+        label: "Blocker",
+        value: draft.blocker_other.trim()
+          ? `${labelOf("q6", draft.q6)} + ${draft.blocker_other.trim()}`
+          : labelOf("q6", draft.q6)
+      },
+      {
+        label: "Sleep / Activity / Food",
+        value: `${labelOf("q7", draft.q7)} / ${labelOf("q8", draft.q8)} / ${labelOf("q9", draft.q9)}`
+      },
+      { label: "Self score", value: `${draft.q10}/10` }
+    ],
+    [draft]
+  );
 
   useEffect(() => {
     try {
@@ -395,18 +299,16 @@ export function QuestionsFlow({
   useEffect(() => {
     if (!storageKey || initialLoadedRef.current) return;
 
-    const merged: CheckInDraft = { ...normalizeInitialDraft(initialSubmission) };
+    const merged = normalizeInitialDraft(initialSubmission);
     let savedStep = Number(initialSubmission?.step_index ?? 1) - 1;
 
     try {
       const raw = window.localStorage.getItem(storageKey);
       if (raw) {
-        const parsed = JSON.parse(raw) as { draft?: Partial<CheckInDraft>; step?: number };
+        const parsed = JSON.parse(raw) as { draft?: Partial<DailyCheckInDraft>; step?: number };
         if (parsed?.draft && typeof parsed.draft === "object") {
           Object.assign(merged, {
             ...parsed.draft,
-            quick_completed_work: dedupe(parseStringList(parsed.draft.quick_completed_work)),
-            mission_tags: dedupe(parseStringList(parsed.draft.mission_tags)),
             evidence_files: dedupe(parseStringList(parsed.draft.evidence_files)),
             evidence_links: dedupe(parseStringList(parsed.draft.evidence_links))
           });
@@ -435,69 +337,89 @@ export function QuestionsFlow({
     };
   }, [attachmentPreviews]);
 
+  useEffect(() => {
+    if (currentStep !== FINAL_STEP_INDEX) {
+      setAnimatedScore(score.total);
+      return;
+    }
+
+    setAnimatedScore(0);
+    let current = 0;
+    const timer = window.setInterval(() => {
+      current += Math.max(1, Math.ceil((score.total - current) / 6));
+      if (current >= score.total) {
+        current = score.total;
+        window.clearInterval(timer);
+      }
+      setAnimatedScore(current);
+    }, 28);
+
+    return () => window.clearInterval(timer);
+  }, [currentStep, score.total]);
+
   const persist = useCallback(async (mode: "draft" | "submit"): Promise<ApiResponse | null> => {
     if (!canEdit) return null;
 
-    const selectedFlags = {
-      completed_top_priorities: draft.completed_top_priorities,
-      worked_on_high_impact: draft.worked_on_high_impact,
-      avoided_low_value_work: draft.avoided_low_value_work
-    };
+    const blockerLabel = rawLabelOf("q6", draft.q6);
+    const blockerDetail = draft.blocker_other.trim();
+    const blockerSummary = blockerDetail ? `${blockerLabel} / ${blockerDetail}` : blockerLabel;
 
-    const productive = draft.self_productivity_rating === "strong" || draft.self_productivity_rating === "peak";
-    const composedWorkSummary = draft.completed_work_summary.trim().length > 0
-      ? draft.completed_work_summary.trim()
-      : draft.quick_completed_work.join("; ");
+    const quickTagLabel = pickOptionLabel(QUICK_TAG_OPTIONS, draft.quick_tag);
+    const managerQuickLabel = pickOptionLabel(MANAGER_QUICK_MESSAGE_OPTIONS, draft.manager_quick_message);
+    const coachInsight = buildCoachInsight(draft, score.total);
 
     const payload = {
       save_mode: mode,
-      mood: draft.self_productivity_rating || "Average",
-      feeling: draft.feeling_state,
-      focus: topFocusSummary,
-      blocker: draft.primary_productivity_factor,
-      win: composedWorkSummary,
+      mood: rawLabelOf("q5", draft.q5) || "Okay",
+      feeling: rawLabelOf("q1", draft.q1),
+      focus: rawLabelOf("q4", draft.q4),
+      blocker: blockerSummary,
+      win: draft.work_note.trim(),
       calories: 0,
-      productive,
-      task_list: draft.quick_completed_work.join("\n"),
+      productive: draft.q5 === "good" || draft.q5 === "great",
+      task_list: [quickTagLabel !== "-" ? quickTagLabel : "", draft.work_note.trim()].filter(Boolean).join("\n"),
       file_url: draft.evidence_links[0] ?? "",
       step_index: currentStep + 1,
-      feeling_state: draft.feeling_state,
-      primary_productivity_factor: draft.primary_productivity_factor,
-      primary_productivity_factor_note: draft.primary_productivity_factor_note,
-      completed_top_priorities: selectedFlags.completed_top_priorities,
-      worked_on_high_impact: selectedFlags.worked_on_high_impact,
-      avoided_low_value_work: selectedFlags.avoided_low_value_work,
-      self_productivity_rating: draft.self_productivity_rating,
-      tomorrow_improvement_focus: draft.tomorrow_improvement_focus,
-      tomorrow_improvement_note: draft.tomorrow_improvement_note,
-      completed_work_summary: composedWorkSummary,
-      mission_tags: draft.mission_tags,
+      feeling_state: rawLabelOf("q1", draft.q1),
+      primary_productivity_factor: blockerLabel,
+      primary_productivity_factor_note: blockerDetail,
+      completed_top_priorities: draft.q1 === "most" || draft.q1 === "almost_all",
+      worked_on_high_impact: draft.q2 === "yes" || draft.q2 === "partly",
+      avoided_low_value_work: draft.q4 === "strong",
+      self_productivity_rating: mapQ5ToLegacyRating(draft.q5),
+      tomorrow_improvement_focus: managerQuickLabel === "-" ? quickTagLabel : managerQuickLabel,
+      tomorrow_improvement_note: draft.manager_message,
+      completed_work_summary: draft.work_note,
+      mission_tags: quickTagLabel === "-" ? [] : [quickTagLabel],
       evidence_files: draft.evidence_files,
       evidence_links: draft.evidence_links,
-      performance_score_preview: previewScore,
-      coach_insight_text: coachInsightText,
-      top_focus_summary: topFocusSummary,
-      energy_peak_summary: energyPeakSummary,
+      performance_score_preview: score.total,
+      coach_insight_text: coachInsight,
+      top_focus_summary: rawLabelOf("q4", draft.q4),
+      energy_peak_summary: `${rawLabelOf("q7", draft.q7)} / ${rawLabelOf("q8", draft.q8)}`,
       client_time_zone: clientTimeZone,
       client_local_date: clientLocalDate,
       custom_answers: {
-        focus: topFocusSummary,
-        blocker: draft.primary_productivity_factor,
-        win: composedWorkSummary,
-        feeling_state: draft.feeling_state,
-        primary_productivity_factor: draft.primary_productivity_factor,
-        primary_productivity_factor_note: draft.primary_productivity_factor_note,
-        completed_top_priorities: String(draft.completed_top_priorities),
-        worked_on_high_impact: String(draft.worked_on_high_impact),
-        avoided_low_value_work: String(draft.avoided_low_value_work),
-        self_productivity_rating: draft.self_productivity_rating,
-        tomorrow_improvement_focus: draft.tomorrow_improvement_focus,
-        tomorrow_improvement_note: draft.tomorrow_improvement_note,
-        completed_work_summary: composedWorkSummary,
-        quick_completed_work: draft.quick_completed_work.join("\n"),
-        mission_tags: draft.mission_tags.join(","),
+        q1: draft.q1,
+        q2: draft.q2,
+        q3: draft.q3,
+        q4: draft.q4,
+        q5: draft.q5,
+        q6: draft.q6,
+        q7: draft.q7,
+        q8: draft.q8,
+        q9: draft.q9,
+        q10: String(draft.q10),
+        quick_tag: draft.quick_tag,
+        blocker_other: draft.blocker_other,
+        work_note: draft.work_note,
+        manager_message: draft.manager_message,
+        manager_quick_message: draft.manager_quick_message,
         evidence_files: draft.evidence_files.join("\n"),
-        evidence_links: draft.evidence_links.join("\n")
+        evidence_links: draft.evidence_links.join("\n"),
+        focus: rawLabelOf("q4", draft.q4),
+        blocker: blockerSummary,
+        win: draft.work_note.trim()
       }
     };
 
@@ -525,18 +447,7 @@ export function QuestionsFlow({
 
     setSubmitError("");
     return result;
-  }, [
-    canEdit,
-    clientLocalDate,
-    clientTimeZone,
-    coachInsightText,
-    currentStep,
-    draft,
-    energyPeakSummary,
-    isKo,
-    previewScore,
-    topFocusSummary
-  ]);
+  }, [canEdit, clientLocalDate, clientTimeZone, currentStep, draft, isKo, score.total]);
 
   useEffect(() => {
     if (!hydrated || !storageKey || !canEdit || isStepSaving || submitting) return;
@@ -583,40 +494,25 @@ export function QuestionsFlow({
     };
   }, [canEdit, currentStep, draft, hydrated, isStepSaving, persist, storageKey, submitting]);
 
-  function patchDraft(next: Partial<CheckInDraft>) {
+  function patchDraft(next: Partial<DailyCheckInDraft>) {
     setDraft((prev) => ({ ...prev, ...next }));
     setSubmitError("");
   }
 
-  function toggleWorkChip(label: string) {
-    patchDraft({
-      quick_completed_work: draft.quick_completed_work.includes(label)
-        ? draft.quick_completed_work.filter((item) => item !== label)
-        : dedupe([...draft.quick_completed_work, label])
-    });
-  }
-
-  function toggleMissionTag(tag: string) {
-    patchDraft({
-      mission_tags: draft.mission_tags.includes(tag)
-        ? draft.mission_tags.filter((item) => item !== tag)
-        : dedupe([...draft.mission_tags, tag])
-    });
-  }
-
-  function addQuickEvidence(label: string) {
-    patchDraft({
-      evidence_files: draft.evidence_files.includes(label)
-        ? draft.evidence_files.filter((item) => item !== label)
-        : dedupe([...draft.evidence_files, label])
-    });
-  }
-
-  function onFilesSelected(event: ChangeEvent<HTMLInputElement>) {
+  function onFilesSelected(event: ChangeEvent<HTMLInputElement>, source: "image" | "file") {
     const files = Array.from(event.target.files ?? []);
     if (files.length === 0) return;
 
-    const nextPreviews: AttachmentPreview[] = files.slice(0, 4).map((file, idx) => {
+    const accepted = source === "image"
+      ? files.filter((file) => file.type.startsWith("image/"))
+      : files;
+
+    if (accepted.length === 0) {
+      event.currentTarget.value = "";
+      return;
+    }
+
+    const nextPreviews: AttachmentPreview[] = accepted.slice(0, 6).map((file, idx) => {
       const isImage = file.type.startsWith("image/");
       return {
         id: `${file.name}-${Date.now()}-${idx}`,
@@ -626,8 +522,8 @@ export function QuestionsFlow({
       };
     });
 
-    setAttachmentPreviews((prev) => [...prev, ...nextPreviews].slice(0, 8));
-    patchDraft({ evidence_files: dedupe([...draft.evidence_files, ...files.map((file) => file.name)]) });
+    setAttachmentPreviews((prev) => [...prev, ...nextPreviews].slice(0, 10));
+    patchDraft({ evidence_files: dedupe([...draft.evidence_files, ...accepted.map((file) => file.name)]) });
     event.currentTarget.value = "";
   }
 
@@ -639,19 +535,20 @@ export function QuestionsFlow({
       }
       return prev.filter((item) => item.name !== name);
     });
+
     patchDraft({ evidence_files: draft.evidence_files.filter((item) => item !== name) });
   }
 
   function addEvidenceLink() {
-    const input = window.prompt("Add optional evidence link", "https://");
+    const input = window.prompt("Add attachment link", "https://");
     if (!input) return;
     const trimmed = input.trim();
     if (!trimmed) return;
     patchDraft({ evidence_links: dedupe([...draft.evidence_links, trimmed]) });
   }
 
-  function removeEvidenceLink(value: string) {
-    patchDraft({ evidence_links: draft.evidence_links.filter((item) => item !== value) });
+  function removeEvidenceLink(link: string) {
+    patchDraft({ evidence_links: draft.evidence_links.filter((item) => item !== link) });
   }
 
   async function goNext() {
@@ -706,7 +603,7 @@ export function QuestionsFlow({
   }
 
   async function onSubmitToManager() {
-    if (!canEdit || currentStep !== TOTAL_STEPS - 1) return;
+    if (!canEdit || currentStep !== FINAL_STEP_INDEX) return;
 
     setSubmitting(true);
     setSubmitError("");
@@ -728,19 +625,6 @@ export function QuestionsFlow({
     }
   }
 
-  function StepShell({ title, description, children }: { title: string; description: string; children: ReactNode }) {
-    return (
-      <div className="mt-2 min-h-[21.75rem] rounded-[1.5rem] bg-white/82 p-3 shadow-[0_12px_26px_rgba(18,32,96,0.08)] ring-1 ring-black/[0.03] sm:min-h-[23rem] sm:p-4">
-        <h2 className="truncate whitespace-nowrap text-[clamp(1.35rem,6.1vw,1.8rem)] font-extrabold leading-none tracking-[-0.015em] text-slate-900">
-          {title}
-        </h2>
-        <p className="mt-1 hidden truncate whitespace-nowrap text-[12px] font-medium text-slate-600 sm:block">{description}</p>
-        <div className="mt-2.5">{children}</div>
-      </div>
-    );
-  }
-
-  const stepHeading = `Step ${currentStep + 1} of ${TOTAL_STEPS}`;
   const dateSelectionPanel = (
     <div className="rounded-xl border border-blue-100 bg-blue-50/70 p-2">
       <div className="flex items-center justify-between gap-2">
@@ -801,20 +685,22 @@ export function QuestionsFlow({
 
   return (
     <section className="relative -mx-4 min-h-[calc(100dvh-6.4rem)] bg-gradient-to-b from-slate-100 via-slate-50 to-slate-100 px-4 pb-[calc(5.4rem+var(--safe-bottom))] pt-1 sm:mx-0 sm:rounded-[2rem] sm:px-6">
-      <header className="sticky top-0 z-20 -mx-4 border-b border-white/50 bg-white/80 px-4 pb-1 pt-1 backdrop-blur sm:mx-0 sm:-mt-2 sm:rounded-t-[2rem] sm:px-0">
+      <header className="sticky top-0 z-20 -mx-4 border-b border-white/60 bg-white/85 px-4 pb-2 pt-1 backdrop-blur sm:mx-0 sm:-mt-2 sm:rounded-t-[2rem] sm:px-0">
         <div className="flex items-center justify-between gap-2">
           <Link className="rounded-full p-2 text-blue-700 hover:bg-blue-50" href="/app/welcome">
             <X size={20} />
           </Link>
           <h1 className="whitespace-nowrap text-base font-black tracking-[-0.01em] text-slate-900">Daily Check-in</h1>
-          <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-[11px] font-bold text-blue-700">{stepHeading}</span>
+          <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-[11px] font-bold text-blue-700">
+            {currentStep < FINAL_STEP_INDEX ? `Q${currentStep + 1}/${TOTAL_QUESTIONS}` : "Summary"}
+          </span>
         </div>
 
         <div className="mt-1.5">{dateSelectionPanel}</div>
 
         <div className="mt-1.5">
           <div className="mb-1 flex items-center justify-between text-[11px] font-semibold text-slate-500">
-            <span>{`Step ${currentStep + 1}/${TOTAL_STEPS}`}</span>
+            <span>{currentStep < FINAL_STEP_INDEX ? `Question ${currentStep + 1}` : "Final review"}</span>
             <span className="inline-flex items-center gap-2">
               <span className="inline-block min-w-[6.1rem] text-right">
                 {isAutoSaving ? "Auto-saving..." : "Draft saved"}
@@ -824,421 +710,209 @@ export function QuestionsFlow({
           </div>
           <div className="h-2 overflow-hidden rounded-full bg-slate-200">
             <div
-              className="h-full rounded-full bg-gradient-to-r from-blue-700 to-blue-400 transition-all duration-500"
+              className="h-full rounded-full bg-gradient-to-r from-blue-700 via-cyan-600 to-emerald-500 transition-all duration-500"
               style={{ width: `${progressPercent(currentStep)}%` }}
             />
           </div>
         </div>
       </header>
 
-      {currentStep === 0 && (
-        <StepShell
-          description="Quickly select your current state."
-          title="How are you feeling now?"
+      {currentQuestion && currentQuestion.type === "choice" && (
+        <QuestionCard
+          description={currentQuestion.description}
+          progressLabel={`${currentStep + 1}/${TOTAL_QUESTIONS}`}
+          progressPercent={progressPercent(currentStep)}
+          title={currentQuestion.title}
         >
-          <div className="grid grid-cols-2 gap-2">
-            {FEELING_OPTIONS.map((option) => {
-              const active = draft.feeling_state === option.label;
+          <div className="grid grid-cols-1 gap-2">
+            {currentQuestion.options?.map((option) => {
+              const key = currentQuestion.id as CheckInChoiceQuestionId;
+              const selected = draft[key] === option.value;
               return (
-                <button
-                  className={`rounded-[1.25rem] border p-3 text-left transition ${
-                    active
-                      ? "border-blue-300 bg-blue-50 shadow-[0_10px_22px_rgba(37,99,235,0.18)]"
-                      : "border-slate-200 bg-white"
-                  }`}
-                  key={option.key}
-                  onClick={() => patchDraft({ feeling_state: option.label })}
-                  type="button"
-                >
-                  <span className={`inline-flex h-9 w-9 items-center justify-center rounded-xl text-xl ${active ? "bg-blue-600 text-white" : "bg-slate-100"}`}>
-                    {option.icon}
-                  </span>
-                  <p className="mt-2 truncate whitespace-nowrap text-[15px] font-extrabold text-slate-900">{option.label}</p>
-                </button>
+                <AnswerChip
+                  emoji={option.emoji}
+                  key={option.value}
+                  label={option.label}
+                  onClick={() => patchDraft({ [key]: option.value } as Partial<DailyCheckInDraft>)}
+                  selected={selected}
+                />
               );
             })}
           </div>
 
-          <article className="mt-2 hidden rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:block">
-            <div className="flex items-start gap-3">
-              <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-xl">🧑‍🏫</span>
-              <div>
-                <p className="text-sm font-bold text-slate-900">Coach Insight</p>
-                <p className="mt-1 text-sm text-slate-600">
-                  Remember, there are no wrong feelings. Honest check-ins create better performance guidance.
-                </p>
-              </div>
-            </div>
-          </article>
-        </StepShell>
-      )}
-
-      {currentStep === 1 && (
-        <StepShell
-          description="Pick one primary factor."
-          title="Biggest productivity factor?"
-        >
-          <div className="grid grid-cols-2 gap-1.5">
-            {PRODUCTIVITY_FACTORS.map((item) => {
-              const active = draft.primary_productivity_factor === item;
-              return (
-                <button
-                  className={`truncate whitespace-nowrap rounded-xl border px-2.5 py-2.5 text-[13px] font-bold transition ${
-                    active ? "border-blue-300 bg-blue-600 text-white" : "border-slate-200 bg-white text-slate-700"
-                  }`}
-                  key={item}
-                  onClick={() => patchDraft({ primary_productivity_factor: item })}
-                  type="button"
-                >
-                  {item}
-                </button>
-              );
-            })}
-          </div>
-
-          {draft.primary_productivity_factor === "Other" && (
-            <label className="mt-3 hidden text-sm font-semibold text-slate-700 sm:block">
-              Optional note
+          {currentQuestion.id === "q6" && (
+            <label className="mt-3 block text-sm font-semibold text-slate-700">
+              Other blocker (optional)
               <input
                 className="input mt-2"
-                onChange={(event) => patchDraft({ primary_productivity_factor_note: event.target.value })}
-                placeholder="Add short context"
-                value={draft.primary_productivity_factor_note}
+                onChange={(event) => patchDraft({ blocker_other: event.target.value })}
+                placeholder="Add context if needed"
+                value={draft.blocker_other}
               />
             </label>
           )}
-        </StepShell>
+        </QuestionCard>
       )}
 
-      {currentStep === 2 && (
-        <StepShell
-          description="Choose the execution outcomes."
-          title="How did you execute today?"
+      {currentQuestion?.id === "q10" && (
+        <QuestionCard
+          description={currentQuestion.description}
+          progressLabel={`${currentStep + 1}/${TOTAL_QUESTIONS}`}
+          progressPercent={progressPercent(currentStep)}
+          title={currentQuestion.title}
         >
-          <div className="space-y-1.5">
-            {EXECUTION_ITEMS.map((item) => {
-              const active = draft[item.key];
-              return (
-                <button
-                  className={`w-full rounded-[1.1rem] border p-2.5 text-left transition ${
-                    active ? "border-blue-300 bg-blue-50" : "border-slate-200 bg-white"
-                  }`}
-                  key={item.key}
-                  onClick={() => {
-                    if (item.key === "completed_top_priorities") {
-                      patchDraft({ completed_top_priorities: !draft.completed_top_priorities });
-                      return;
-                    }
-                    if (item.key === "worked_on_high_impact") {
-                      patchDraft({ worked_on_high_impact: !draft.worked_on_high_impact });
-                      return;
-                    }
-                    patchDraft({ avoided_low_value_work: !draft.avoided_low_value_work });
-                  }}
-                  type="button"
-                >
-                  <div className="flex items-start gap-2">
-                    <span className={`mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full border ${active ? "border-blue-600 bg-blue-600 text-white" : "border-slate-300 text-transparent"}`}>
-                      <Check size={14} />
-                    </span>
-                    <span className="min-w-0">
-                      <span className="block truncate whitespace-nowrap text-[14px] font-extrabold text-slate-900">{item.title}</span>
-                      <span className="mt-0.5 hidden truncate whitespace-nowrap text-[12px] text-slate-600 sm:block">{item.desc}</span>
-                    </span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </StepShell>
-      )}
-
-      {currentStep === 3 && (
-        <StepShell
-          description="Rate today in one tap."
-          title="Rate your productivity today"
-        >
-          <div className="grid grid-cols-2 gap-1.5">
-            {PRODUCTIVITY_RATINGS.map((option) => {
-              const active = draft.self_productivity_rating === option.key;
-              const emphasis = option.key === "strong" || option.key === "peak";
-              return (
-                <button
-                  className={`rounded-[1.1rem] border p-2.5 text-left transition ${
-                    active
-                      ? "border-blue-400 bg-gradient-to-br from-blue-700 to-blue-500 text-white shadow-[0_16px_28px_rgba(37,99,235,0.28)]"
-                      : emphasis
-                        ? "border-slate-200 bg-slate-50"
-                        : "border-slate-200 bg-white"
-                  }`}
-                  key={option.key}
-                  onClick={() => patchDraft({ self_productivity_rating: option.key })}
-                  type="button"
-                >
-                  <p className={`text-[1.8rem] leading-none ${active ? "anim-bounce-soft" : ""}`}>{option.emoji}</p>
-                  <p className={`mt-1 truncate whitespace-nowrap text-[14px] font-extrabold ${active ? "text-white" : "text-slate-900"}`}>{option.label}</p>
-                  <p className={`mt-0.5 hidden truncate whitespace-nowrap text-[12px] ${active ? "text-blue-100" : "text-slate-600"} sm:block`}>{option.desc}</p>
-                </button>
-              );
-            })}
-          </div>
-        </StepShell>
-      )}
-
-      {currentStep === 4 && (
-        <StepShell
-          description="Select one improvement focus."
-          title="What will you improve tomorrow?"
-        >
-          <div className="grid grid-cols-2 gap-2">
-            {TOMORROW_FOCUS_OPTIONS.map((option, idx) => {
-              const active = draft.tomorrow_improvement_focus === option.key;
-              const wide = idx === 0;
-              return (
-                <button
-                  className={`rounded-[1.2rem] border p-3 text-left transition ${
-                    wide ? "col-span-2" : ""
-                  } ${
-                    active
-                      ? "border-blue-300 bg-blue-50 shadow-[0_10px_22px_rgba(37,99,235,0.14)]"
-                      : "border-slate-200 bg-white"
-                  }`}
-                  key={option.key}
-                  onClick={() => patchDraft({ tomorrow_improvement_focus: option.key })}
-                  type="button"
-                >
-                  <span className={`inline-flex h-8 w-8 items-center justify-center rounded-lg text-lg ${active ? "bg-blue-600 text-white" : "bg-slate-100"}`}>{option.icon}</span>
-                  <p className="mt-1.5 truncate whitespace-nowrap text-[15px] font-extrabold text-slate-900">{option.label}</p>
-                  <p className="mt-0.5 hidden truncate whitespace-nowrap text-[12px] text-slate-600 sm:block">{option.desc}</p>
-                </button>
-              );
-            })}
-          </div>
-
-          <label className="mt-3 hidden text-sm font-semibold text-slate-700 sm:block">
-            Optional note
-            <input
-              className="input mt-2"
-              onChange={(event) => patchDraft({ tomorrow_improvement_note: event.target.value })}
-              placeholder="Anything else to improve tomorrow?"
-              value={draft.tomorrow_improvement_note}
-            />
-          </label>
-        </StepShell>
-      )}
-
-      {currentStep === 5 && (
-        <StepShell
-          description="Capture key outcomes in a compact log."
-          title="Task Log"
-        >
-          <article className="rounded-2xl bg-white p-3 ring-1 ring-black/[0.04]">
-            <p className="text-caption font-bold uppercase tracking-[0.16em] text-slate-500">Completed Work (quick select)</p>
-            <div className="no-scrollbar mt-2 flex gap-1.5 overflow-x-auto pb-0.5">
-              {QUICK_WORK_CHIPS.map((chip) => {
-                const active = draft.quick_completed_work.includes(chip);
-                return (
-                  <button
-                    className={`shrink-0 truncate whitespace-nowrap rounded-full px-2.5 py-1.5 text-[11px] font-bold transition ${
-                      active ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-700"
-                    }`}
-                    key={chip}
-                    onClick={() => toggleWorkChip(chip)}
-                    type="button"
-                  >
-                    {chip}
-                  </button>
-                );
-              })}
+          <article className="rounded-2xl bg-slate-50 p-4">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">Self score</p>
+              <p className="text-2xl font-black text-blue-700 tabular-nums">{draft.q10}</p>
             </div>
+            <input
+              className="mt-3 h-2 w-full cursor-pointer accent-blue-600"
+              max={10}
+              min={1}
+              onChange={(event) => patchDraft({ q10: Number(event.target.value) })}
+              step={1}
+              type="range"
+              value={draft.q10}
+            />
+            <div className="mt-2 flex justify-between text-xs font-semibold text-slate-500">
+              <span>1</span>
+              <span>5</span>
+              <span>10</span>
+            </div>
+          </article>
+        </QuestionCard>
+      )}
 
-            <label className="mt-2 block text-sm font-semibold text-slate-700">
-              <span className="text-[11px] uppercase tracking-[0.12em] text-slate-500">Optional detail summary</span>
-              <input
-                className="input mt-1 h-9 text-[13px] sm:hidden"
-                onChange={(event) => patchDraft({ completed_work_summary: event.target.value })}
-                placeholder="One-line summary"
-                value={draft.completed_work_summary}
-              />
+      {currentStep === FINAL_STEP_INDEX && (
+        <QuestionCard
+          description="Review your report before sending it to your manager"
+          progressLabel="Final"
+          progressPercent={100}
+          title="Final Summary"
+        >
+          <CheckInSummaryCard
+            animatedScore={animatedScore}
+            attachmentCount={draft.evidence_files.length + draft.evidence_links.length}
+            noteFilled={draft.work_note.trim().length > 0 || draft.manager_message.trim().length > 0}
+            rows={summaryRows}
+            score={score}
+          />
+
+          <article className="mt-3 rounded-2xl bg-white p-4 ring-1 ring-black/[0.05]">
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Quick Tag</p>
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              {QUICK_TAG_OPTIONS.map((option) => (
+                <AnswerChip
+                  className="py-2"
+                  emoji={option.emoji}
+                  key={option.value}
+                  label={option.label}
+                  onClick={() => patchDraft({ quick_tag: option.value })}
+                  selected={draft.quick_tag === option.value}
+                />
+              ))}
+            </div>
+          </article>
+
+          <article className="mt-3 rounded-2xl bg-white p-4 ring-1 ring-black/[0.05]">
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Message to manager (quick)</p>
+            <div className="mt-2 grid grid-cols-1 gap-2">
+              {MANAGER_QUICK_MESSAGE_OPTIONS.map((option) => (
+                <AnswerChip
+                  className="py-2"
+                  emoji={option.emoji}
+                  key={option.value}
+                  label={option.label}
+                  onClick={() => patchDraft({ manager_quick_message: option.value })}
+                  selected={draft.manager_quick_message === option.value}
+                />
+              ))}
+            </div>
+          </article>
+
+          <article className="mt-3 rounded-2xl bg-white p-4 ring-1 ring-black/[0.05]">
+            <label className="block text-sm font-semibold text-slate-700">
+              What did you work on today?
               <textarea
-                className="input mt-1.5 hidden min-h-20 resize-none text-[14px] sm:block"
-                onChange={(event) => patchDraft({ completed_work_summary: event.target.value })}
-                placeholder="Optional: add one short summary"
-                value={draft.completed_work_summary}
+                className="input mt-2 min-h-24 resize-none"
+                onChange={(event) => patchDraft({ work_note: event.target.value })}
+                placeholder="Write a short work summary"
+                value={draft.work_note}
               />
-              <span className="mt-1 inline-flex items-center gap-1 text-[11px] text-slate-500">
-                <Sparkles size={12} /> Auto-saving
-              </span>
+            </label>
+
+            <label className="mt-3 block text-sm font-semibold text-slate-700">
+              Message to your manager
+              <textarea
+                className="input mt-2 min-h-20 resize-none"
+                onChange={(event) => patchDraft({ manager_message: event.target.value })}
+                placeholder="Optional message"
+                value={draft.manager_message}
+              />
             </label>
           </article>
 
-          <button
-            className="mt-2 inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1.5 text-[11px] font-bold text-slate-700"
-            onClick={() => setShowTaskLogDetails((prev) => !prev)}
-            type="button"
-          >
-            {showTaskLogDetails ? "Hide extra details" : "Add mission tags / evidence"}
-          </button>
+          <article className="mt-3 rounded-2xl bg-white p-4 ring-1 ring-black/[0.05]">
+            <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Attachments</p>
+            <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <label className="flex cursor-pointer items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700">
+                <span className="inline-flex items-center gap-2"><CloudUpload size={14} /> Add image</span>
+                <input accept="image/*" className="hidden" multiple onChange={(event) => onFilesSelected(event, "image")} type="file" />
+              </label>
+              <label className="flex cursor-pointer items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700">
+                <span className="inline-flex items-center gap-2"><CloudUpload size={14} /> Add file</span>
+                <input className="hidden" multiple onChange={(event) => onFilesSelected(event, "file")} type="file" />
+              </label>
+              <button
+                className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700"
+                onClick={addEvidenceLink}
+                type="button"
+              >
+                <span className="inline-flex items-center gap-2"><Link2 size={14} /> Add link</span>
+              </button>
+            </div>
 
-          {showTaskLogDetails && (
-            <>
-              <article className="mt-2 rounded-2xl bg-white p-3 ring-1 ring-black/[0.04]">
-                <div className="mb-2 flex items-center justify-between">
-                  <p className="text-caption font-bold uppercase tracking-[0.16em] text-slate-500">Mission Tags</p>
-                  <span className="hidden rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-700 sm:inline-flex">RECOMMENDED</span>
-                </div>
-                <div className="no-scrollbar flex gap-1.5 overflow-x-auto pb-0.5">
-                  {MISSION_TAGS.map((tag) => {
-                    const active = draft.mission_tags.includes(tag);
-                    return (
-                      <button
-                        className={`shrink-0 truncate whitespace-nowrap rounded-full px-2.5 py-1.5 text-[11px] font-bold transition ${
-                          active ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-700"
-                        }`}
-                        key={tag}
-                        onClick={() => toggleMissionTag(tag)}
-                        type="button"
-                      >
-                        {tag}
-                      </button>
-                    );
-                  })}
-                </div>
-              </article>
-
-              <article className="mt-2 rounded-2xl bg-white p-3 ring-1 ring-black/[0.04]">
-                <p className="text-caption font-bold uppercase tracking-[0.16em] text-slate-500">Evidence & Files</p>
-
-                <div className="no-scrollbar mt-2 flex gap-1.5 overflow-x-auto pb-0.5">
-                  {QUICK_EVIDENCE.map((evidence) => {
-                    const active = draft.evidence_files.includes(evidence);
-                    return (
-                      <button
-                        className={`shrink-0 truncate whitespace-nowrap rounded-full px-2.5 py-1.5 text-[11px] font-bold transition ${
-                          active ? "bg-indigo-600 text-white" : "bg-slate-100 text-slate-700"
-                        }`}
-                        key={evidence}
-                        onClick={() => addQuickEvidence(evidence)}
-                        type="button"
-                      >
-                        {evidence}
-                      </button>
-                    );
-                  })}
-                </div>
-
-                <label className="mt-2 flex cursor-pointer items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-[13px] font-semibold text-slate-700">
-                  <span className="inline-flex items-center gap-2 truncate whitespace-nowrap"><CloudUpload size={14} /> Upload screenshot / file</span>
-                  <input className="hidden" multiple onChange={onFilesSelected} type="file" />
-                  <span className="shrink-0 text-blue-700">+ Add</span>
-                </label>
-
-                {draft.evidence_files.length > 0 && (
-                  <ul className="mt-3 space-y-2">
-                    {draft.evidence_files.map((name) => {
-                      const preview = attachmentPreviews.find((item) => item.name === name);
-                      return (
-                        <li className="rounded-xl bg-slate-50 p-2" key={name}>
-                          <div className="flex items-center justify-between gap-2 text-xs font-semibold text-slate-700">
-                            <span className="truncate">{name}</span>
-                            <button
-                              className="rounded-full bg-white px-2 py-1 text-[10px] font-bold text-slate-600"
-                              onClick={() => removeAttachment(name)}
-                              type="button"
-                            >
-                              Remove
-                            </button>
-                          </div>
-                          {preview?.isImage && preview.previewUrl && (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img alt={name} className="mt-2 h-24 w-full rounded-lg object-cover" src={preview.previewUrl} />
-                          )}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-
-                <div className="mt-3 flex items-center gap-2">
-                  <button className="rounded-full bg-slate-100 px-3 py-2 text-xs font-bold text-slate-700" onClick={addEvidenceLink} type="button">
-                    + Add link
-                  </button>
-                  <span className="text-[11px] text-slate-500">Optional</span>
-                </div>
-                {draft.evidence_links.length > 0 && (
-                  <ul className="mt-2 space-y-1">
-                    {draft.evidence_links.map((link) => (
-                      <li className="flex items-center justify-between gap-2 rounded-lg bg-slate-50 px-2 py-1.5" key={link}>
-                        <span className="truncate text-xs text-slate-700">{link}</span>
-                        <button className="text-[10px] font-bold text-slate-500" onClick={() => removeEvidenceLink(link)} type="button">
+            {draft.evidence_files.length > 0 && (
+              <ul className="mt-3 space-y-2">
+                {draft.evidence_files.map((name) => {
+                  const preview = attachmentPreviews.find((item) => item.name === name);
+                  return (
+                    <li className="rounded-xl bg-slate-50 p-2" key={name}>
+                      <div className="flex items-center justify-between gap-2 text-xs font-semibold text-slate-700">
+                        <span className="truncate">{name}</span>
+                        <button
+                          className="rounded-full bg-white px-2 py-1 text-[10px] font-bold text-slate-600"
+                          onClick={() => removeAttachment(name)}
+                          type="button"
+                        >
                           Remove
                         </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </article>
-            </>
-          )}
-        </StepShell>
-      )}
+                      </div>
+                      {preview?.isImage && preview.previewUrl && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img alt={name} className="mt-2 h-24 w-full rounded-lg object-cover" src={preview.previewUrl} />
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
 
-      {currentStep === 6 && (
-        <StepShell
-          description="You've unlocked your performance insights for today."
-          title="Check-in Complete"
-        >
-          <article className="rounded-[1.8rem] bg-white p-5 shadow-[0_10px_24px_rgba(24,70,180,0.1)] ring-1 ring-black/[0.03]">
-            <div className="flex items-end justify-between gap-2">
-              <div>
-                <p className="text-caption font-bold uppercase tracking-[0.16em] text-slate-500">Today&apos;s Performance</p>
-                <p className="mt-1 text-5xl font-black text-blue-700">
-                  {previewScore}
-                  <span className="text-2xl text-blue-300">/100</span>
-                </p>
-              </div>
-              <span className="rounded-lg bg-amber-100 px-2 py-1 text-sm font-bold text-amber-700">+{Math.max(2, Math.round((previewScore - 70) / 2))}%</span>
-            </div>
+            {draft.evidence_links.length > 0 && (
+              <ul className="mt-3 space-y-1">
+                {draft.evidence_links.map((link) => (
+                  <li className="flex items-center justify-between gap-2 rounded-lg bg-slate-50 px-2 py-1.5" key={link}>
+                    <span className="truncate text-xs text-slate-700">{link}</span>
+                    <button className="text-[10px] font-bold text-slate-500" onClick={() => removeEvidenceLink(link)} type="button">
+                      Remove
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </article>
-
-          <div className="mt-3 grid grid-cols-2 gap-3">
-            <article className="rounded-2xl bg-slate-100 p-4">
-              <p className="inline-flex items-center gap-1 text-caption font-bold uppercase tracking-[0.16em] text-slate-500"><Target size={13} /> Top Focus</p>
-              <p className="mt-2 text-card-title font-black text-slate-900">{topFocusSummary}</p>
-            </article>
-            <article className="rounded-2xl bg-slate-100 p-4">
-              <p className="inline-flex items-center gap-1 text-caption font-bold uppercase tracking-[0.16em] text-slate-500"><Bolt size={13} /> Energy Peak</p>
-              <p className="mt-2 text-card-title font-black text-slate-900">{energyPeakSummary}</p>
-            </article>
-          </div>
-
-          <article className="mt-3 rounded-[1.6rem] border border-blue-200 bg-white p-4">
-            <div className="flex items-center gap-2">
-              <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-blue-100 text-lg">🧠</span>
-              <div>
-                <p className="text-sm font-bold text-slate-900">Coach Insights</p>
-                <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">AI Generated Analysis</p>
-              </div>
-            </div>
-            <p className="mt-3 text-sm italic leading-relaxed text-slate-700">&ldquo;{coachInsightText}&rdquo;</p>
-            <div className="mt-3 flex gap-2">
-              <span className="rounded-full bg-blue-100 px-3 py-1 text-[11px] font-bold text-blue-700">#Momentum</span>
-              <span className="rounded-full bg-amber-100 px-3 py-1 text-[11px] font-bold text-amber-700">#Execution</span>
-            </div>
-          </article>
-
-          <article className="mt-3 rounded-[1.6rem] border-2 border-dashed border-slate-300 p-4">
-            <p className="inline-flex items-center gap-1 text-caption font-bold uppercase tracking-[0.16em] text-slate-500"><Eye size={13} /> Preview for Manager</p>
-            <p className="mt-2 text-sm text-slate-600">
-              Manager receives your performance preview, selected productivity drivers, execution quality, mission tags, and evidence package.
-            </p>
-            <div className="mt-3 rounded-xl bg-slate-100 p-3 text-xs text-slate-600">
-              <p>• Work highlights: {draft.quick_completed_work.length > 0 ? draft.quick_completed_work.join(", ") : "No quick highlights selected"}</p>
-              <p>• Mission tags: {draft.mission_tags.length > 0 ? draft.mission_tags.join(", ") : "None"}</p>
-              <p>• Evidence items: {draft.evidence_files.length + draft.evidence_links.length}</p>
-            </div>
-          </article>
-        </StepShell>
+        </QuestionCard>
       )}
 
       {submitError && (
@@ -1263,12 +937,12 @@ export function QuestionsFlow({
           <article className="anim-pop w-full max-w-sm rounded-[1.6rem] bg-white p-5 text-center shadow-xl">
             <p className="mx-auto inline-flex h-14 w-14 items-center justify-center rounded-full bg-blue-100 text-3xl anim-bounce-soft">🎉</p>
             <h3 className="mt-2 text-xl font-black text-slate-900">Submitted to manager</h3>
-            <p className="mt-2 text-sm text-slate-600">Great reflection today. Your manager review is on the way.</p>
+            <p className="mt-2 text-sm text-slate-600">Your manager will review this report soon.</p>
           </article>
         </div>
       )}
 
-      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-white/60 bg-white/85 px-5 pb-[calc(1rem+var(--safe-bottom))] pt-3 backdrop-blur">
+      <nav className="fixed inset-x-0 bottom-0 z-30 border-t border-white/60 bg-white/90 px-5 pb-[calc(1rem+var(--safe-bottom))] pt-3 backdrop-blur">
         <div className="mx-auto flex w-full max-w-[420px] items-center justify-between gap-3">
           <button
             className="inline-flex min-w-[6.4rem] items-center justify-center gap-2 rounded-full bg-slate-100 px-4 py-2.5 text-[13px] font-semibold text-slate-700 disabled:opacity-45"
@@ -1282,7 +956,7 @@ export function QuestionsFlow({
 
           {currentStep < TOTAL_STEPS - 1 ? (
             <button
-              className="inline-flex min-w-[8.3rem] items-center justify-center gap-2 rounded-full bg-gradient-to-r from-blue-600 to-blue-400 px-5 py-2.5 text-[13px] font-semibold text-white shadow-[0_12px_22px_rgba(37,99,235,0.32)] disabled:opacity-45"
+              className="inline-flex min-w-[8.3rem] items-center justify-center gap-2 rounded-full bg-gradient-to-r from-blue-700 via-blue-600 to-cyan-500 px-5 py-2.5 text-[13px] font-semibold text-white shadow-[0_12px_22px_rgba(37,99,235,0.32)] disabled:opacity-45"
               disabled={!stepValid || submitting || isStepSaving}
               onClick={goNext}
               type="button"
@@ -1292,7 +966,7 @@ export function QuestionsFlow({
             </button>
           ) : (
             <button
-              className="inline-flex min-w-[11.4rem] items-center justify-center gap-2 rounded-full bg-gradient-to-r from-blue-700 to-blue-500 px-5 py-2.5 text-[13px] font-semibold text-white shadow-[0_12px_22px_rgba(37,99,235,0.32)] disabled:opacity-45"
+              className="inline-flex min-w-[11.4rem] items-center justify-center gap-2 rounded-full bg-gradient-to-r from-emerald-600 to-blue-600 px-5 py-2.5 text-[13px] font-semibold text-white shadow-[0_12px_22px_rgba(5,150,105,0.32)] disabled:opacity-45"
               disabled={submitting}
               onClick={onSubmitToManager}
               type="button"
@@ -1305,27 +979,11 @@ export function QuestionsFlow({
       </nav>
 
       <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-        <div className="absolute -top-16 right-0 h-64 w-64 rounded-full bg-blue-100/40 blur-[84px]" />
-        <div className="absolute bottom-10 left-0 h-56 w-56 rounded-full bg-amber-100/30 blur-[90px]" />
+        <div className="absolute -top-14 right-0 h-64 w-64 rounded-full bg-cyan-100/45 blur-[90px]" />
+        <div className="absolute bottom-8 left-0 h-56 w-56 rounded-full bg-emerald-100/30 blur-[90px]" />
       </div>
 
-      <div className="sr-only" aria-live="polite">{isAutoSaving ? "Auto-saving draft" : "Draft saved"}</div>
-
-      <div className="hidden">
-        <ArrowLeft />
-        <ArrowRight />
-        <BatteryLow />
-        <Bolt />
-        <CheckCircle2 />
-        <Circle />
-        <CloudUpload />
-        <Eye />
-        <Flame />
-        <ListChecks />
-        <Sparkles />
-        <Target />
-        <Waves />
-      </div>
+      <div aria-live="polite" className="sr-only">{isAutoSaving ? "Auto-saving draft" : "Draft saved"}</div>
     </section>
   );
 }

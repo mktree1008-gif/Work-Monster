@@ -41,6 +41,9 @@ type DayPointStat = {
   events: number;
 };
 
+type ActivityLevel = "none" | "light" | "moderate" | "strong";
+type CalorieLevel = "far_above" | "slightly_above" | "close" | "on_target";
+
 function parseISODate(raw: string): Date {
   const [year, month, day] = raw.split("-").map((value) => Number(value));
   return new Date(Date.UTC(year, Math.max(0, month - 1), day || 1));
@@ -141,6 +144,122 @@ function compactLabel(label: string): string {
   const trimmed = label.trim();
   if (trimmed.length <= 44) return trimmed;
   return `${trimmed.slice(0, 41)}...`;
+}
+
+function normalizeAnswer(value: unknown): string {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+function normalizeActivityValue(raw: unknown): ActivityLevel | "" {
+  const value = normalizeAnswer(raw);
+  if (!value) return "";
+  if (
+    value === "none"
+    || value.includes("🛌")
+    || value.includes("none")
+    || value.includes("no activity")
+    || value.includes("없음")
+  ) return "none";
+  if (
+    value === "light"
+    || value.includes("🚶")
+    || value.includes("light")
+    || value.includes("walk")
+    || value.includes("가벼")
+  ) return "light";
+  if (
+    value === "moderate"
+    || value.includes("🏃")
+    || value.includes("moderate")
+    || value.includes("중간")
+  ) return "moderate";
+  if (
+    value === "strong"
+    || value.includes("💪")
+    || value.includes("strong")
+    || value.includes("high")
+    || value.includes("강")
+  ) return "strong";
+  return "";
+}
+
+function normalizeCalorieValue(raw: unknown): CalorieLevel | "" {
+  const value = normalizeAnswer(raw);
+  if (!value) return "";
+  if (
+    value === "far_above"
+    || value.includes("🍔")
+    || value.includes("far above")
+    || value.includes("much above")
+    || value.includes("많이")
+  ) return "far_above";
+  if (
+    value === "slightly_above"
+    || value.includes("🍕")
+    || value.includes("slightly above")
+    || value.includes("조금")
+  ) return "slightly_above";
+  if (
+    value === "close"
+    || value.includes("🥗")
+    || value.includes("close")
+    || value.includes("near")
+    || value.includes("근접")
+  ) return "close";
+  if (
+    value === "on_target"
+    || value.includes("🎯")
+    || value.includes("on target")
+    || value.includes("target")
+    || value.includes("목표")
+  ) return "on_target";
+  return "";
+}
+
+function normalizedTaskTokens(task: string): string[] {
+  const normalized = task
+    .toLowerCase()
+    .replace(/[^a-z0-9\u3131-\uD79D\s]/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!normalized) return [];
+
+  const stopWords = new Set([
+    "the",
+    "and",
+    "for",
+    "with",
+    "from",
+    "this",
+    "that",
+    "today",
+    "work",
+    "task",
+    "done",
+    "check",
+    "daily",
+    "plan",
+    "to",
+    "of",
+    "in",
+    "on",
+    "a",
+    "an",
+    "is",
+    "was",
+    "완료",
+    "진행",
+    "업무",
+    "작업",
+    "오늘",
+    "계획",
+    "정리"
+  ]);
+
+  return normalized
+    .split(" ")
+    .map((item) => item.trim())
+    .filter((item) => item.length >= 2 && !stopWords.has(item));
 }
 
 export function ManagerUserAnalytics({
@@ -393,6 +512,104 @@ export function ManagerUserAnalytics({
     }
   ];
 
+  const taskItems = submissions.flatMap((submission) =>
+    submission.task_list
+      .map((task) => task.trim())
+      .filter((task) => task.length > 0)
+  );
+  const taskDays = submissions.filter((submission) => submission.task_list.some((task) => task.trim().length > 0)).length;
+  const avgTasksPerCheckIn = taskDays > 0 ? Math.round((taskItems.length / taskDays) * 10) / 10 : 0;
+  const latestSubmission = submissions
+    .slice()
+    .sort((a, b) => (a.created_at > b.created_at ? -1 : 1))[0];
+  const latestTaskPreview = latestSubmission
+    ? latestSubmission.task_list.map((task) => task.trim()).filter(Boolean).slice(0, 5)
+    : [];
+
+  const taskKeywordMap = new Map<string, number>();
+  for (const task of taskItems) {
+    const tokens = normalizedTaskTokens(task);
+    const uniqueTokens = new Set(tokens);
+    for (const token of uniqueTokens) {
+      taskKeywordMap.set(token, (taskKeywordMap.get(token) ?? 0) + 1);
+    }
+  }
+  const taskKeywordRows = [...taskKeywordMap.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6);
+  const maxTaskKeywordCount = Math.max(1, ...taskKeywordRows.map((item) => item[1]));
+
+  const wellnessRows = submissions
+    .map((submission) => {
+      const q8 = normalizeActivityValue(submission.custom_answers.q8);
+      const q9 = normalizeCalorieValue(submission.custom_answers.q9);
+      return {
+        id: submission.id,
+        date: submission.date,
+        activity: q8,
+        calories: q9
+      };
+    })
+    .filter((item) => item.activity || item.calories)
+    .sort((a, b) => (a.date > b.date ? 1 : -1));
+
+  const activityLabel: Record<ActivityLevel, string> = {
+    none: "🛌 None",
+    light: "🚶 Light",
+    moderate: "🏃 Moderate",
+    strong: "💪 Strong"
+  };
+  const calorieLabel: Record<CalorieLevel, string> = {
+    far_above: "🍔 Far above",
+    slightly_above: "🍕 Slightly above",
+    close: "🥗 Close",
+    on_target: "🎯 On target"
+  };
+
+  const activityCounts: Record<ActivityLevel, number> = {
+    none: 0,
+    light: 0,
+    moderate: 0,
+    strong: 0
+  };
+  const calorieCounts: Record<CalorieLevel, number> = {
+    far_above: 0,
+    slightly_above: 0,
+    close: 0,
+    on_target: 0
+  };
+
+  for (const row of wellnessRows) {
+    if (row.activity) activityCounts[row.activity] += 1;
+    if (row.calories) calorieCounts[row.calories] += 1;
+  }
+
+  const activityAnswerDays = wellnessRows.filter((item) => item.activity).length;
+  const calorieAnswerDays = wellnessRows.filter((item) => item.calories).length;
+  const strongActivityDays = activityCounts.moderate + activityCounts.strong;
+  const calorieOnTrackDays = calorieCounts.close + calorieCounts.on_target;
+  const activityRate = activityAnswerDays > 0 ? Math.round((strongActivityDays / activityAnswerDays) * 100) : 0;
+  const calorieRate = calorieAnswerDays > 0 ? Math.round((calorieOnTrackDays / calorieAnswerDays) * 100) : 0;
+
+  const activityScore: Record<ActivityLevel, number> = {
+    none: 10,
+    light: 40,
+    moderate: 70,
+    strong: 100
+  };
+  const calorieScore: Record<CalorieLevel, number> = {
+    far_above: 10,
+    slightly_above: 35,
+    close: 75,
+    on_target: 100
+  };
+
+  const recentWellness = wellnessRows.slice(-7).map((row) => ({
+    date: row.date.slice(5),
+    activity: row.activity ? activityScore[row.activity] : 0,
+    calories: row.calories ? calorieScore[row.calories] : 0
+  }));
+
   return (
     <section className="card mb-4 p-4" id="user-analytics">
       <h2 className="text-xl font-black text-indigo-900">User History Analytics</h2>
@@ -464,6 +681,141 @@ export function ManagerUserAnalytics({
               <p className="text-xs text-slate-500">{averagePointsByPeriod} / {selectedRange}</p>
             </article>
           </div>
+
+          <article className="mt-3 rounded-2xl bg-gradient-to-br from-slate-900 via-indigo-900 to-blue-900 p-4 text-white">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-indigo-100">Manager Summary</p>
+                <h3 className="mt-1 text-lg font-black">Task / Calories / Workout Snapshot</h3>
+                <p className="mt-1 text-xs text-indigo-100/90">
+                  Built from each user check-in responses and task list submissions.
+                </p>
+              </div>
+              <span className="rounded-full bg-white/15 px-2 py-1 text-[11px] font-bold">
+                {wellnessRows.length > 0 ? `${wellnessRows.length} wellness logs` : "No wellness logs"}
+              </span>
+            </div>
+
+            <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
+              <article className="rounded-xl bg-white/10 p-3">
+                <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-indigo-100">Task list</p>
+                <p className="mt-1 text-2xl font-black">{taskItems.length}</p>
+                <p className="text-xs text-indigo-100/90">
+                  {taskDays} active days • avg {avgTasksPerCheckIn} tasks/check-in
+                </p>
+                {latestTaskPreview.length > 0 ? (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {latestTaskPreview.map((task, index) => (
+                      <span className="rounded-full bg-white/15 px-2 py-1 text-[10px] font-semibold" key={`${task}-${index}`}>
+                        {compactLabel(task)}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-xs text-indigo-100/80">No task list submitted yet.</p>
+                )}
+              </article>
+
+              <article className="rounded-xl bg-white/10 p-3">
+                <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-indigo-100">Calorie goal trend</p>
+                <p className="mt-1 text-2xl font-black">{calorieRate}%</p>
+                <p className="text-xs text-indigo-100/90">Close / On target ratio</p>
+                <div className="mt-2 space-y-1">
+                  {(Object.keys(calorieCounts) as CalorieLevel[]).map((key) => {
+                    const count = calorieCounts[key];
+                    const width = calorieAnswerDays > 0 ? Math.round((count / calorieAnswerDays) * 100) : 0;
+                    return (
+                      <div key={key}>
+                        <div className="flex items-center justify-between text-[10px] text-indigo-100/90">
+                          <span>{calorieLabel[key]}</span>
+                          <span>{count}</span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-white/15">
+                          <div className="h-1.5 rounded-full bg-emerald-300" style={{ width: `${width}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </article>
+
+              <article className="rounded-xl bg-white/10 p-3">
+                <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-indigo-100">Workout activity</p>
+                <p className="mt-1 text-2xl font-black">{activityRate}%</p>
+                <p className="text-xs text-indigo-100/90">Moderate / Strong ratio</p>
+                <div className="mt-2 space-y-1">
+                  {(Object.keys(activityCounts) as ActivityLevel[]).map((key) => {
+                    const count = activityCounts[key];
+                    const width = activityAnswerDays > 0 ? Math.round((count / activityAnswerDays) * 100) : 0;
+                    return (
+                      <div key={key}>
+                        <div className="flex items-center justify-between text-[10px] text-indigo-100/90">
+                          <span>{activityLabel[key]}</span>
+                          <span>{count}</span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-white/15">
+                          <div className="h-1.5 rounded-full bg-cyan-300" style={{ width: `${width}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </article>
+            </div>
+
+            <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2">
+              <article className="rounded-xl bg-white/10 p-3">
+                <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-indigo-100">Top task keywords</p>
+                {taskKeywordRows.length > 0 ? (
+                  <div className="mt-2 space-y-1.5">
+                    {taskKeywordRows.map(([keyword, count]) => (
+                      <div key={keyword}>
+                        <div className="flex items-center justify-between text-[10px] text-indigo-100/90">
+                          <span>{compactLabel(keyword)}</span>
+                          <span>{count}</span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-white/15">
+                          <div
+                            className="h-1.5 rounded-full bg-indigo-200"
+                            style={{ width: `${Math.round((count / maxTaskKeywordCount) * 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-xs text-indigo-100/80">Not enough task text to build keyword summary.</p>
+                )}
+              </article>
+
+              <article className="rounded-xl bg-white/10 p-3">
+                <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-indigo-100">Wellness trend (last 7 check-ins)</p>
+                {recentWellness.length > 0 ? (
+                  <>
+                    <div className="mt-1 flex items-center gap-2 text-[10px] text-indigo-100/90">
+                      <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-cyan-300" />Activity</span>
+                      <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-300" />Calorie</span>
+                    </div>
+                    <div className="mt-2 flex items-end gap-2">
+                      {recentWellness.map((item) => (
+                        <div className="flex flex-1 flex-col items-center" key={item.date}>
+                          <div className="flex h-20 w-full items-end gap-1">
+                            <div className="w-1/2 rounded-t bg-cyan-300" style={{ height: `${Math.max(4, item.activity)}%` }} />
+                            <div className="w-1/2 rounded-t bg-emerald-300" style={{ height: `${Math.max(4, item.calories)}%` }} />
+                          </div>
+                          <span className="mt-1 text-[10px] text-indigo-100/90">{item.date}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                ) : (
+                  <p className="mt-2 text-xs text-indigo-100/80">
+                    No Q8/Q9 wellness answers yet. Once users submit check-ins, chart will appear.
+                  </p>
+                )}
+              </article>
+            </div>
+          </article>
 
           <article className="mt-3 rounded-2xl bg-slate-50 p-3">
             <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
