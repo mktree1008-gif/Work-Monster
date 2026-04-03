@@ -125,18 +125,18 @@ function mapQ5ToLegacyRating(value: string): "poor" | "average" | "strong" | "pe
 
 function buildCoachInsight(draft: DailyCheckInDraft, totalScore: number): string {
   if (totalScore >= 85) {
-    return "Strong momentum today. Keep the same execution structure and protect your focus windows tomorrow.";
+    return "Your self-rating and reflection show strong momentum today. Keep this rhythm with one realistic priority tomorrow.";
   }
   if (totalScore >= 65) {
-    return "Good baseline. Tighten one blocker and your score can move up quickly.";
+    return "This score reflects meaningful progress. Your self-rating anchored the result, with structure and wellness adding support.";
   }
   if (draft.q6.includes("distractions")) {
-    return "Distractions were the biggest drag. Plan one strict no-notification block tomorrow.";
+    return "Distractions made the day harder. A short no-notification focus block tomorrow can make a noticeable difference.";
   }
   if (draft.q6.includes("stress_mood")) {
-    return "Stress impacted execution. Keep tomorrow's plan lighter and more concrete.";
+    return "Stress affected execution today. Try a lighter plan tomorrow and define just one must-do task.";
   }
-  return "Use this report to choose one small behavior to improve tomorrow.";
+  return "Today's score prioritizes your own reflection. Use it to choose one small, kind reset for tomorrow.";
 }
 
 function normalizeInitialDraft(initialSubmission?: Submission | null): DailyCheckInDraft {

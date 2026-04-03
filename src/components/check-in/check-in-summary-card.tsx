@@ -29,14 +29,16 @@ export function CheckInSummaryCard({
             {animatedScore}
             <span className="text-2xl text-blue-300">/100</span>
           </p>
-          <p className="mt-1 text-xs font-semibold text-slate-500">Auto-calculated daily score</p>
+          <p className="mt-1 text-xs font-bold text-blue-700">{score.label}</p>
+          <p className="mt-1 text-xs font-semibold text-slate-500">Your self-rating has the strongest impact on today&apos;s score.</p>
         </div>
         <div className="rounded-xl bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-700">
-          <p>Plan: {score.planExecution}/40</p>
-          <p>Productivity: {score.productivity}/25</p>
-          <p>Wellness: {score.wellness}/20</p>
-          <p>Penalty: -{score.blockerPenalty}</p>
-          <p>Adjustment: {score.selfAdjustment >= 0 ? `+${score.selfAdjustment}` : score.selfAdjustment}</p>
+          <p>Self rating: {score.selfScore}/45</p>
+          <p>Plan / execution: {score.planExecution}/20</p>
+          <p>Productivity / focus: {score.productivity}/15</p>
+          <p>Wellness: {score.wellness}/10</p>
+          <p>Reflection: {score.reflection}/5</p>
+          <p>Blocker penalty: -{score.blockerPenalty}</p>
         </div>
       </div>
 
