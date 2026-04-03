@@ -11,6 +11,7 @@ import { ManagerUserAnalytics } from "@/components/manager-user-analytics";
 import { NotificationBell } from "@/components/notification-bell";
 import { DateInputPicker } from "@/components/date-input-picker";
 import { SubmissionReviewForm } from "@/components/submission-review-form";
+import { findOptionLabel } from "@/lib/check-in-model";
 import { getGameRepository } from "@/lib/repositories/game-repository";
 import { getSession } from "@/lib/session";
 import {
@@ -75,6 +76,18 @@ function missionDaysLeft(dueDate: string): number | null {
   const dueUTC = new Date(`${dueDate}T00:00:00.000Z`).getTime();
   if (!Number.isFinite(todayUTC) || !Number.isFinite(dueUTC)) return null;
   return Math.round((dueUTC - todayUTC) / 86_400_000);
+}
+
+function parseTokenList(value: string | undefined): string[] {
+  if (!value) return [];
+  return value
+    .split(/[\n,;]/g)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function dedupe(values: string[]): string[] {
+  return [...new Set(values.map((item) => item.trim()).filter(Boolean))];
 }
 
 export default async function ManagerPage({ searchParams }: Props) {
@@ -610,6 +623,66 @@ export default async function ManagerPage({ searchParams }: Props) {
                 ? data.rules.productive_points
                 : data.rules.non_productive_penalty;
               const taskCount = submission.task_list.length;
+              const answers = submission.custom_answers ?? {};
+              const answer = (key: string) => String(answers[key] ?? "").trim();
+              const q1Label = findOptionLabel("q1", answer("q1")) || answer("q1") || "-";
+              const q2Label = findOptionLabel("q2", answer("q2")) || answer("q2") || "-";
+              const q3Label = findOptionLabel("q3", answer("q3")) || answer("q3") || "-";
+              const q4Label = findOptionLabel("q4", answer("q4")) || answer("q4") || "-";
+              const q5Label = findOptionLabel("q5", answer("q5")) || answer("q5") || submission.mood || "-";
+              const q7Label = findOptionLabel("q7", answer("q7")) || answer("q7") || "-";
+              const q8Label = findOptionLabel("q8", answer("q8")) || answer("q8") || "-";
+              const q9Label = findOptionLabel("q9", answer("q9")) || answer("q9") || "-";
+              const rawBlockers = dedupe([
+                ...parseTokenList(answer("q6")),
+                ...parseTokenList(answer("blocker")),
+                ...parseTokenList(submission.primary_productivity_factor ?? "")
+              ]);
+              const blockerLabels = rawBlockers
+                .map((value) => findOptionLabel("q6", value) || value)
+                .filter((item) => item.trim().length > 0);
+              const blockerMain = blockerLabels.length > 0 ? blockerLabels.join(", ") : "-";
+              const blockerOther = answer("blocker_other") || (submission.primary_productivity_factor_note ?? "").trim();
+              const quickTag = answer("quick_tag") || "-";
+              const managerQuick = answer("manager_quick_message") || (submission.tomorrow_improvement_focus ?? "").trim() || "-";
+              const workNote = answer("work_note") || (submission.completed_work_summary ?? "").trim() || answer("win");
+              const managerMessage = answer("manager_message") || (submission.tomorrow_improvement_note ?? "").trim();
+              const selfScoreRaw = Number(answer("q10"));
+              const selfScore = Number.isFinite(selfScoreRaw)
+                ? Math.max(1, Math.min(10, Math.round(selfScoreRaw)))
+                : null;
+              const selfScoreBand = selfScore === null
+                ? "No self-rating"
+                : selfScore >= 9
+                  ? "Excellent confidence"
+                  : selfScore >= 7
+                    ? "Solid day"
+                    : selfScore >= 5
+                      ? "Mixed but meaningful"
+                      : "Recovery needed";
+              const selfScoreToneClass = selfScore === null
+                ? "bg-slate-100 text-slate-700"
+                : selfScore >= 8
+                  ? "bg-emerald-100 text-emerald-700"
+                  : selfScore >= 6
+                    ? "bg-blue-100 text-blue-700"
+                    : selfScore >= 4
+                      ? "bg-amber-100 text-amber-700"
+                      : "bg-rose-100 text-rose-700";
+              const previewRaw = Number(submission.performance_score_preview);
+              const checkInPreviewScore = Number.isFinite(previewRaw)
+                ? Math.max(0, Math.min(100, Math.round(previewRaw)))
+                : null;
+              const evidenceFiles = dedupe([
+                ...(submission.evidence_files ?? []),
+                ...parseTokenList(answer("evidence_files"))
+              ]);
+              const evidenceLinks = dedupe([
+                ...(submission.evidence_links ?? []),
+                ...parseTokenList(answer("evidence_links")),
+                ...parseTokenList(submission.file_url ?? "")
+              ]);
+              const attachmentCount = evidenceFiles.length + evidenceLinks.length;
               return (
                 <article
                   className={`rounded-3xl border border-slate-200 bg-white p-4 shadow-sm ${isFocused ? "ring-2 ring-indigo-400" : ""}`}
@@ -634,24 +707,40 @@ export default async function ManagerPage({ searchParams }: Props) {
                     </div>
                   </div>
 
+                  <div className="mt-3 rounded-2xl bg-gradient-to-br from-indigo-600 via-indigo-500 to-cyan-500 p-4 text-white shadow-[0_16px_34px_rgba(79,70,229,0.35)]">
+                    <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-indigo-100">Main review signal</p>
+                    <div className="mt-1 flex items-end justify-between gap-3">
+                      <p className="text-4xl font-black leading-none tabular-nums">
+                        {selfScore ?? "-"}
+                        <span className="ml-1 text-xl text-indigo-100">/10</span>
+                      </p>
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${selfScoreToneClass}`}>
+                        {selfScoreBand}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-xs font-medium text-indigo-100">
+                      User self-rating should be the primary anchor for manager point adjustments.
+                    </p>
+                  </div>
+
                   <div className="mt-3 grid grid-cols-2 gap-2">
-                    <div className="rounded-xl bg-slate-50 p-2">
+                    <div className="rounded-xl bg-slate-50 p-2 ring-1 ring-slate-200">
                       <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">Date</p>
                       <p className="text-sm font-semibold text-slate-800">{submission.date}</p>
                     </div>
-                    <div className="rounded-xl bg-slate-50 p-2">
+                    <div className="rounded-xl bg-slate-50 p-2 ring-1 ring-slate-200">
                       <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">Suggested score</p>
                       <p className={`text-sm font-semibold ${suggestedPoints < 0 ? "text-rose-700" : "text-indigo-900"}`}>
                         {suggestedPoints > 0 ? `+${suggestedPoints}` : suggestedPoints} pts
                       </p>
                     </div>
-                    <div className="rounded-xl bg-slate-50 p-2">
-                      <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">Mood / Feeling</p>
+                    <div className="rounded-xl bg-slate-50 p-2 ring-1 ring-slate-200">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">Preview score</p>
                       <p className="text-sm font-semibold text-slate-800">
-                        {submission.mood} / {submission.feeling || "-"}
+                        {checkInPreviewScore ?? 0}/100
                       </p>
                     </div>
-                    <div className="rounded-xl bg-slate-50 p-2">
+                    <div className="rounded-xl bg-slate-50 p-2 ring-1 ring-slate-200">
                       <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">Productive / Calories</p>
                       <p className="text-sm font-semibold text-slate-800">
                         {submission.productive ? "Yes" : "No"} / {submission.calories}
@@ -660,16 +749,40 @@ export default async function ManagerPage({ searchParams }: Props) {
                   </div>
 
                   <div className="mt-3 space-y-2">
-                    <div className="rounded-xl bg-slate-50 p-3">
-                      <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">Check-in answers</p>
+                    <div className="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">Daily check-in answers</p>
                       <div className="mt-1 grid gap-1 text-sm text-slate-700">
-                        <p><span className="font-semibold text-slate-900">Focus:</span> {submission.custom_answers.focus || "-"}</p>
-                        <p><span className="font-semibold text-slate-900">Blocker:</span> {submission.custom_answers.blocker || "-"}</p>
-                        <p><span className="font-semibold text-slate-900">Win:</span> {submission.custom_answers.win || "-"}</p>
+                        <p><span className="font-semibold text-slate-900">Plan completion (Q1):</span> {q1Label}</p>
+                        <p><span className="font-semibold text-slate-900">Main task (Q2):</span> {q2Label}</p>
+                        <p><span className="font-semibold text-slate-900">Plan flow (Q3):</span> {q3Label}</p>
+                        <p><span className="font-semibold text-slate-900">Focus (Q4):</span> {q4Label}</p>
+                        <p><span className="font-semibold text-slate-900">Productivity (Q5):</span> {q5Label}</p>
+                        <p><span className="font-semibold text-slate-900">Blocker (Q6):</span> {blockerMain}</p>
+                        {blockerOther && <p><span className="font-semibold text-slate-900">Blocker note:</span> {blockerOther}</p>}
+                        <p><span className="font-semibold text-slate-900">Sleep (Q7):</span> {q7Label}</p>
+                        <p><span className="font-semibold text-slate-900">Activity (Q8):</span> {q8Label}</p>
+                        <p><span className="font-semibold text-slate-900">Calorie control (Q9):</span> {q9Label}</p>
+                        <p><span className="font-semibold text-slate-900">Mood / Feeling:</span> {submission.mood} / {submission.feeling || "-"}</p>
+                        <p><span className="font-semibold text-slate-900">Quick tag:</span> {quickTag}</p>
+                        <p><span className="font-semibold text-slate-900">Quick manager msg:</span> {managerQuick}</p>
                       </div>
                     </div>
 
-                    <div className="rounded-xl bg-slate-50 p-3">
+                    <div className="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
+                      <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">Left messages from user</p>
+                      <div className="mt-2 space-y-2">
+                        <div className="rounded-lg bg-white p-2">
+                          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">What did you work on today?</p>
+                          <p className="mt-1 text-sm text-slate-700 whitespace-pre-wrap">{workNote || "-"}</p>
+                        </div>
+                        <div className="rounded-lg bg-white p-2">
+                          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">Message to manager</p>
+                          <p className="mt-1 text-sm text-slate-700 whitespace-pre-wrap">{managerMessage || "-"}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
                       <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">Task list ({taskCount})</p>
                       {taskCount > 0 ? (
                         <ul className="mt-1 flex flex-wrap gap-1">
@@ -684,22 +797,55 @@ export default async function ManagerPage({ searchParams }: Props) {
                       )}
                     </div>
 
-                    <div className="rounded-xl bg-slate-50 p-3">
-                      <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">Attachment</p>
-                      {submission.file_url ? (
-                        <a className="mt-1 inline-flex rounded-lg bg-indigo-100 px-2 py-1 text-sm font-semibold text-indigo-700" href={submission.file_url} rel="noreferrer" target="_blank">
-                          Open attachment
-                        </a>
-                      ) : (
-                        <p className="mt-1 text-sm text-slate-600">No attachment uploaded.</p>
-                      )}
+                    <div className="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">Attachments</p>
+                        <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[11px] font-bold text-indigo-700">
+                          {attachmentCount} item(s)
+                        </span>
+                      </div>
+                      <div className="mt-2 grid gap-2">
+                        <div className="rounded-lg bg-white p-2">
+                          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">Files / images</p>
+                          {evidenceFiles.length > 0 ? (
+                            <ul className="mt-1 flex flex-wrap gap-1">
+                              {evidenceFiles.map((name, idx) => (
+                                <li className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-700 ring-1 ring-slate-200" key={`${submission.id}-file-${idx}`}>
+                                  {name}
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="mt-1 text-sm text-slate-600">No file/image attachment.</p>
+                          )}
+                        </div>
+                        <div className="rounded-lg bg-white p-2">
+                          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">Links</p>
+                          {evidenceLinks.length > 0 ? (
+                            <ul className="mt-1 space-y-1">
+                              {evidenceLinks.map((url, idx) => (
+                                <li key={`${submission.id}-link-${idx}`}>
+                                  <a className="text-sm font-semibold text-indigo-700 underline decoration-indigo-300 underline-offset-2" href={url} rel="noreferrer" target="_blank">
+                                    {url}
+                                  </a>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            <p className="mt-1 text-sm text-slate-600">No link attachment.</p>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
 
                   <SubmissionReviewForm
+                    attachmentCount={attachmentCount}
+                    checkInPreviewScore={checkInPreviewScore}
                     defaultPoints={suggestedPoints}
                     mood={submission.mood}
                     productive={submission.productive}
+                    selfScore={selfScore}
                     submissionId={submission.id}
                     taskSummary={submission.task_list.join(", ")}
                   />
