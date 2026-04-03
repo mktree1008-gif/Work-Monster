@@ -87,9 +87,9 @@ export const DAILY_CHECKIN_QUESTIONS: CheckInQuestion[] = [
     description: "Single tap to answer",
     type: "choice",
     options: [
-      { value: "yes", emoji: "✅", label: "Yes" },
-      { value: "partly", emoji: "⚡", label: "Partly" },
       { value: "no", emoji: "❌", label: "No" },
+      { value: "partly", emoji: "⚡", label: "Partly" },
+      { value: "yes", emoji: "✅", label: "Yes" },
       { value: "no_main_task", emoji: "➖", label: "No main task" }
     ]
   },
