@@ -2,11 +2,12 @@ import type { DailyCheckInDraft } from "@/lib/check-in-model";
 
 export type CheckInScoreBreakdown = {
   total: number;
-  selfScore: number;
-  planExecution: number;
-  productivity: number;
-  wellness: number;
-  reflection: number;
+  baseScore: number;
+  calculatedScore: number;
+  planAdjustment: number;
+  productivityAdjustment: number;
+  wellnessAdjustment: number;
+  reflectionBonus: number;
   blockerPenalty: number;
   label: "Excellent day" | "Strong day" | "Meaningful progress" | "Tough but honest day" | "Reset and recover";
 };
@@ -68,10 +69,10 @@ const WELLNESS_Q9_SCORE: Record<string, number> = {
 };
 
 const BLOCKER_PENALTY: Record<string, number> = {
-  low_energy: 1.4,
-  too_many_tasks: 2.4,
-  distractions: 3.4,
-  stress_mood: 4.2
+  low_energy: 0.6,
+  too_many_tasks: 1.1,
+  distractions: 1.6,
+  stress_mood: 2
 };
 
 function toWeight(value: string, table: Record<string, number>): number {
@@ -82,10 +83,23 @@ function round(value: number): number {
   return Math.round(value);
 }
 
+function roundOne(value: number): number {
+  return Math.round(value * 10) / 10;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
 function normalizeSelfScore(sliderValue: number): number {
   const safe = Number.isFinite(sliderValue) ? sliderValue : 5;
   const clamped = Math.max(1, Math.min(10, safe));
-  return ((clamped - 1) / 9) * 100;
+  return clamped * 10;
+}
+
+function adjustmentFromAverage(average: number, min: number, max: number): number {
+  const safe = clamp(average, 0, 1);
+  return roundOne(min + safe * (max - min));
 }
 
 function reflectionCompleteness(draft: DailyCheckInDraft): number {
@@ -126,30 +140,29 @@ export function calculateCheckInScore(draft: DailyCheckInDraft): CheckInScoreBre
     + toWeight(draft.q9, WELLNESS_Q9_SCORE)
   ) / 3;
 
-  const selfScoreNormalized = normalizeSelfScore(draft.q10);
-  const reflectionNormalized = (reflectionCompleteness(draft) / 5) * 100;
-
-  const selfScore = round(selfScoreNormalized * 0.45);
-  const planExecution = round(planAverage * 100 * 0.2);
-  const productivity = round(productivityAverage * 100 * 0.15);
-  const wellness = round(wellnessAverage * 100 * 0.1);
-  const reflection = round(reflectionNormalized * 0.05);
+  const baseScore = round(normalizeSelfScore(draft.q10));
+  const planAdjustment = adjustmentFromAverage(planAverage, -2, 4);
+  const productivityAdjustment = adjustmentFromAverage(productivityAverage, -2, 4);
+  const wellnessAdjustment = adjustmentFromAverage(wellnessAverage, -1, 3);
+  const reflectionBonus = roundOne((reflectionCompleteness(draft) / 5) * 3);
 
   const blockerPenaltyBase = draft.q6.length > 0
     ? Math.max(...draft.q6.map((item) => BLOCKER_PENALTY[item] ?? 0))
     : 0;
-  const blockerPenalty = Math.round(Math.min(5, Math.max(0, blockerPenaltyBase)) * 10) / 10;
+  const blockerPenalty = roundOne(clamp(blockerPenaltyBase, 0, 2));
 
-  const rawTotal = selfScore + planExecution + productivity + wellness + reflection - blockerPenalty;
-  const total = Math.max(0, Math.min(100, round(rawTotal)));
+  const rawCalculated = baseScore + planAdjustment + productivityAdjustment + wellnessAdjustment + reflectionBonus - blockerPenalty;
+  const calculatedScore = clamp(round(rawCalculated), 0, 100);
+  const total = clamp(Math.max(baseScore, calculatedScore), 0, 100);
 
   return {
     total,
-    selfScore,
-    planExecution,
-    productivity,
-    wellness,
-    reflection,
+    baseScore,
+    calculatedScore,
+    planAdjustment,
+    productivityAdjustment,
+    wellnessAdjustment,
+    reflectionBonus,
     blockerPenalty,
     label: getCheckInScoreLabel(total)
   };

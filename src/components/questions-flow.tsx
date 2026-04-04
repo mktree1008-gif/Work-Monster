@@ -126,18 +126,18 @@ function mapQ5ToLegacyRating(value: string): "poor" | "average" | "strong" | "pe
 
 function buildCoachInsight(draft: DailyCheckInDraft, totalScore: number): string {
   if (totalScore >= 85) {
-    return "Your self-rating and reflection show strong momentum today. Keep this rhythm with one realistic priority tomorrow.";
+    return "Your self-rating set a strong baseline today, and your reflection lifted it further. Keep tomorrow focused on one meaningful priority.";
   }
   if (totalScore >= 65) {
-    return "This score reflects meaningful progress. Your self-rating anchored the result, with structure and wellness adding support.";
+    return "This score reflects meaningful progress. Your self-rating set the baseline, while structure and wellness made gentle adjustments.";
   }
   if (draft.q6.includes("distractions")) {
-    return "Distractions made the day harder. A short no-notification focus block tomorrow can make a noticeable difference.";
+    return "Distractions made today heavier, but your self-rating still anchors your result. A short no-notification focus block tomorrow can help.";
   }
   if (draft.q6.includes("stress_mood")) {
-    return "Stress affected execution today. Try a lighter plan tomorrow and define just one must-do task.";
+    return "Stress affected execution today. Your self-rating remains the baseline, so try a lighter plan and one must-do task tomorrow.";
   }
-  return "Today's score prioritizes your own reflection. Use it to choose one small, kind reset for tomorrow.";
+  return "Your self-rating sets today's baseline. Use this check-in to choose one small, kind reset for tomorrow.";
 }
 
 function normalizeInitialDraft(initialSubmission?: Submission | null): DailyCheckInDraft {
@@ -369,8 +369,11 @@ export function QuestionsFlow({
       return;
     }
 
-    setAnimatedScore(0);
-    let current = 0;
+    setAnimatedScore(score.baseScore);
+    if (score.total <= score.baseScore) {
+      return;
+    }
+    let current = score.baseScore;
     const timer = window.setInterval(() => {
       current += Math.max(1, Math.ceil((score.total - current) / 6));
       if (current >= score.total) {
@@ -381,7 +384,7 @@ export function QuestionsFlow({
     }, 28);
 
     return () => window.clearInterval(timer);
-  }, [currentStep, score.total]);
+  }, [currentStep, score.baseScore, score.total]);
 
   const persist = useCallback(async (mode: "draft" | "submit"): Promise<ApiResponse | null> => {
     if (!canEdit) return null;
