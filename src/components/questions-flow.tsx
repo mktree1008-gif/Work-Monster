@@ -58,6 +58,9 @@ const TOTAL_QUESTIONS = DAILY_CHECKIN_QUESTIONS.length;
 const FINAL_STEP_INDEX = TOTAL_QUESTIONS;
 const TOTAL_STEPS = TOTAL_QUESTIONS + 1;
 const STORAGE_PREFIX = "wm-checkin-v2-draft";
+const MAX_UPLOAD_REQUEST_BYTES = 4 * 1024 * 1024; // keeps uploads stable across mobile/serverless limits
+const TARGET_IMAGE_UPLOAD_BYTES = Math.floor(3.5 * 1024 * 1024);
+const MAX_IMAGE_DIMENSION = 1800;
 
 function parseStringList(value: unknown): string[] {
   if (Array.isArray(value)) {
@@ -74,6 +77,85 @@ function parseStringList(value: unknown): string[] {
 
 function dedupe(values: string[]): string[] {
   return [...new Set(values.map((item) => item.trim()).filter(Boolean))];
+}
+
+function toJpgName(fileName: string): string {
+  const base = fileName.replace(/\.[^.]+$/, "").trim() || "attachment";
+  return `${base}.jpg`;
+}
+
+function readUploadError(status: number, fallbackMessage: string): string {
+  if (status === 401) return "Session expired. Please log in again.";
+  if (status === 403) return "This account cannot upload check-in files.";
+  if (status === 413) return "File is too large. Keep each upload under 4MB.";
+  return fallbackMessage;
+}
+
+function loadImageElement(file: File): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file);
+    const image = new Image();
+    image.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(image);
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("Image decode failed"));
+    };
+    image.src = objectUrl;
+  });
+}
+
+function canvasToBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob | null> {
+  return new Promise((resolve) => {
+    canvas.toBlob(
+      (blob) => resolve(blob),
+      "image/jpeg",
+      quality
+    );
+  });
+}
+
+async function optimizeImageForUpload(file: File): Promise<File> {
+  const lowerType = file.type.toLowerCase();
+  const shouldOptimize = file.size > TARGET_IMAGE_UPLOAD_BYTES || lowerType.includes("heic") || lowerType.includes("heif");
+  if (!shouldOptimize) return file;
+
+  try {
+    const image = await loadImageElement(file);
+    const scale = Math.min(1, MAX_IMAGE_DIMENSION / Math.max(image.width, image.height));
+    const targetWidth = Math.max(1, Math.round(image.width * scale));
+    const targetHeight = Math.max(1, Math.round(image.height * scale));
+
+    const canvas = document.createElement("canvas");
+    canvas.width = targetWidth;
+    canvas.height = targetHeight;
+
+    const context = canvas.getContext("2d");
+    if (!context) return file;
+    context.drawImage(image, 0, 0, targetWidth, targetHeight);
+
+    const qualitySteps = [0.9, 0.82, 0.74, 0.66, 0.58];
+    let bestBlob: Blob | null = null;
+
+    for (const quality of qualitySteps) {
+      const blob = await canvasToBlob(canvas, quality);
+      if (!blob) continue;
+      bestBlob = blob;
+      if (blob.size <= TARGET_IMAGE_UPLOAD_BYTES) break;
+    }
+
+    if (!bestBlob) return file;
+    if (bestBlob.size >= file.size && file.size <= MAX_UPLOAD_REQUEST_BYTES) return file;
+
+    return new File([bestBlob], toJpgName(file.name), {
+      type: "image/jpeg",
+      lastModified: file.lastModified
+    });
+  } catch {
+    return file;
+  }
 }
 
 function isEditableStatus(status: SubmissionStatus | ""): boolean {
@@ -557,17 +639,27 @@ export function QuestionsFlow({
     try {
       const uploadedTokens: string[] = [];
       for (const file of accepted) {
+        const uploadFile = source === "image" ? await optimizeImageForUpload(file) : file;
+        if (uploadFile.size > MAX_UPLOAD_REQUEST_BYTES) {
+          throw new Error("File is too large. Keep each upload under 4MB.");
+        }
+
         const body = new FormData();
-        body.append("file", file);
+        body.append("file", uploadFile, uploadFile.name);
         body.append("source", source);
 
         const response = await fetch("/api/uploads/check-in", {
           method: "POST",
           body
         });
-        const result = (await response.json()) as UploadAttachmentResponse;
+        let result: UploadAttachmentResponse = {};
+        try {
+          result = (await response.json()) as UploadAttachmentResponse;
+        } catch {
+          result = {};
+        }
         if (!response.ok || !result.attachment?.token) {
-          throw new Error(result.error ?? "Failed to upload attachment.");
+          throw new Error(result.error ?? readUploadError(response.status, "Failed to upload attachment."));
         }
         uploadedTokens.push(result.attachment.token);
       }
@@ -731,7 +823,7 @@ export function QuestionsFlow({
   }
 
   return (
-    <section className="relative -mx-4 min-h-[calc(100dvh-6.4rem)] bg-gradient-to-b from-slate-100 via-slate-50 to-slate-100 px-4 pb-[calc(5.4rem+var(--safe-bottom))] pt-1 sm:mx-0 sm:rounded-[2rem] sm:px-6">
+    <section className="relative -mx-4 min-h-[calc(100vh-6.4rem)] min-h-[calc(100svh-6.4rem)] min-h-[calc(100dvh-6.4rem)] bg-gradient-to-b from-slate-100 via-slate-50 to-slate-100 px-4 pb-[calc(5.4rem+var(--safe-bottom))] pt-1 sm:mx-0 sm:rounded-[2rem] sm:px-6">
       <header className="sticky top-0 z-20 -mx-4 border-b border-white/60 bg-white/85 px-4 pb-2 pt-1 backdrop-blur sm:mx-0 sm:-mt-2 sm:rounded-t-[2rem] sm:px-0">
         <div className="flex items-center justify-between gap-2">
           <Link className="rounded-full p-2 text-blue-700 hover:bg-blue-50" href="/app/welcome">
@@ -922,7 +1014,7 @@ export function QuestionsFlow({
 
           <article className="mt-3 rounded-2xl bg-white p-4 ring-1 ring-black/[0.05]">
             <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Attachments</p>
-            <p className="mt-1 text-xs text-slate-500">Upload files/images up to 100MB each.</p>
+            <p className="mt-1 text-xs text-slate-500">Keep each file under 4MB for mobile stability. Images are auto-optimized.</p>
             <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
               <label className="flex cursor-pointer items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700">
                 <span className="inline-flex items-center gap-2"><CloudUpload size={14} /> Add image</span>

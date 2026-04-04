@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { LockKeyhole, Mail } from "lucide-react";
+import { LockKeyhole, Mail, Sparkles } from "lucide-react";
 import { AnimatedCelebrationPopup } from "@/components/animated-celebration-popup";
 import { GoogleLoginButton } from "@/components/google-login-button";
 import { ChibiAvatar } from "@/components/chibi-avatar";
@@ -20,6 +20,7 @@ export function LoginForm({ initialRole = "user", initialLocale = "en" }: Props)
   const [loginId, setLoginId] = useState("");
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
+  const [quickLoginPending, setQuickLoginPending] = useState(false);
   const [redirectTo, setRedirectTo] = useState<string | null>(null);
   const [showWelcome, setShowWelcome] = useState(false);
   const [loginBonusPoints, setLoginBonusPoints] = useState(0);
@@ -41,6 +42,17 @@ export function LoginForm({ initialRole = "user", initialLocale = "en" }: Props)
     failed: "Login failed."
   };
 
+  function applyAuthResult(payload: { redirectTo: string; loginPointsAwarded?: boolean; loginPoints?: number }) {
+    const loginPoints =
+      typeof payload.loginPoints === "number" && Number.isFinite(payload.loginPoints)
+        ? payload.loginPoints
+        : 0;
+    setRedirectTo(payload.redirectTo);
+    setLoginBonusAwarded(Boolean(payload.loginPointsAwarded));
+    setLoginBonusPoints(loginPoints);
+    setShowWelcome(true);
+  }
+
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setPending(true);
@@ -58,19 +70,8 @@ export function LoginForm({ initialRole = "user", initialLocale = "en" }: Props)
         throw new Error(payload.error ?? copy.failed);
       }
 
-      const payload = (await response.json()) as {
-        redirectTo: string;
-        loginPointsAwarded?: boolean;
-        loginPoints?: number;
-      };
-      const loginPoints =
-        typeof payload.loginPoints === "number" && Number.isFinite(payload.loginPoints)
-          ? payload.loginPoints
-          : 0;
-      setRedirectTo(payload.redirectTo);
-      setLoginBonusAwarded(Boolean(payload.loginPointsAwarded));
-      setLoginBonusPoints(loginPoints);
-      setShowWelcome(true);
+      const payload = (await response.json()) as { redirectTo: string; loginPointsAwarded?: boolean; loginPoints?: number };
+      applyAuthResult(payload);
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : copy.failed;
       setError(message);
@@ -79,6 +80,41 @@ export function LoginForm({ initialRole = "user", initialLocale = "en" }: Props)
       }
     } finally {
       setPending(false);
+    }
+  }
+
+  async function onQuickLoginAshton() {
+    setQuickLoginPending(true);
+    setError("");
+
+    try {
+      const response = await fetch("/api/auth/login/ashton", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ locale })
+      });
+
+      let payload: { redirectTo?: string; loginPointsAwarded?: boolean; loginPoints?: number; error?: string } = {};
+      try {
+        payload = (await response.json()) as typeof payload;
+      } catch {
+        payload = {};
+      }
+
+      if (!response.ok || !payload.redirectTo) {
+        throw new Error(payload.error ?? "Ashton quick login failed.");
+      }
+
+      applyAuthResult({
+        redirectTo: payload.redirectTo,
+        loginPointsAwarded: payload.loginPointsAwarded,
+        loginPoints: payload.loginPoints
+      });
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : "Ashton quick login failed.";
+      setError(message);
+    } finally {
+      setQuickLoginPending(false);
     }
   }
 
@@ -94,14 +130,7 @@ export function LoginForm({ initialRole = "user", initialLocale = "en" }: Props)
   }
 
   function onAuthSuccess(result: { redirectTo: string; loginPointsAwarded?: boolean; loginPoints?: number }) {
-    const loginPoints =
-      typeof result.loginPoints === "number" && Number.isFinite(result.loginPoints)
-        ? result.loginPoints
-        : 0;
-    setRedirectTo(result.redirectTo);
-    setLoginBonusAwarded(Boolean(result.loginPointsAwarded));
-    setLoginBonusPoints(loginPoints);
-    setShowWelcome(true);
+    applyAuthResult(result);
   }
 
   function onAuthError(message: string) {
@@ -136,6 +165,25 @@ export function LoginForm({ initialRole = "user", initialLocale = "en" }: Props)
           <option value="ko">한국어</option>
         </select>
 
+        <button
+          className="anim-pulse-soft mb-4 w-full rounded-2xl border border-cyan-200 bg-gradient-to-r from-cyan-50 via-white to-emerald-50 p-3 text-left shadow-[0_8px_24px_rgba(45,212,191,0.18)]"
+          disabled={pending || quickLoginPending}
+          onClick={onQuickLoginAshton}
+          type="button"
+        >
+          <div className="flex items-center gap-3">
+            <ChibiAvatar className="shrink-0" emotion="excited" glasses role="user" size={40} />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-black text-emerald-900">Ashton 1-Tap Login</p>
+              <p className="truncate text-xs font-semibold text-slate-500">imamiller64@gmail.com</p>
+            </div>
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-1 text-[10px] font-black uppercase tracking-[0.1em] text-emerald-700">
+              <Sparkles size={12} />
+              {quickLoginPending ? "Connecting" : "Tap"}
+            </span>
+          </div>
+        </button>
+
         <label className="mb-2 block text-xs font-bold uppercase tracking-[0.2em] text-slate-500">{copy.id}</label>
         <div className="relative">
           <Mail className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
@@ -162,7 +210,7 @@ export function LoginForm({ initialRole = "user", initialLocale = "en" }: Props)
           />
         </div>
 
-        <button className="btn btn-primary mt-6 w-full" disabled={pending} type="submit">
+        <button className="btn btn-primary mt-6 w-full" disabled={pending || quickLoginPending} type="submit">
           {pending ? copy.entering : copy.enter}
         </button>
 

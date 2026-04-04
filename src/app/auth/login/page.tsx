@@ -5,7 +5,7 @@ import { LoginForm } from "@/components/login-form";
 
 export default function LoginPage() {
   return (
-    <main className="relative min-h-dvh overflow-hidden bg-[#f3f4fb]">
+    <main className="relative min-h-screen min-h-[100svh] overflow-hidden bg-[#f3f4fb]">
       <div className="absolute -right-16 top-12 text-slate-300/40">
         <CalendarDays size={44} />
       </div>

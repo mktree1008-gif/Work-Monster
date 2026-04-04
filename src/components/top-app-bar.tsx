@@ -104,7 +104,7 @@ export function TopAppBar({
 
   return (
     <>
-      <header className="fixed inset-x-0 top-0 z-40 border-b border-white/50 glass">
+      <header className="fixed inset-x-0 top-0 z-40 border-b border-white/50 pt-[var(--safe-top)] glass">
         <div className="container-mobile flex h-16 items-center justify-between">
           <div className="flex items-center gap-2 text-indigo-900">
             <button

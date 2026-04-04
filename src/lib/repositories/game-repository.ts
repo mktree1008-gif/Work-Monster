@@ -520,7 +520,7 @@ class MemoryGameRepository implements GameRepository {
     locale: Locale
   ): Promise<UserProfile> {
     const loginId = normalizeLoginId(loginIdInput);
-    const found = this.findByLoginId(loginId);
+    const found = this.findByLoginId(loginId) ?? (loginId.includes("@") ? this.findByEmail(loginId) : undefined);
     if (!found) {
       throw new Error("Account not found. Please create an account first.");
     }
@@ -926,7 +926,8 @@ class FirestoreGameRepository implements GameRepository {
     locale: Locale
   ): Promise<UserProfile> {
     const loginId = normalizeLoginId(loginIdInput);
-    const found = await this.findUserByLoginId(loginId);
+    const found = await this.findUserByLoginId(loginId)
+      || (loginId.includes("@") ? await this.findUserByEmail(loginId) : null);
     if (!found) {
       throw new Error("Account not found. Please create an account first.");
     }

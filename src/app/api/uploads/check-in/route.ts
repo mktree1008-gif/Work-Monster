@@ -3,7 +3,7 @@ import { getSession } from "@/lib/session";
 import { encodeStoredAttachment } from "@/lib/attachments";
 import { uploadFileToStorage } from "@/lib/storage-upload";
 
-const MAX_CHECKIN_ATTACHMENT_BYTES = 100 * 1024 * 1024; // 100MB
+const MAX_CHECKIN_ATTACHMENT_BYTES = 4 * 1024 * 1024; // 4MB stable limit for serverless/mobile uploads
 
 export async function POST(request: NextRequest) {
   try {
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     }
     if (file.size > MAX_CHECKIN_ATTACHMENT_BYTES) {
       return NextResponse.json(
-        { error: "Please upload a file under 100MB." },
+        { error: "Please upload a file under 4MB." },
         { status: 413 }
       );
     }
@@ -60,4 +60,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-
