@@ -24,6 +24,7 @@ import {
   getFocusSessions,
   getFoodSummary,
   getSleepSummary,
+  setWellnessStorageScope,
   getWorkoutSummary,
   todayLocalISO
 } from "@/lib/wellness-storage";
@@ -43,6 +44,7 @@ type MissionCard = {
 
 type Props = {
   locale: Locale;
+  userId: string;
   mission: MissionCard;
   checkinState: "none" | "draft" | "submitted" | "in_review" | "approved" | "rejected" | "needs_revision";
   labels: {
@@ -84,9 +86,21 @@ type PlanStorageTask = {
   createdAt: string;
 };
 
-function todayPlanCount() {
+function planStorageKey(userId: string, dateISO: string) {
+  return `${PLAN_STORAGE_PREFIX}-v2-${userId}-${dateISO}`;
+}
+
+function activeMissionStorageKey(userId: string) {
+  return `${ACTIVE_MISSION_KEY}-v2-${userId}`;
+}
+
+function homeModeStorageKey(userId: string) {
+  return `${HOME_MODE_KEY}-v2-${userId}`;
+}
+
+function todayPlanCount(userId: string) {
   if (typeof window === "undefined") return 0;
-  const key = `${PLAN_STORAGE_PREFIX}-${todayLocalISO()}`;
+  const key = planStorageKey(userId, todayLocalISO());
   const raw = window.localStorage.getItem(key);
   if (!raw) return 0;
   try {
@@ -97,8 +111,8 @@ function todayPlanCount() {
   }
 }
 
-function todayPlanStorageKey() {
-  return `${PLAN_STORAGE_PREFIX}-${todayLocalISO()}`;
+function todayPlanStorageKey(userId: string) {
+  return planStorageKey(userId, todayLocalISO());
 }
 
 function parseISODate(value: string): Date | null {
@@ -119,10 +133,10 @@ function missionDdayLabel(deadline: string): string {
   return `D-${diff}`;
 }
 
-function addMissionTaskToToday(mission: MissionCard) {
+function addMissionTaskToToday(userId: string, mission: MissionCard) {
   const missionText = mission.objective.trim() || mission.title.trim();
   if (!missionText) return;
-  const key = todayPlanStorageKey();
+  const key = todayPlanStorageKey(userId);
   const raw = window.localStorage.getItem(key);
   let currentTasks: PlanStorageTask[] = [];
   if (raw) {
@@ -164,7 +178,8 @@ function statusBadgeText(checkinState: Props["checkinState"]): string {
   return "Not started";
 }
 
-export function WelcomeDashboardClient({ locale, mission, checkinState, labels, score, reward }: Props) {
+export function WelcomeDashboardClient({ locale, userId, mission, checkinState, labels, score, reward }: Props) {
+  setWellnessStorageScope(userId);
   const router = useRouter();
   const [, setLocalTrigger] = useState(0);
   const [mounted, setMounted] = useState(false);
@@ -172,7 +187,7 @@ export function WelcomeDashboardClient({ locale, mission, checkinState, labels, 
   const [mode, setMode] = useState<HomeMode>("productivity");
   const [fabOpen, setFabOpen] = useState(false);
   const today = todayLocalISO();
-  const planCount = mounted ? todayPlanCount() : 0;
+  const planCount = mounted ? todayPlanCount(userId) : 0;
   const food = mounted
     ? getFoodSummary(today)
     : { calories: 0, protein: 0, waterCups: 0, goal: 2100, remaining: 2100, percent: 0 };
@@ -189,12 +204,12 @@ export function WelcomeDashboardClient({ locale, mission, checkinState, labels, 
     setMounted(true);
     setLocalTrigger((prev) => prev + 1);
 
-    const savedMode = window.localStorage.getItem(HOME_MODE_KEY);
+    const savedMode = window.localStorage.getItem(homeModeStorageKey(userId));
     if (savedMode === "productivity" || savedMode === "wellness") {
       setMode(savedMode);
     }
 
-    const raw = window.localStorage.getItem(ACTIVE_MISSION_KEY);
+    const raw = window.localStorage.getItem(activeMissionStorageKey(userId));
     if (!raw) return;
     try {
       const parsed = JSON.parse(raw) as { id?: string; title?: string };
@@ -204,12 +219,12 @@ export function WelcomeDashboardClient({ locale, mission, checkinState, labels, 
     } catch {
       setMissionAccepted(false);
     }
-  }, [mission.id, mission.title]);
+  }, [mission.id, mission.title, userId]);
 
   useEffect(() => {
     if (!mounted) return;
-    window.localStorage.setItem(HOME_MODE_KEY, mode);
-  }, [mounted, mode]);
+    window.localStorage.setItem(homeModeStorageKey(userId), mode);
+  }, [mounted, mode, userId]);
 
   function refreshLiveCards() {
     setLocalTrigger((prev) => prev + 1);
@@ -221,9 +236,9 @@ export function WelcomeDashboardClient({ locale, mission, checkinState, labels, 
       return;
     }
     if (!mounted) return;
-    addMissionTaskToToday(mission);
+    addMissionTaskToToday(userId, mission);
     window.localStorage.setItem(
-      ACTIVE_MISSION_KEY,
+      activeMissionStorageKey(userId),
       JSON.stringify({
         id: mission.id,
         title: mission.title,

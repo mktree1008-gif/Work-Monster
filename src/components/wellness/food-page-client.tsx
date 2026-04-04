@@ -28,6 +28,7 @@ import {
   MealType,
   setFoodManualCaloriesByDate,
   setFoodManualMacrosByDate,
+  setWellnessStorageScope,
   setWellnessGoals,
   setWaterByDate,
   todayLocalISO,
@@ -153,7 +154,8 @@ function parseNumeric(input: string, fallback: number) {
   return parsed;
 }
 
-export function FoodPageClient({ labels }: { labels: Labels }) {
+export function FoodPageClient({ labels, userId }: { labels: Labels; userId: string }) {
+  setWellnessStorageScope(userId);
   const [selectedDate, setSelectedDate] = useState(todayLocalISO());
   const [logs, setLogs] = useState<ReturnType<typeof getFoodLogs>>([]);
   const [mounted, setMounted] = useState(false);

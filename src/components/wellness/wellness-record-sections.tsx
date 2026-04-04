@@ -8,6 +8,7 @@ import {
   getSleepLogs,
   getWellnessGoals,
   getWorkoutLogs,
+  setWellnessStorageScope,
   todayLocalISO,
   toHourMinuteLabel
 } from "@/lib/wellness-storage";
@@ -23,6 +24,7 @@ type SectionKey =
   | "penalties";
 
 type Props = {
+  userId: string;
   initialSection?: string;
   submissions: Submission[];
   rewardClaims: RewardClaim[];
@@ -62,7 +64,8 @@ function shortDate(iso: string): string {
   return iso.slice(5).replace("-", "/");
 }
 
-export function WellnessRecordSections({ initialSection, submissions, rewardClaims, penaltyHistory }: Props) {
+export function WellnessRecordSections({ userId, initialSection, submissions, rewardClaims, penaltyHistory }: Props) {
+  setWellnessStorageScope(userId);
   const [section, setSection] = useState<SectionKey>(normalizeSection(initialSection));
   const [days, setDays] = useState<7 | 30>(7);
   const [foodLogs, setFoodLogs] = useState<ReturnType<typeof getFoodLogs>>([]);

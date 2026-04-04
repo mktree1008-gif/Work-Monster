@@ -193,6 +193,7 @@ export default async function WelcomePage({ searchParams }: Props) {
         checkinState={checkinState}
         labels={strings}
         locale={bundle.user.locale}
+        userId={bundle.user.id}
         mission={mission}
         reward={{
           batteryPercent: Math.max(8, nextReward.progressPercent),

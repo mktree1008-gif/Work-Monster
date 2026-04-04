@@ -86,6 +86,7 @@ export function RecordHubTabs({
           penaltyHistory={penaltyHistory}
           rewardClaims={rewardClaims}
           submissions={submissions}
+          userId={userId}
         />
       )}
     </div>

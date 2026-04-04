@@ -32,6 +32,7 @@ export default async function CheckInPage({ searchParams }: Props) {
         key={selectedDate}
         initialSubmission={initialSubmission}
         locale={bundle.user.locale}
+        userId={bundle.user.id}
         readOnly={managerPreview}
         selectedDate={selectedDate}
         maxSelectableDate={today}

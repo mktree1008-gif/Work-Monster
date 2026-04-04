@@ -109,7 +109,6 @@ type AnalyticsModel = {
 };
 
 const STORAGE_PREFIX = "workmonster-plan-v2";
-const LEGACY_STORAGE_PREFIX = "workmonster-plan";
 const RANGE_DAYS = 56;
 const CATEGORY_ORDER: Category[] = ["work", "mission", "health", "personal"];
 
@@ -245,10 +244,6 @@ function percent(value: number, total: number): number {
 
 function storageKey(userId: string, dateISO: string): string {
   return `${STORAGE_PREFIX}-${userId}-${dateISO}`;
-}
-
-function legacyStorageKey(dateISO: string): string {
-  return `${LEGACY_STORAGE_PREFIX}-${dateISO}`;
 }
 
 function parsePlanTaskArray(raw: string | null, userId: string, dateISO: string): AnalyticsTask[] {
@@ -721,8 +716,7 @@ export function ProductivityRecordSystem({ mode, locale, userId, score, submissi
 
       for (const date of dates) {
         const raw = window.localStorage.getItem(storageKey(userId, date));
-        const legacy = window.localStorage.getItem(legacyStorageKey(date));
-        const parsed = parsePlanTaskArray(raw ?? legacy, userId, date);
+        const parsed = parsePlanTaskArray(raw, userId, date);
         if (parsed.length > 0) {
           map.set(date, parsed);
         }
@@ -746,7 +740,7 @@ export function ProductivityRecordSystem({ mode, locale, userId, score, submissi
 
     const onStorage = (event: StorageEvent) => {
       if (!event.key) return;
-      if (event.key.startsWith(STORAGE_PREFIX) || event.key.startsWith(LEGACY_STORAGE_PREFIX)) {
+      if (event.key.startsWith(STORAGE_PREFIX)) {
         schedule();
       }
     };

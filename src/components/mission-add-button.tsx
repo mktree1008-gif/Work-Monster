@@ -6,6 +6,7 @@ import { CheckCircle2, Sparkles } from "lucide-react";
 
 type Props = {
   locale: "en" | "ko";
+  userId: string;
   missionId?: string;
   title: string;
   objective: string;
@@ -16,6 +17,14 @@ type Props = {
 
 const ACTIVE_MISSION_KEY = "workmonster-active-mission";
 const PLAN_STORAGE_PREFIX = "workmonster-plan";
+
+function planStorageKey(userId: string, dateISO: string) {
+  return `${PLAN_STORAGE_PREFIX}-v2-${userId}-${dateISO}`;
+}
+
+function activeMissionStorageKey(userId: string) {
+  return `${ACTIVE_MISSION_KEY}-v2-${userId}`;
+}
 
 function toLocalISODate(input = new Date()) {
   const parts = new Intl.DateTimeFormat("en-CA", {
@@ -29,13 +38,13 @@ function toLocalISODate(input = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
-export function MissionAddButton({ locale, missionId, title, objective, startDate = "", deadline = "", bonusPoints }: Props) {
+export function MissionAddButton({ locale, userId, missionId, title, objective, startDate = "", deadline = "", bonusPoints }: Props) {
   const isKo = locale === "ko";
   const [saved, setSaved] = useState(false);
   const router = useRouter();
 
   function handleAdd() {
-    const todayKey = `${PLAN_STORAGE_PREFIX}-${toLocalISODate()}`;
+    const todayKey = planStorageKey(userId, toLocalISODate());
     const raw = window.localStorage.getItem(todayKey);
     let parsed: Array<Record<string, unknown>> = [];
     if (raw) {
@@ -63,7 +72,7 @@ export function MissionAddButton({ locale, missionId, title, objective, startDat
     }
 
     window.localStorage.setItem(
-      ACTIVE_MISSION_KEY,
+      activeMissionStorageKey(userId),
       JSON.stringify({
         id: missionId ?? "",
         title,

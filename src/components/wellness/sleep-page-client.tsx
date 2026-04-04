@@ -6,6 +6,7 @@ import { MoonStar, Sparkles, Sun, TrendingUp, Verified } from "lucide-react";
 import {
   getSleepLogs,
   getWellnessGoals,
+  setWellnessStorageScope,
   SleepQuality,
   toHourMinuteLabel,
   todayLocalISO,
@@ -28,7 +29,8 @@ function qualityFromRecovery(recovery: number): SleepQuality {
   return "Low";
 }
 
-export function SleepPageClient({ labels }: { labels: Labels }) {
+export function SleepPageClient({ labels, userId }: { labels: Labels; userId: string }) {
+  setWellnessStorageScope(userId);
   const [selectedDate, setSelectedDate] = useState(todayLocalISO());
   const [logs, setLogs] = useState<ReturnType<typeof getSleepLogs>>([]);
   const [mounted, setMounted] = useState(false);

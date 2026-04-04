@@ -27,6 +27,7 @@ import {
   getWorkoutRoutines,
   removeWorkoutRoutine,
   setWorkoutManualCaloriesByDate,
+  setWellnessStorageScope,
   setWellnessGoals,
   todayLocalISO,
   toggleWorkoutRoutineFavorite,
@@ -207,7 +208,8 @@ function DurationDial({
   );
 }
 
-export function WorkoutPageClient({ labels }: { labels: Labels }) {
+export function WorkoutPageClient({ labels, userId }: { labels: Labels; userId: string }) {
+  setWellnessStorageScope(userId);
   const [selectedDate, setSelectedDate] = useState(todayLocalISO());
   const [logs, setLogs] = useState<ReturnType<typeof getWorkoutLogs>>([]);
   const [routines, setRoutines] = useState<ReturnType<typeof getWorkoutRoutines>>([]);

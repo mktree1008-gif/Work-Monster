@@ -24,6 +24,7 @@ import { CheckInSummaryCard } from "@/components/check-in/check-in-summary-card"
 
 type Props = {
   locale: Locale;
+  userId: string;
   readOnly?: boolean;
   initialSubmission?: Submission | null;
   selectedDate: string;
@@ -208,6 +209,7 @@ function normalizeInitialDraft(initialSubmission?: Submission | null): DailyChec
 
 export function QuestionsFlow({
   locale,
+  userId,
   readOnly = false,
   initialSubmission = null,
   selectedDate,
@@ -259,8 +261,8 @@ export function QuestionsFlow({
   }, [clientLocalDate, isKo]);
 
   const storageKey = useMemo(
-    () => (clientLocalDate ? `${STORAGE_PREFIX}-${clientLocalDate}` : ""),
-    [clientLocalDate]
+    () => (clientLocalDate ? `${STORAGE_PREFIX}-${userId}-${clientLocalDate}` : ""),
+    [clientLocalDate, userId]
   );
 
   const canEdit = !readOnly && !lockedByStatus;

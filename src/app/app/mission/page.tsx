@@ -114,6 +114,7 @@ export default async function MissionPage() {
             bonusPoints={bonusPoints}
             deadline={missionDueDate}
             locale={bundle.user.locale}
+            userId={bundle.user.id}
             missionId={mission?.source_id || mission?.id}
             objective={objective}
             startDate={missionStartDate}

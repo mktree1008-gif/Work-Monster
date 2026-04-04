@@ -25,7 +25,7 @@ import {
   X,
   Zap
 } from "lucide-react";
-import { getSleepSummary, getWorkoutSummary } from "@/lib/wellness-storage";
+import { getSleepSummary, getWorkoutSummary, setWellnessStorageScope } from "@/lib/wellness-storage";
 
 type Priority = "low" | "medium" | "high";
 type Category = "work" | "health" | "study" | "personal" | "admin" | "mission" | "custom";
@@ -110,7 +110,6 @@ type Props = {
 };
 
 const STORAGE_PREFIX = "workmonster-plan-v2";
-const LEGACY_STORAGE_PREFIX = "workmonster-plan";
 const FOCUS_STORAGE_PREFIX = "workmonster-focus-v1";
 const ACTIVE_MISSION_KEY = "workmonster-active-mission";
 const RANGE_NOTE_REGEX = /\[(?:Range|기간):\s*(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})\]/i;
@@ -151,8 +150,8 @@ function storageKey(userId: string, dateISO: string): string {
   return `${STORAGE_PREFIX}-${userId}-${dateISO}`;
 }
 
-function legacyStorageKey(dateISO: string): string {
-  return `${LEGACY_STORAGE_PREFIX}-${dateISO}`;
+function activeMissionStorageKey(userId: string): string {
+  return `${ACTIVE_MISSION_KEY}-v2-${userId}`;
 }
 
 function focusStorageKey(userId: string, dateISO: string): string {
@@ -229,8 +228,7 @@ function normalizeTask(raw: unknown, userId: string): PlannerTask | null {
 function readTasksForDate(userId: string, dateISO: string): PlannerTask[] {
   if (!canUseStorage()) return [];
   const raw = window.localStorage.getItem(storageKey(userId, dateISO));
-  const legacy = window.localStorage.getItem(legacyStorageKey(dateISO));
-  const sourceRaw = raw ?? legacy;
+  const sourceRaw = raw;
   if (!sourceRaw) return [];
 
   try {
@@ -248,21 +246,6 @@ function writeTasksForDate(userId: string, dateISO: string, tasks: PlannerTask[]
   if (!canUseStorage()) return;
 
   window.localStorage.setItem(storageKey(userId, dateISO), JSON.stringify(tasks));
-
-  const legacyCompatible = tasks.map((task) => ({
-    id: task.id,
-    text: task.title,
-    category: task.category,
-    priority: task.priority,
-    estimatedMinutes: task.duration,
-    note: task.note ?? "",
-    dueDate: task.due_date ?? "",
-    linkedToMission: task.is_mission_linked,
-    completed: task.is_completed,
-    createdAt: task.created_at
-  }));
-
-  window.localStorage.setItem(legacyStorageKey(dateISO), JSON.stringify(legacyCompatible));
 }
 
 function parseLocalMission(raw: string): ActiveMission | null {
@@ -538,6 +521,7 @@ function defaultQuickAddDefaults(): QuickAddDefaults {
 }
 
 export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
+  setWellnessStorageScope(userId);
   const isKo = locale === "ko";
   const [todayISO, setTodayISO] = useState(() => toLocalISODate());
   const [tasks, setTasks] = useState<PlannerTask[]>([]);
@@ -579,7 +563,7 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
     setTodayISO(today);
 
     const loaded = readTasksForDate(userId, today);
-    const localMissionRaw = canUseStorage() ? window.localStorage.getItem(ACTIVE_MISSION_KEY) : null;
+    const localMissionRaw = canUseStorage() ? window.localStorage.getItem(activeMissionStorageKey(userId)) : null;
     const localMission = localMissionRaw ? parseLocalMission(localMissionRaw) : null;
     const resolvedMission = localMission ?? mission;
     setActiveMission(resolvedMission);

@@ -118,6 +118,23 @@ const STORAGE_KEYS = {
 } as const;
 
 const WATER_ML_PER_CUP = 250;
+const DEFAULT_STORAGE_SCOPE = "anonymous";
+
+let activeStorageScope = DEFAULT_STORAGE_SCOPE;
+
+function normalizeStorageScope(value: string): string {
+  const trimmed = String(value ?? "").trim();
+  if (!trimmed) return DEFAULT_STORAGE_SCOPE;
+  return trimmed.replace(/[^a-zA-Z0-9._-]/g, "_");
+}
+
+export function setWellnessStorageScope(userId: string): void {
+  activeStorageScope = normalizeStorageScope(userId);
+}
+
+function scopedStorageKey(key: string): string {
+  return `${key}::${activeStorageScope}`;
+}
 
 function canUseStorage(): boolean {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
@@ -125,7 +142,7 @@ function canUseStorage(): boolean {
 
 function readJSON<T>(key: string, fallback: T): T {
   if (!canUseStorage()) return fallback;
-  const raw = window.localStorage.getItem(key);
+  const raw = window.localStorage.getItem(scopedStorageKey(key));
   if (!raw) return fallback;
   try {
     return JSON.parse(raw) as T;
@@ -136,7 +153,7 @@ function readJSON<T>(key: string, fallback: T): T {
 
 function writeJSON<T>(key: string, value: T): void {
   if (!canUseStorage()) return;
-  window.localStorage.setItem(key, JSON.stringify(value));
+  window.localStorage.setItem(scopedStorageKey(key), JSON.stringify(value));
 }
 
 export function todayLocalISO(input = new Date()): string {
@@ -299,7 +316,7 @@ function isLegacyFocusSeed(session: FocusSession): boolean {
 
 function cleanupLegacySeedDataOnce() {
   if (!canUseStorage()) return;
-  if (window.localStorage.getItem(STORAGE_KEYS.seedCleanupDone) === "1") return;
+  if (window.localStorage.getItem(scopedStorageKey(STORAGE_KEYS.seedCleanupDone)) === "1") return;
 
   const food = readJSON<FoodLog[]>(STORAGE_KEYS.food, []);
   const nextFood = food.filter((item) => !isLegacyFoodSeed(item));
@@ -335,12 +352,12 @@ function cleanupLegacySeedDataOnce() {
     writeJSON(STORAGE_KEYS.waterMap, normalizedWaterMap);
   }
 
-  window.localStorage.setItem(STORAGE_KEYS.seedCleanupDone, "1");
+  window.localStorage.setItem(scopedStorageKey(STORAGE_KEYS.seedCleanupDone), "1");
 }
 
 function ensureSeeded<T>(key: string, seed: T): T {
   if (!canUseStorage()) return seed;
-  const existing = window.localStorage.getItem(key);
+  const existing = window.localStorage.getItem(scopedStorageKey(key));
   if (existing) {
     return readJSON<T>(key, seed);
   }
