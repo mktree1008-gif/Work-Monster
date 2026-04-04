@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isManagerOwnerEmail } from "@/lib/constants";
 import { getGameRepository } from "@/lib/repositories/game-repository";
-import { awardDailyLoginPoints } from "@/lib/services/game-service";
 import { LOCALE_COOKIE, ROLE_COOKIE, UID_COOKIE } from "@/lib/session";
-import { Locale, UserProfile, UserRole } from "@/lib/types";
+import { Locale, UserRole } from "@/lib/types";
 
 const MONG_LOGIN_EMAIL = "mktree1008@gmail.com";
 const MONG_LOGIN_ID = "mong";
@@ -12,13 +11,6 @@ type QuickLoginBody = {
   locale?: Locale;
   role?: UserRole;
 };
-
-function isMongCandidate(user: UserProfile): boolean {
-  const email = (user.email ?? "").trim().toLowerCase();
-  const loginId = (user.login_id ?? "").trim().toLowerCase();
-  const name = (user.name ?? "").trim().toLowerCase();
-  return email === MONG_LOGIN_EMAIL || loginId === MONG_LOGIN_ID || name === "mong";
-}
 
 export async function POST(request: NextRequest) {
   try {
@@ -35,8 +27,8 @@ export async function POST(request: NextRequest) {
     }
 
     const repo = getGameRepository();
-    const users = await repo.listUsers();
-    const user = users.find(isMongCandidate);
+    const user = await repo.findUserByLoginOrEmail(MONG_LOGIN_EMAIL)
+      ?? await repo.findUserByLoginOrEmail(MONG_LOGIN_ID);
 
     if (!user) {
       return NextResponse.json(
@@ -53,27 +45,7 @@ export async function POST(request: NextRequest) {
     }
 
     const nextLocale = locale === "ko" ? "ko" : "en";
-    let nextUser = user;
-    if (user.role !== requestedRole || user.locale !== nextLocale) {
-      try {
-        nextUser = await repo.updateUser(user.id, {
-          role: requestedRole,
-          locale: nextLocale
-        });
-      } catch {
-        nextUser = { ...user, role: requestedRole, locale: nextLocale };
-      }
-    }
-
-    const nicknameMissing = (nextUser.name ?? "").trim().length === 0;
-    let loginAward = { awarded: false, points: 0, date: "" };
-    if (requestedRole === "user" && !nicknameMissing) {
-      try {
-        loginAward = await awardDailyLoginPoints(nextUser.id);
-      } catch (error) {
-        console.warn("Mong quick login bonus award failed, proceeding with login.", error);
-      }
-    }
+    const nicknameMissing = (user.name ?? "").trim().length === 0;
 
     const redirectTo = nicknameMissing
       ? "/auth/nickname"
@@ -84,11 +56,11 @@ export async function POST(request: NextRequest) {
     const response = NextResponse.json({
       ok: true,
       redirectTo,
-      loginPointsAwarded: loginAward.awarded,
-      loginPoints: loginAward.points
+      loginPointsAwarded: false,
+      loginPoints: 0
     });
 
-    response.cookies.set(UID_COOKIE, nextUser.id, { httpOnly: true, sameSite: "lax", path: "/" });
+    response.cookies.set(UID_COOKIE, user.id, { httpOnly: true, sameSite: "lax", path: "/" });
     response.cookies.set(ROLE_COOKIE, requestedRole, { httpOnly: true, sameSite: "lax", path: "/" });
     response.cookies.set(LOCALE_COOKIE, nextLocale, { httpOnly: true, sameSite: "lax", path: "/" });
     return response;

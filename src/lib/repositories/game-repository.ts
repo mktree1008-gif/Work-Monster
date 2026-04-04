@@ -171,6 +171,7 @@ export interface GameRepository {
     locale: Locale
   ): Promise<UserProfile>;
   listUsers(): Promise<UserProfile[]>;
+  findUserByLoginOrEmail(loginIdOrEmail: string): Promise<UserProfile | null>;
   getUser(uid: string): Promise<UserProfile | null>;
   updateUser(uid: string, patch: Partial<UserProfile>): Promise<UserProfile>;
   getRules(): Promise<RuleConfig>;
@@ -541,6 +542,14 @@ class MemoryGameRepository implements GameRepository {
 
   async listUsers(): Promise<UserProfile[]> {
     return [...this.db.users.values()].sort((a, b) => (a.created_at > b.created_at ? 1 : -1));
+  }
+
+  async findUserByLoginOrEmail(loginIdOrEmail: string): Promise<UserProfile | null> {
+    const normalized = normalizeLoginId(loginIdOrEmail);
+    if (!normalized) return null;
+    return this.findByLoginId(normalized)
+      ?? (normalized.includes("@") ? this.findByEmail(normalized) : undefined)
+      ?? null;
   }
 
   async getUser(uid: string): Promise<UserProfile | null> {
@@ -957,6 +966,18 @@ class FirestoreGameRepository implements GameRepository {
   async listUsers(): Promise<UserProfile[]> {
     const snap = await this.db.collection("users").orderBy("created_at", "asc").get();
     return snap.docs.map((doc) => doc.data() as UserProfile);
+  }
+
+  async findUserByLoginOrEmail(loginIdOrEmail: string): Promise<UserProfile | null> {
+    const normalized = normalizeLoginId(loginIdOrEmail);
+    if (!normalized) return null;
+
+    const byLoginId = await this.findUserByLoginId(normalized);
+    if (byLoginId) return byLoginId.user;
+
+    if (!normalized.includes("@")) return null;
+    const byEmail = await this.findUserByEmail(normalized);
+    return byEmail?.user ?? null;
   }
 
   async getUser(uid: string): Promise<UserProfile | null> {
