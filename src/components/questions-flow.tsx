@@ -5,6 +5,12 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } f
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ArrowRight, CalendarDays, CloudUpload, Link2, X } from "lucide-react";
 import type { Locale, Submission, SubmissionStatus } from "@/lib/types";
+import {
+  buildAttachmentDownloadHref,
+  describeAttachment,
+  formatAttachmentSize,
+  normalizeAttachmentTokens
+} from "@/lib/attachments";
 import { isISODateString } from "@/lib/utils";
 import {
   DAILY_CHECKIN_QUESTIONS,
@@ -31,13 +37,6 @@ type Props = {
   maxSelectableDate: string;
 };
 
-type AttachmentPreview = {
-  id: string;
-  name: string;
-  previewUrl?: string;
-  isImage: boolean;
-};
-
 type ApiResponse = {
   ok?: boolean;
   mode?: "created" | "updated";
@@ -45,6 +44,14 @@ type ApiResponse = {
   redirectTo?: string;
   error?: string;
   code?: string;
+};
+
+type UploadAttachmentResponse = {
+  ok?: boolean;
+  attachment?: {
+    token: string;
+  };
+  error?: string;
 };
 
 const TOTAL_QUESTIONS = DAILY_CHECKIN_QUESTIONS.length;
@@ -194,7 +201,9 @@ function normalizeInitialDraft(initialSubmission?: Submission | null): DailyChec
   next.manager_message = String(fromAnswers.manager_message ?? initialSubmission.tomorrow_improvement_note ?? "").trim();
   next.manager_quick_message = String(fromAnswers.manager_quick_message ?? "").trim();
   next.evidence_files = dedupe(
-    (initialSubmission.evidence_files?.length ? initialSubmission.evidence_files : parseStringList(fromAnswers.evidence_files))
+    normalizeAttachmentTokens(
+      initialSubmission.evidence_files?.length ? initialSubmission.evidence_files : parseStringList(fromAnswers.evidence_files)
+    )
       .map((item) => String(item).trim())
       .filter(Boolean)
   );
@@ -233,7 +242,7 @@ export function QuestionsFlow({
   const [alreadyDoneMessage, setAlreadyDoneMessage] = useState("");
   const [showAlreadyDonePopup, setShowAlreadyDonePopup] = useState(false);
   const [showSubmitSuccess, setShowSubmitSuccess] = useState(false);
-  const [attachmentPreviews, setAttachmentPreviews] = useState<AttachmentPreview[]>([]);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const [animatedScore, setAnimatedScore] = useState(0);
   const [isTextFieldFocused, setIsTextFieldFocused] = useState(false);
 
@@ -308,6 +317,11 @@ export function QuestionsFlow({
     [draft]
   );
 
+  const evidenceFileItems = useMemo(
+    () => draft.evidence_files.map((token) => describeAttachment(token)),
+    [draft.evidence_files]
+  );
+
   useEffect(() => {
     try {
       const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
@@ -335,7 +349,7 @@ export function QuestionsFlow({
           Object.assign(merged, {
             ...parsed.draft,
             q6: dedupe(parseStringList(parsed.draft.q6)),
-            evidence_files: dedupe(parseStringList(parsed.draft.evidence_files)),
+            evidence_files: dedupe(normalizeAttachmentTokens(parseStringList(parsed.draft.evidence_files))),
             evidence_links: dedupe(parseStringList(parsed.draft.evidence_links))
           });
         }
@@ -352,16 +366,6 @@ export function QuestionsFlow({
     setHydrated(true);
     initialLoadedRef.current = true;
   }, [initialSubmission, storageKey]);
-
-  useEffect(() => {
-    return () => {
-      for (const preview of attachmentPreviews) {
-        if (preview.previewUrl) {
-          URL.revokeObjectURL(preview.previewUrl);
-        }
-      }
-    };
-  }, [attachmentPreviews]);
 
   useEffect(() => {
     if (currentStep !== FINAL_STEP_INDEX) {
@@ -534,7 +538,8 @@ export function QuestionsFlow({
     setSubmitError("");
   }
 
-  function onFilesSelected(event: ChangeEvent<HTMLInputElement>, source: "image" | "file") {
+  async function onFilesSelected(event: ChangeEvent<HTMLInputElement>, source: "image" | "file") {
+    const inputEl = event.currentTarget;
     const files = Array.from(event.target.files ?? []);
     if (files.length === 0) return;
 
@@ -543,35 +548,44 @@ export function QuestionsFlow({
       : files;
 
     if (accepted.length === 0) {
-      event.currentTarget.value = "";
+      inputEl.value = "";
       return;
     }
 
-    const nextPreviews: AttachmentPreview[] = accepted.slice(0, 6).map((file, idx) => {
-      const isImage = file.type.startsWith("image/");
-      return {
-        id: `${file.name}-${Date.now()}-${idx}`,
-        name: file.name,
-        previewUrl: isImage ? URL.createObjectURL(file) : undefined,
-        isImage
-      };
-    });
+    setUploadingAttachment(true);
+    setSubmitError("");
+    try {
+      const uploadedTokens: string[] = [];
+      for (const file of accepted) {
+        const body = new FormData();
+        body.append("file", file);
+        body.append("source", source);
 
-    setAttachmentPreviews((prev) => [...prev, ...nextPreviews].slice(0, 10));
-    patchDraft({ evidence_files: dedupe([...draft.evidence_files, ...accepted.map((file) => file.name)]) });
-    event.currentTarget.value = "";
+        const response = await fetch("/api/uploads/check-in", {
+          method: "POST",
+          body
+        });
+        const result = (await response.json()) as UploadAttachmentResponse;
+        if (!response.ok || !result.attachment?.token) {
+          throw new Error(result.error ?? "Failed to upload attachment.");
+        }
+        uploadedTokens.push(result.attachment.token);
+      }
+
+      setDraft((prev) => ({
+        ...prev,
+        evidence_files: dedupe(normalizeAttachmentTokens([...prev.evidence_files, ...uploadedTokens])).slice(0, 24)
+      }));
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : "Attachment upload failed.");
+    } finally {
+      setUploadingAttachment(false);
+    }
+    inputEl.value = "";
   }
 
-  function removeAttachment(name: string) {
-    setAttachmentPreviews((prev) => {
-      const found = prev.find((item) => item.name === name);
-      if (found?.previewUrl) {
-        URL.revokeObjectURL(found.previewUrl);
-      }
-      return prev.filter((item) => item.name !== name);
-    });
-
-    patchDraft({ evidence_files: draft.evidence_files.filter((item) => item !== name) });
+  function removeAttachment(token: string) {
+    patchDraft({ evidence_files: draft.evidence_files.filter((item) => item !== token) });
   }
 
   function addEvidenceLink() {
@@ -670,7 +684,7 @@ export function QuestionsFlow({
       <div className="mt-1 flex items-center gap-2">
         <input
           className="input h-8 w-full rounded-lg border-slate-200 bg-white py-1.5 text-[13px]"
-          disabled={submitting || isStepSaving}
+          disabled={submitting || isStepSaving || uploadingAttachment}
           max={maxSelectableDate}
           onChange={onCheckInDateChange}
           type="date"
@@ -908,43 +922,68 @@ export function QuestionsFlow({
 
           <article className="mt-3 rounded-2xl bg-white p-4 ring-1 ring-black/[0.05]">
             <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500">Attachments</p>
+            <p className="mt-1 text-xs text-slate-500">Upload files/images up to 100MB each.</p>
             <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-3">
               <label className="flex cursor-pointer items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700">
                 <span className="inline-flex items-center gap-2"><CloudUpload size={14} /> Add image</span>
-                <input accept="image/*" className="hidden" multiple onChange={(event) => onFilesSelected(event, "image")} type="file" />
+                <input
+                  accept="image/*"
+                  className="hidden"
+                  disabled={uploadingAttachment}
+                  multiple
+                  onChange={(event) => onFilesSelected(event, "image")}
+                  type="file"
+                />
               </label>
               <label className="flex cursor-pointer items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700">
                 <span className="inline-flex items-center gap-2"><CloudUpload size={14} /> Add file</span>
-                <input className="hidden" multiple onChange={(event) => onFilesSelected(event, "file")} type="file" />
+                <input className="hidden" disabled={uploadingAttachment} multiple onChange={(event) => onFilesSelected(event, "file")} type="file" />
               </label>
               <button
                 className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700"
+                disabled={uploadingAttachment}
                 onClick={addEvidenceLink}
                 type="button"
               >
                 <span className="inline-flex items-center gap-2"><Link2 size={14} /> Add link</span>
               </button>
             </div>
+            {uploadingAttachment && (
+              <p className="mt-2 text-xs font-semibold text-blue-700">Uploading attachment...</p>
+            )}
 
             {draft.evidence_files.length > 0 && (
               <ul className="mt-3 space-y-2">
-                {draft.evidence_files.map((name) => {
-                  const preview = attachmentPreviews.find((item) => item.name === name);
+                {evidenceFileItems.map((item, idx) => {
                   return (
-                    <li className="rounded-xl bg-slate-50 p-2" key={name}>
+                    <li className="rounded-xl bg-slate-50 p-2" key={`${item.token}-${idx}`}>
                       <div className="flex items-center justify-between gap-2 text-xs font-semibold text-slate-700">
-                        <span className="truncate">{name}</span>
-                        <button
-                          className="rounded-full bg-white px-2 py-1 text-[10px] font-bold text-slate-600"
-                          onClick={() => removeAttachment(name)}
-                          type="button"
-                        >
-                          Remove
-                        </button>
+                        <div className="min-w-0">
+                          <p className="truncate">{item.name}</p>
+                          {item.size > 0 && <p className="text-[10px] text-slate-500">{formatAttachmentSize(item.size)}</p>}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          {item.url && (
+                            <a
+                              className="rounded-full bg-white px-2 py-1 text-[10px] font-bold text-indigo-700"
+                              download={item.name}
+                              href={buildAttachmentDownloadHref(item.url, item.name)}
+                            >
+                              Download
+                            </a>
+                          )}
+                          <button
+                            className="rounded-full bg-white px-2 py-1 text-[10px] font-bold text-slate-600"
+                            onClick={() => removeAttachment(item.token)}
+                            type="button"
+                          >
+                            Remove
+                          </button>
+                        </div>
                       </div>
-                      {preview?.isImage && preview.previewUrl && (
+                      {item.kind === "image" && item.url && (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img alt={name} className="mt-2 h-24 w-full rounded-lg object-cover" src={preview.previewUrl} />
+                        <img alt={item.name} className="mt-2 h-24 w-full rounded-lg object-cover" src={item.url} />
                       )}
                     </li>
                   );
@@ -1010,7 +1049,7 @@ export function QuestionsFlow({
           {currentStep < TOTAL_STEPS - 1 ? (
             <button
               className="inline-flex min-w-[8.3rem] items-center justify-center gap-2 rounded-full bg-gradient-to-r from-blue-700 via-blue-600 to-cyan-500 px-5 py-2.5 text-[13px] font-semibold text-white shadow-[0_12px_22px_rgba(37,99,235,0.32)] disabled:opacity-45"
-              disabled={!stepValid || submitting || isStepSaving}
+              disabled={!stepValid || submitting || isStepSaving || uploadingAttachment}
               onClick={goNext}
               type="button"
             >
@@ -1020,7 +1059,7 @@ export function QuestionsFlow({
           ) : (
             <button
               className="inline-flex min-w-[11.4rem] items-center justify-center gap-2 rounded-full bg-gradient-to-r from-emerald-600 to-blue-600 px-5 py-2.5 text-[13px] font-semibold text-white shadow-[0_12px_22px_rgba(5,150,105,0.32)] disabled:opacity-45"
-              disabled={submitting}
+              disabled={submitting || uploadingAttachment}
               onClick={onSubmitToManager}
               type="button"
             >

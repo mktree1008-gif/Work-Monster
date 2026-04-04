@@ -12,6 +12,12 @@ import { NotificationBell } from "@/components/notification-bell";
 import { DateInputPicker } from "@/components/date-input-picker";
 import { SubmissionReviewForm } from "@/components/submission-review-form";
 import { findOptionLabel } from "@/lib/check-in-model";
+import {
+  buildAttachmentDownloadHref,
+  buildLinkDownloadHref,
+  describeAttachment,
+  formatAttachmentSize
+} from "@/lib/attachments";
 import { getGameRepository } from "@/lib/repositories/game-repository";
 import { getSession } from "@/lib/session";
 import {
@@ -520,7 +526,7 @@ export default async function ManagerPage({ searchParams }: Props) {
           <section className="card mb-4 p-4" id="announcement-broadcast">
             <h2 className="text-xl font-black text-indigo-900">Notification broadcast</h2>
             <p className="mt-1 text-sm text-slate-600">
-              Send a message/photo to all users. It will appear in each user&apos;s bell notifications.
+              Send announcement to all users or one selected user. Image attachment supports large files and user download.
             </p>
             {announced && (
               <p className="mt-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">
@@ -533,11 +539,22 @@ export default async function ManagerPage({ searchParams }: Props) {
               </p>
             )}
             <form action={createAnnouncementAction} className="mt-3 space-y-2" encType="multipart/form-data">
+              <label className="block text-xs font-semibold text-slate-600">
+                Target
+                <select className="input mt-1" defaultValue="" name="target_user_id">
+                  <option value="">All users (broadcast)</option>
+                  {analyticsUsers.map((candidate) => (
+                    <option key={candidate.id} value={candidate.id}>
+                      {candidate.displayName} ({candidate.loginId})
+                    </option>
+                  ))}
+                </select>
+              </label>
               <input className="input" name="title" placeholder="Announcement title (optional)" />
               <textarea className="input h-24 resize-none" name="message" placeholder="Announcement message" required />
               <input className="input" name="image_url" placeholder="Image URL (optional)" type="url" />
               <label className="block">
-                <span className="mb-1 block text-xs font-semibold text-slate-600">Or upload photo (max 700KB)</span>
+                <span className="mb-1 block text-xs font-semibold text-slate-600">Or upload photo (max 50MB)</span>
                 <input accept="image/*" className="input cursor-pointer" name="image_file" type="file" />
               </label>
               <button className="btn btn-primary w-full" type="submit">
@@ -550,10 +567,35 @@ export default async function ManagerPage({ searchParams }: Props) {
                 const preview = parsedMission
                   ? `${parsedMission.objective} • Due ${getMissionDueDate(parsedMission) || "Flexible"}${parsedMission.bonus_points > 0 ? ` • +${parsedMission.bonus_points} pts` : ""}`
                   : item.message;
+                const targetDisplay = item.target_user_id && item.target_user_id !== "all"
+                  ? (() => {
+                      const target = userMap.get(item.target_user_id ?? "");
+                      return (target?.name ?? "").trim() || target?.login_id || item.target_user_id;
+                    })()
+                  : "All users";
                 return (
                   <article key={item.id} className="rounded-xl bg-slate-100 p-3 text-sm">
                     <p className="font-bold text-indigo-900">{item.title}</p>
+                    {!parsedMission && <p className="text-xs font-semibold text-slate-500">Target: {targetDisplay}</p>}
                     <p className="text-slate-700">{preview}</p>
+                    {item.image_url && !parsedMission && (
+                      <div className="mt-2 space-y-1">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img alt={item.image_name || "Announcement image"} className="max-h-52 w-full rounded-xl object-cover" src={item.image_url} />
+                        <div className="flex gap-1">
+                          <a className="rounded-full bg-indigo-100 px-2 py-1 text-[11px] font-bold text-indigo-700" href={item.image_url} rel="noreferrer" target="_blank">
+                            Open image
+                          </a>
+                          <a
+                            className="rounded-full bg-slate-200 px-2 py-1 text-[11px] font-bold text-slate-700"
+                            download={item.image_name || "announcement-image"}
+                            href={buildAttachmentDownloadHref(item.image_url, item.image_name || "announcement-image")}
+                          >
+                            Download
+                          </a>
+                        </div>
+                      </div>
+                    )}
                   </article>
                 );
               })}
@@ -647,6 +689,7 @@ export default async function ManagerPage({ searchParams }: Props) {
               const managerQuick = answer("manager_quick_message") || (submission.tomorrow_improvement_focus ?? "").trim() || "-";
               const workNote = answer("work_note") || (submission.completed_work_summary ?? "").trim() || answer("win");
               const managerMessage = answer("manager_message") || (submission.tomorrow_improvement_note ?? "").trim();
+              const hasWorkNote = workNote.trim().length > 0 && workNote.trim() !== "-";
               const selfScoreRaw = Number(answer("q10"));
               const selfScore = Number.isFinite(selfScoreRaw)
                 ? Math.max(1, Math.min(10, Math.round(selfScoreRaw)))
@@ -673,10 +716,11 @@ export default async function ManagerPage({ searchParams }: Props) {
               const checkInPreviewScore = Number.isFinite(previewRaw)
                 ? Math.max(0, Math.min(100, Math.round(previewRaw)))
                 : null;
-              const evidenceFiles = dedupe([
+              const evidenceFileTokens = dedupe([
                 ...(submission.evidence_files ?? []),
                 ...parseTokenList(answer("evidence_files"))
               ]);
+              const evidenceFiles = evidenceFileTokens.map((token) => describeAttachment(token));
               const evidenceLinks = dedupe([
                 ...(submission.evidence_links ?? []),
                 ...parseTokenList(answer("evidence_links")),
@@ -771,9 +815,24 @@ export default async function ManagerPage({ searchParams }: Props) {
                     <div className="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
                       <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">Left messages from user</p>
                       <div className="mt-2 space-y-2">
-                        <div className="rounded-lg bg-white p-2">
-                          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">What did you work on today?</p>
-                          <p className="mt-1 text-sm text-slate-700 whitespace-pre-wrap">{workNote || "-"}</p>
+                        <div
+                          className={`rounded-lg p-2.5 ring-1 ${
+                            hasWorkNote
+                              ? "bg-gradient-to-br from-amber-50 to-orange-50 ring-amber-300 shadow-sm"
+                              : "bg-white ring-slate-200"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">What did you work on today?</p>
+                            {hasWorkNote && (
+                              <span className="rounded-full bg-amber-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-amber-900">
+                                User note
+                              </span>
+                            )}
+                          </div>
+                          <p className={`mt-1 text-sm whitespace-pre-wrap ${hasWorkNote ? "font-medium text-slate-800" : "text-slate-700"}`}>
+                            {workNote || "-"}
+                          </p>
                         </div>
                         <div className="rounded-lg bg-white p-2">
                           <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">Message to manager</p>
@@ -808,10 +867,38 @@ export default async function ManagerPage({ searchParams }: Props) {
                         <div className="rounded-lg bg-white p-2">
                           <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">Files / images</p>
                           {evidenceFiles.length > 0 ? (
-                            <ul className="mt-1 flex flex-wrap gap-1">
-                              {evidenceFiles.map((name, idx) => (
-                                <li className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-700 ring-1 ring-slate-200" key={`${submission.id}-file-${idx}`}>
-                                  {name}
+                            <ul className="mt-1 space-y-2">
+                              {evidenceFiles.map((item, idx) => (
+                                <li className="rounded-lg bg-slate-50 p-2 ring-1 ring-slate-200" key={`${submission.id}-file-${idx}`}>
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <p className="min-w-0 truncate text-xs font-semibold text-slate-800">{item.name}</p>
+                                    <div className="flex items-center gap-1">
+                                      {item.url && (
+                                        <a
+                                          className="rounded-full bg-indigo-100 px-2 py-1 text-[10px] font-bold text-indigo-700"
+                                          href={item.url}
+                                          rel="noreferrer"
+                                          target="_blank"
+                                        >
+                                          Open
+                                        </a>
+                                      )}
+                                      {item.url && (
+                                        <a
+                                          className="rounded-full bg-slate-200 px-2 py-1 text-[10px] font-bold text-slate-700"
+                                          download={item.name}
+                                          href={buildAttachmentDownloadHref(item.url, item.name)}
+                                        >
+                                          Download
+                                        </a>
+                                      )}
+                                    </div>
+                                  </div>
+                                  {item.size > 0 && <p className="mt-1 text-[10px] text-slate-500">{formatAttachmentSize(item.size)}</p>}
+                                  {item.kind === "image" && item.url && (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img alt={item.name} className="mt-2 h-28 w-full rounded-lg object-cover" src={item.url} />
+                                  )}
                                 </li>
                               ))}
                             </ul>
@@ -824,10 +911,27 @@ export default async function ManagerPage({ searchParams }: Props) {
                           {evidenceLinks.length > 0 ? (
                             <ul className="mt-1 space-y-1">
                               {evidenceLinks.map((url, idx) => (
-                                <li key={`${submission.id}-link-${idx}`}>
-                                  <a className="text-sm font-semibold text-indigo-700 underline decoration-indigo-300 underline-offset-2" href={url} rel="noreferrer" target="_blank">
+                                <li className="rounded-lg bg-slate-50 p-2 ring-1 ring-slate-200" key={`${submission.id}-link-${idx}`}>
+                                  <a className="block truncate text-sm font-semibold text-indigo-700 underline decoration-indigo-300 underline-offset-2" href={url} rel="noreferrer" target="_blank">
                                     {url}
                                   </a>
+                                  <div className="mt-1 flex items-center gap-1">
+                                    <a
+                                      className="rounded-full bg-indigo-100 px-2 py-1 text-[10px] font-bold text-indigo-700"
+                                      href={url}
+                                      rel="noreferrer"
+                                      target="_blank"
+                                    >
+                                      Open
+                                    </a>
+                                    <a
+                                      className="rounded-full bg-slate-200 px-2 py-1 text-[10px] font-bold text-slate-700"
+                                      download={`link-${idx + 1}.txt`}
+                                      href={buildLinkDownloadHref(url)}
+                                    >
+                                      Download link
+                                    </a>
+                                  </div>
                                 </li>
                               ))}
                             </ul>

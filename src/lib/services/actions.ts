@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { isManagerOwnerEmail } from "@/lib/constants";
 import { Locale, RuleConfig, UserRole } from "@/lib/types";
 import { clearSession, getSession, setSession, updateLocale } from "@/lib/session";
+import { uploadFileToStorage } from "@/lib/storage-upload";
 import {
   acknowledgeRuleVersion,
   applyInactivityPenalty,
@@ -562,30 +563,37 @@ export async function createAnnouncementAction(formData: FormData): Promise<void
   params.set("manager_tab", "inbox");
   const title = String(formData.get("title") ?? "").trim();
   const message = String(formData.get("message") ?? "").trim();
+  const targetUserId = String(formData.get("target_user_id") ?? "").trim();
   const rawUrl = String(formData.get("image_url") ?? "").trim();
   const file = formData.get("image_file");
 
   let imageUrl = rawUrl;
+  let imageName = "";
   if (file instanceof File && file.size > 0) {
     if (!file.type.startsWith("image/")) {
       params.set("announce_error", "Please upload an image file.");
       redirect(`/manager?${params.toString()}`);
     }
-    // Firestore document size limit is ~1MB.
-    // Since base64 expands payload (~33%), keep uploaded image safely below that limit.
-    if (file.size > 700 * 1024) {
-      params.set("announce_error", "Please upload an image under 700KB.");
+    if (file.size > 50 * 1024 * 1024) {
+      params.set("announce_error", "Please upload an image under 50MB.");
       redirect(`/manager?${params.toString()}`);
     }
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    imageUrl = `data:${file.type};base64,${bytesToBase64(bytes)}`;
+    const uploaded = await uploadFileToStorage({
+      userId: session.uid,
+      source: "announcement",
+      file
+    });
+    imageUrl = uploaded.url;
+    imageName = uploaded.fileName;
   }
 
   try {
     await createAnnouncement(session.uid, {
       title,
       message,
-      image_url: imageUrl
+      image_url: imageUrl,
+      image_name: imageName,
+      target_user_id: targetUserId
     });
   } catch (error) {
     const text = error instanceof Error ? error.message : "Failed to create announcement.";

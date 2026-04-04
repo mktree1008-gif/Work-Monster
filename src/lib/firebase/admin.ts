@@ -1,9 +1,11 @@
 import { App, cert, getApps, initializeApp } from "firebase-admin/app";
 import { Auth, getAuth } from "firebase-admin/auth";
 import { Firestore, getFirestore } from "firebase-admin/firestore";
+import { Bucket, getStorage } from "firebase-admin/storage";
 
 let app: App | null = null;
 let db: Firestore | null = null;
+let bucket: Bucket | null = null;
 
 export function isFirebaseServerConfigured(): boolean {
   return Boolean(
@@ -31,7 +33,8 @@ function getFirebaseAdminApp(): App {
           projectId,
           clientEmail,
           privateKey
-        })
+        }),
+        storageBucket: process.env.FIREBASE_STORAGE_BUCKET || process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
       });
   }
 
@@ -48,6 +51,17 @@ export function getAdminDb(): Firestore {
 
 export function getAdminAuth(): Auth {
   return getAuth(getFirebaseAdminApp());
+}
+
+export function getAdminStorageBucket(): Bucket {
+  if (!bucket) {
+    const appInstance = getFirebaseAdminApp();
+    const configuredBucket = process.env.FIREBASE_STORAGE_BUCKET || process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
+    bucket = configuredBucket
+      ? getStorage(appInstance).bucket(configuredBucket)
+      : getStorage(appInstance).bucket();
+  }
+  return bucket;
 }
 
 export function getFirebaseProjectId(): string {

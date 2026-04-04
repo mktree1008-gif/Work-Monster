@@ -177,6 +177,8 @@ export interface Announcement {
   title: string;
   message: string;
   image_url?: string;
+  image_name?: string;
+  target_user_id?: string;
   created_by: string;
   created_at: string;
 }

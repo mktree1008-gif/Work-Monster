@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bell, ChevronRight, Megaphone } from "lucide-react";
+import { buildAttachmentDownloadHref } from "@/lib/attachments";
 
 type Props = {
   openOnMount: boolean;
@@ -94,8 +95,22 @@ export function ManagerAnnouncementPopup({
         <p className="mt-2 whitespace-pre-line break-words text-[14px] leading-relaxed text-slate-600">{message}</p>
 
         {imageUrl && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img alt="Manager announcement" className="mt-3 max-h-60 w-full rounded-xl object-cover" src={imageUrl} />
+          <div className="mt-3 space-y-2">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img alt="Manager announcement" className="max-h-60 w-full rounded-xl object-cover" src={imageUrl} />
+            <div className="flex items-center gap-1">
+              <a className="rounded-full bg-indigo-100 px-2.5 py-1 text-xs font-bold text-indigo-700" href={imageUrl} rel="noreferrer" target="_blank">
+                {isKo ? "이미지 열기" : "Open image"}
+              </a>
+              <a
+                className="rounded-full bg-slate-200 px-2.5 py-1 text-xs font-bold text-slate-700"
+                download="announcement-image"
+                href={buildAttachmentDownloadHref(imageUrl, "announcement-image")}
+              >
+                {isKo ? "다운로드" : "Download"}
+              </a>
+            </div>
+          </div>
         )}
 
         <p className="mt-2 text-[11px] font-medium text-slate-500">{createdLabel}</p>
@@ -124,4 +139,3 @@ export function ManagerAnnouncementPopup({
     </div>
   );
 }
-

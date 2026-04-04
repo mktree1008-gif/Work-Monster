@@ -15,6 +15,7 @@ import {
   X
 } from "lucide-react";
 import { AppNotification, Locale } from "@/lib/types";
+import { buildAttachmentDownloadHref } from "@/lib/attachments";
 import { ChibiAvatar } from "@/components/chibi-avatar";
 
 type Props = {
@@ -450,12 +451,31 @@ export function NotificationBell({ notifications, unreadCount, action, role, loc
             </div>
             <p className="rounded-2xl bg-slate-100 p-3 text-sm text-slate-700">{selected.message}</p>
             {selected.image_url && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                alt="Manager announcement attachment"
-                className="mt-3 max-h-60 w-full rounded-xl object-cover"
-                src={selected.image_url}
-              />
+              <div className="mt-3 space-y-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  alt="Manager announcement attachment"
+                  className="max-h-60 w-full rounded-xl object-cover"
+                  src={selected.image_url}
+                />
+                <div className="flex items-center gap-1">
+                  <a
+                    className="rounded-full bg-indigo-100 px-2.5 py-1 text-xs font-bold text-indigo-700"
+                    href={selected.image_url}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    {isKo ? "이미지 열기" : "Open image"}
+                  </a>
+                  <a
+                    className="rounded-full bg-slate-200 px-2.5 py-1 text-xs font-bold text-slate-700"
+                    download="announcement-image"
+                    href={buildAttachmentDownloadHref(selected.image_url, "announcement-image")}
+                  >
+                    {isKo ? "다운로드" : "Download"}
+                  </a>
+                </div>
+              </div>
             )}
             <button className="btn btn-primary mt-4 w-full" onClick={() => setSelected(null)} type="button">
               {isKo ? "확인" : "Close"}

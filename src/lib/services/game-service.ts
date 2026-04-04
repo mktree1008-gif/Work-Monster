@@ -1109,6 +1109,8 @@ export async function createAnnouncement(
     title?: string;
     message: string;
     image_url?: string;
+    image_name?: string;
+    target_user_id?: string;
   }
 ): Promise<Announcement> {
   const repo = getGameRepository();
@@ -1118,19 +1120,30 @@ export async function createAnnouncement(
   }
 
   const imageUrl = payload.image_url?.trim();
+  const imageName = payload.image_name?.trim();
+  const targetUserId = payload.target_user_id?.trim();
+  if (targetUserId && targetUserId !== "all") {
+    const target = await repo.getUser(targetUserId);
+    if (!target || target.role !== "user") {
+      throw new Error("Target user is invalid.");
+    }
+  }
   const announcement: Announcement = {
     id: createId("announcement"),
     title: payload.title?.trim() || "Manager Announcement",
     message,
     created_by: managerId,
     created_at: nowISO(),
-    ...(imageUrl ? { image_url: imageUrl } : {})
+    ...(imageUrl ? { image_url: imageUrl } : {}),
+    ...(imageName ? { image_name: imageName } : {}),
+    ...(targetUserId ? { target_user_id: targetUserId } : {})
   };
 
   await repo.saveAnnouncement(announcement);
   await repo.saveAuditLog(
     createAuditLog(managerId, "announcement.created", announcement.id, {
-      title: announcement.title
+      title: announcement.title,
+      target_user_id: targetUserId || "all"
     })
   );
 
@@ -1494,6 +1507,9 @@ export async function getDashboard(uid: string): Promise<DashboardBundle> {
   }));
 
   const announcementNotifications: AppNotification[] = announcements.flatMap((item) => {
+    if (item.target_user_id && item.target_user_id !== "all" && item.target_user_id !== bundle.user.id) {
+      return [];
+    }
     const parsedMission = parseMissionAnnouncement(item.message ?? "");
     if (parsedMission && !isMissionForUser(parsedMission, bundle.user.id)) {
       return [];
@@ -1683,11 +1699,17 @@ export async function getManagerOverview(managerId: string) {
         cta_link: "/manager?manager_tab=inbox#mission-assignment"
       };
     }
+    const targetDisplay = item.target_user_id && item.target_user_id !== "all"
+      ? (() => {
+          const target = userMap.get(item.target_user_id);
+          return (target?.name ?? "").trim() || target?.login_id || item.target_user_id;
+        })()
+      : "";
     return {
       id: `announce-self-${item.id}`,
       kind: "announcement" as const,
       title: isKo ? "최근 공지" : "Recent announcement",
-      message: item.message,
+      message: targetDisplay ? `${item.message} • Target: ${targetDisplay}` : item.message,
       created_at: item.created_at,
       is_new: notificationsThreshold ? item.created_at > notificationsThreshold : false,
       image_url: item.image_url,
