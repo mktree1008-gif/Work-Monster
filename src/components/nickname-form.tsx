@@ -43,8 +43,7 @@ export function NicknameForm({ loginId, suggestedName }: Props) {
       }
 
       const payload = (await response.json()) as { redirectTo: string };
-      router.push(payload.redirectTo);
-      router.refresh();
+      router.replace(payload.redirectTo);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : copy.failed);
     } finally {

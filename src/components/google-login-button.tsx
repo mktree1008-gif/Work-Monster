@@ -54,8 +54,7 @@ export function GoogleLoginButton({ role, locale, onSuccessRedirect, onError }: 
     if (onSuccessRedirect) {
       onSuccessRedirect(payload);
     } else {
-      router.push(payload.redirectTo);
-      router.refresh();
+      router.replace(payload.redirectTo);
     }
   }, [locale, onSuccessRedirect, role, router]);
 

@@ -634,7 +634,6 @@ export function QuestionsFlow({
       ? "/app/questions/check-in"
       : `/app/questions/check-in?date=${encodeURIComponent(nextDate)}`;
     router.replace(nextPath);
-    router.refresh();
   }
 
   async function onSubmitToManager() {
@@ -650,8 +649,7 @@ export function QuestionsFlow({
       }
       setShowSubmitSuccess(true);
       setTimeout(() => {
-        router.push(result.redirectTo ?? "/app/welcome?saved=1");
-        router.refresh();
+        router.replace(result.redirectTo ?? "/app/welcome?saved=1");
       }, 920);
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : "Failed to submit check-in.");

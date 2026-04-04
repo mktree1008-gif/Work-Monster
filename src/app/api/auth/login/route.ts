@@ -47,15 +47,15 @@ export async function POST(request: NextRequest) {
     if (!requestedManager && user.role !== "user") {
       user = await repo.updateUser(user.id, { role: "user" });
     }
+    const nicknameMissing = (user.name ?? "").trim().length === 0;
     let loginAward = { awarded: false, points: 0, date: "" };
-    if (!requestedManager) {
+    if (!requestedManager && !nicknameMissing) {
       try {
         loginAward = await awardDailyLoginPoints(user.id);
       } catch (error) {
         console.warn("Login bonus award failed, proceeding with login.", error);
       }
     }
-    const nicknameMissing = (user.name ?? "").trim().length === 0;
 
     const response = NextResponse.json({
       ok: true,

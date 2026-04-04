@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LockKeyhole, Mail } from "lucide-react";
 import { AnimatedCelebrationPopup } from "@/components/animated-celebration-popup";
@@ -82,10 +82,15 @@ export function LoginForm({ initialRole = "user", initialLocale = "en" }: Props)
     }
   }
 
+  useEffect(() => {
+    if (!redirectTo) return;
+    router.prefetch(redirectTo);
+  }, [redirectTo, router]);
+
   function continueToApp() {
     if (!redirectTo) return;
-    router.push(redirectTo);
-    router.refresh();
+    setShowWelcome(false);
+    router.replace(redirectTo);
   }
 
   function onAuthSuccess(result: { redirectTo: string; loginPointsAwarded?: boolean; loginPoints?: number }) {

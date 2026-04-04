@@ -95,8 +95,7 @@ export function RegisterForm({ initialRole = "user", initialLocale = "en" }: Pro
       }
       const payload = (await response.json()) as { redirectTo: string };
       setShowNicknameModal(false);
-      router.push(payload.redirectTo);
-      router.refresh();
+      router.replace(payload.redirectTo);
     } catch (caught) {
       setNicknameError(caught instanceof Error ? caught.message : copy.nicknameFailed);
     } finally {
