@@ -264,7 +264,7 @@ export function WelcomeDashboardClient({ locale, userId, mission, checkinState, 
       <section className="card card-standard mb-4 overflow-hidden border border-blue-100/80 bg-gradient-to-br from-white via-blue-50/40 to-indigo-50/40 p-1.5 shadow-[0_10px_30px_rgba(59,130,246,0.12)]">
         <div className="grid grid-cols-2 gap-1">
           <button
-            className={`group relative rounded-2xl px-4 py-2.5 text-[clamp(1.12rem,4.8vw,1.24rem)] font-medium tracking-[-0.008em] transition-all duration-200 ${
+            className={`group relative rounded-2xl px-4 py-2.5 text-[0.98rem] font-bold tracking-tight transition-all duration-200 ${
               mode === "productivity"
                 ? "bg-gradient-to-r from-blue-700 via-indigo-600 to-blue-600 text-white shadow-[0_8px_18px_rgba(37,99,235,0.3)]"
                 : "bg-transparent text-slate-600 hover:bg-white/70"
@@ -287,7 +287,7 @@ export function WelcomeDashboardClient({ locale, userId, mission, checkinState, 
             )}
           </button>
           <button
-            className={`group relative rounded-2xl px-4 py-2.5 text-[clamp(1.12rem,4.8vw,1.24rem)] font-medium tracking-[-0.008em] transition-all duration-200 ${
+            className={`group relative rounded-2xl px-4 py-2.5 text-[0.98rem] font-bold tracking-tight transition-all duration-200 ${
               mode === "wellness"
                 ? "bg-gradient-to-r from-emerald-600 via-cyan-600 to-blue-600 text-white shadow-[0_8px_18px_rgba(20,184,166,0.28)]"
                 : "bg-transparent text-slate-600 hover:bg-white/70"

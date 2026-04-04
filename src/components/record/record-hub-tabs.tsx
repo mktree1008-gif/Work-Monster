@@ -39,7 +39,7 @@ export function RecordHubTabs({
       <section className="card overflow-hidden border border-blue-100/80 bg-gradient-to-br from-white via-blue-50/40 to-indigo-50/40 p-1.5 shadow-[0_10px_30px_rgba(59,130,246,0.12)]">
         <div className="grid grid-cols-2 gap-1">
           <button
-            className={`group relative rounded-2xl px-4 py-2.5 text-[clamp(1.12rem,4.8vw,1.24rem)] font-medium tracking-[-0.008em] transition-all duration-200 ${
+            className={`group relative rounded-2xl px-4 py-2.5 text-[0.98rem] font-bold tracking-tight transition-all duration-200 ${
               isProductivity
                 ? "bg-gradient-to-r from-blue-700 via-indigo-600 to-blue-600 text-white shadow-[0_8px_18px_rgba(37,99,235,0.3)]"
                 : "bg-transparent text-slate-600 hover:bg-white/70"
@@ -54,7 +54,7 @@ export function RecordHubTabs({
             {isProductivity && <span className="pointer-events-none absolute right-3 top-2 h-1.5 w-1.5 rounded-full bg-cyan-200 shadow-[0_0_10px_rgba(103,232,249,0.9)]" />}
           </button>
           <button
-            className={`group relative rounded-2xl px-4 py-2.5 text-[clamp(1.12rem,4.8vw,1.24rem)] font-medium tracking-[-0.008em] transition-all duration-200 ${
+            className={`group relative rounded-2xl px-4 py-2.5 text-[0.98rem] font-bold tracking-tight transition-all duration-200 ${
               isWellness
                 ? "bg-gradient-to-r from-emerald-600 via-cyan-600 to-blue-600 text-white shadow-[0_8px_18px_rgba(20,184,166,0.28)]"
                 : "bg-transparent text-slate-600 hover:bg-white/70"

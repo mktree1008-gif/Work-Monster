@@ -72,6 +72,7 @@ type QuickAddRow = {
 };
 
 type QuickAddDefaults = Omit<QuickTaskForm, "title">;
+type DurationUnit = "min" | "hr";
 
 type Suggestion = {
   id: string;
@@ -113,6 +114,7 @@ const STORAGE_PREFIX = "workmonster-plan-v2";
 const FOCUS_STORAGE_PREFIX = "workmonster-focus-v1";
 const ACTIVE_MISSION_KEY = "workmonster-active-mission";
 const RANGE_NOTE_REGEX = /\[(?:Range|기간):\s*(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})\]/i;
+const DURATION_PRESET_MINUTES = [15, 30, 45, 60, 120, 180] as const;
 
 const CATEGORY_COLOR: Record<Category, string> = {
   work: "border border-blue-200 bg-blue-50 text-blue-700",
@@ -176,6 +178,25 @@ function createQuickAddRow(initialTitle = ""): QuickAddRow {
 function clampDuration(value: number): number {
   if (!Number.isFinite(value)) return 30;
   return Math.max(5, Math.round(value));
+}
+
+function formatDurationInput(minutes: number, unit: DurationUnit): string {
+  const safeMinutes = clampDuration(minutes);
+  if (unit === "hr") {
+    const hours = safeMinutes / 60;
+    return Number.isInteger(hours) ? String(hours) : String(Math.round(hours * 100) / 100);
+  }
+  return String(safeMinutes);
+}
+
+function parseDurationInputToMinutes(raw: string, unit: DurationUnit): number | null {
+  const normalized = raw.trim();
+  if (!normalized) return null;
+  const parsed = Number(normalized);
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  const minutes = unit === "hr" ? parsed * 60 : parsed;
+  if (!Number.isFinite(minutes) || minutes <= 0) return null;
+  return minutes;
 }
 
 function normalizeCategory(value: unknown): Category {
@@ -538,8 +559,12 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
   const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
   const [editingTaskId, setEditingTaskId] = useState<string | null>(null);
   const [quickForm, setQuickForm] = useState<QuickTaskForm>(defaultQuickTaskForm);
+  const [quickFormDurationUnit, setQuickFormDurationUnit] = useState<DurationUnit>("min");
+  const [quickFormDurationInput, setQuickFormDurationInput] = useState(() => formatDurationInput(defaultQuickTaskForm().duration, "min"));
   const [quickAddRows, setQuickAddRows] = useState<QuickAddRow[]>(() => [createQuickAddRow()]);
   const [quickAddDefaults, setQuickAddDefaults] = useState<QuickAddDefaults>(defaultQuickAddDefaults);
+  const [quickAddDurationUnit, setQuickAddDurationUnit] = useState<DurationUnit>("min");
+  const [quickAddDurationInput, setQuickAddDurationInput] = useState(() => formatDurationInput(defaultQuickAddDefaults().duration, "min"));
   const [quickAddRangeStartISO, setQuickAddRangeStartISO] = useState("");
   const [quickAddRangeEndISO, setQuickAddRangeEndISO] = useState("");
   const [quickAddPickerOpen, setQuickAddPickerOpen] = useState(false);
@@ -1193,6 +1218,60 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
     setQuickAddPickerOpen((prev) => !prev);
   }
 
+  function setQuickAddDurationMinutes(minutes: number, unit: DurationUnit = quickAddDurationUnit) {
+    const nextMinutes = clampDuration(minutes);
+    setQuickAddDefaults((prev) => ({ ...prev, duration: nextMinutes }));
+    setQuickAddDurationInput(formatDurationInput(nextMinutes, unit));
+  }
+
+  function handleQuickAddDurationInputChange(raw: string) {
+    setQuickAddDurationInput(raw);
+    const parsedMinutes = parseDurationInputToMinutes(raw, quickAddDurationUnit);
+    if (parsedMinutes === null) return;
+    setQuickAddDefaults((prev) => ({ ...prev, duration: clampDuration(parsedMinutes) }));
+  }
+
+  function commitQuickAddDurationInput() {
+    const parsedMinutes = parseDurationInputToMinutes(quickAddDurationInput, quickAddDurationUnit);
+    if (parsedMinutes === null) {
+      setQuickAddDurationInput(formatDurationInput(quickAddDefaults.duration, quickAddDurationUnit));
+      return;
+    }
+    setQuickAddDurationMinutes(parsedMinutes);
+  }
+
+  function handleQuickAddDurationUnitChange(nextUnit: DurationUnit) {
+    setQuickAddDurationUnit(nextUnit);
+    setQuickAddDurationInput(formatDurationInput(quickAddDefaults.duration, nextUnit));
+  }
+
+  function setQuickFormDurationMinutes(minutes: number, unit: DurationUnit = quickFormDurationUnit) {
+    const nextMinutes = clampDuration(minutes);
+    setQuickForm((prev) => ({ ...prev, duration: nextMinutes }));
+    setQuickFormDurationInput(formatDurationInput(nextMinutes, unit));
+  }
+
+  function handleQuickFormDurationInputChange(raw: string) {
+    setQuickFormDurationInput(raw);
+    const parsedMinutes = parseDurationInputToMinutes(raw, quickFormDurationUnit);
+    if (parsedMinutes === null) return;
+    setQuickForm((prev) => ({ ...prev, duration: clampDuration(parsedMinutes) }));
+  }
+
+  function commitQuickFormDurationInput() {
+    const parsedMinutes = parseDurationInputToMinutes(quickFormDurationInput, quickFormDurationUnit);
+    if (parsedMinutes === null) {
+      setQuickFormDurationInput(formatDurationInput(quickForm.duration, quickFormDurationUnit));
+      return;
+    }
+    setQuickFormDurationMinutes(parsedMinutes);
+  }
+
+  function handleQuickFormDurationUnitChange(nextUnit: DurationUnit) {
+    setQuickFormDurationUnit(nextUnit);
+    setQuickFormDurationInput(formatDurationInput(quickForm.duration, nextUnit));
+  }
+
   function openQuickTaskSheet(task?: PlannerTask) {
     if (task) {
       const parsedRange = parseRangeFromNote(task.note);
@@ -1209,6 +1288,9 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
         due_date: parseDateToISO(task.due_date) ?? "",
         note: visibleTaskNote(task.note)
       });
+      const nextDurationUnit: DurationUnit = task.duration % 60 === 0 ? "hr" : "min";
+      setQuickFormDurationUnit(nextDurationUnit);
+      setQuickFormDurationInput(formatDurationInput(task.duration, nextDurationUnit));
       setDueRangeStartISO(initialStart);
       setDueRangeEndISO(initialEnd);
       setDueDraftStartISO(initialStart);
@@ -1216,7 +1298,10 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
       setDuePickerMonthISO(monthStartISO(initialStart ? new Date(`${initialStart}T00:00:00.000Z`) : new Date()));
     } else {
       setEditingTaskId(null);
-      setQuickForm(defaultQuickTaskForm());
+      const defaults = defaultQuickTaskForm();
+      setQuickForm(defaults);
+      setQuickFormDurationUnit("min");
+      setQuickFormDurationInput(formatDurationInput(defaults.duration, "min"));
       setDueRangeStartISO("");
       setDueRangeEndISO("");
       setDueDraftStartISO("");
@@ -1230,7 +1315,10 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
   function closeQuickTaskSheet() {
     setQuickTaskOpen(false);
     setEditingTaskId(null);
-    setQuickForm(defaultQuickTaskForm());
+    const defaults = defaultQuickTaskForm();
+    setQuickForm(defaults);
+    setQuickFormDurationUnit("min");
+    setQuickFormDurationInput(formatDurationInput(defaults.duration, "min"));
     setDuePickerOpen(false);
     setDueRangeStartISO("");
     setDueRangeEndISO("");
@@ -1240,8 +1328,11 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
   }
 
   function openQuickAddSheet() {
+    const defaults = defaultQuickAddDefaults();
     setQuickAddRows([createQuickAddRow()]);
-    setQuickAddDefaults(defaultQuickAddDefaults());
+    setQuickAddDefaults(defaults);
+    setQuickAddDurationUnit("min");
+    setQuickAddDurationInput(formatDurationInput(defaults.duration, "min"));
     setQuickAddRangeStartISO("");
     setQuickAddRangeEndISO("");
     setQuickAddDraftStartISO("");
@@ -2154,16 +2245,44 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
 
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   <label className="rounded-xl bg-white px-3 py-2 text-[11px] font-bold text-slate-600">
-                    {isKo ? "분" : "Mins"}
-                    <input
-                      className="mt-1 w-full rounded-lg border border-slate-200 px-2 py-1 text-sm"
-                      min={5}
-                      onChange={(event) =>
-                        setQuickAddDefaults((prev) => ({ ...prev, duration: clampDuration(Number(event.target.value)) }))
-                      }
-                      type="number"
-                      value={quickAddDefaults.duration}
-                    />
+                    {isKo ? "소요 시간" : "Duration"}
+                    <div className="mt-1 flex gap-1.5">
+                      <input
+                        className="w-full rounded-lg border border-slate-200 px-2 py-1 text-sm"
+                        inputMode="decimal"
+                        min={0}
+                        onBlur={commitQuickAddDurationInput}
+                        onChange={(event) => handleQuickAddDurationInputChange(event.target.value)}
+                        placeholder={quickAddDurationUnit === "hr" ? "1" : "45"}
+                        step={quickAddDurationUnit === "hr" ? 0.25 : 5}
+                        type="number"
+                        value={quickAddDurationInput}
+                      />
+                      <select
+                        className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-bold text-slate-600"
+                        onChange={(event) => handleQuickAddDurationUnitChange(event.target.value as DurationUnit)}
+                        value={quickAddDurationUnit}
+                      >
+                        <option value="min">{isKo ? "분" : "min"}</option>
+                        <option value="hr">{isKo ? "시간" : "hr"}</option>
+                      </select>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {DURATION_PRESET_MINUTES.map((minutes) => (
+                        <button
+                          className={`rounded-full px-2.5 py-1 text-[10px] font-black transition ${
+                            quickAddDefaults.duration === minutes
+                              ? "bg-blue-600 text-white"
+                              : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                          }`}
+                          key={`quick-add-preset-${minutes}`}
+                          onClick={() => setQuickAddDurationMinutes(minutes)}
+                          type="button"
+                        >
+                          {minutes < 60 ? `${minutes}m` : `${minutes / 60}h`}
+                        </button>
+                      ))}
+                    </div>
                   </label>
                   <div className="rounded-xl bg-white px-3 py-2 text-[11px] font-bold text-slate-600">
                     {isKo ? "기간 설정" : "Date range"}
@@ -2363,14 +2482,44 @@ export function PlanDayBoard({ locale, userId, mission, reward }: Props) {
 
               <div className="grid grid-cols-2 gap-2">
                 <label className="rounded-2xl bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600">
-                  {isKo ? "소요 시간 (분)" : "Duration (mins)"}
-                  <input
-                    className="mt-1 w-full rounded-xl border-none bg-white px-2 py-1 text-sm"
-                    min={5}
-                    onChange={(event) => setQuickForm((prev) => ({ ...prev, duration: clampDuration(Number(event.target.value)) }))}
-                    type="number"
-                    value={quickForm.duration}
-                  />
+                  {isKo ? "소요 시간" : "Duration"}
+                  <div className="mt-1 flex gap-1.5">
+                    <input
+                      className="w-full rounded-xl border-none bg-white px-2 py-1 text-sm"
+                      inputMode="decimal"
+                      min={0}
+                      onBlur={commitQuickFormDurationInput}
+                      onChange={(event) => handleQuickFormDurationInputChange(event.target.value)}
+                      placeholder={quickFormDurationUnit === "hr" ? "1" : "45"}
+                      step={quickFormDurationUnit === "hr" ? 0.25 : 5}
+                      type="number"
+                      value={quickFormDurationInput}
+                    />
+                    <select
+                      className="rounded-xl border-none bg-white px-2 py-1 text-xs font-bold text-slate-600"
+                      onChange={(event) => handleQuickFormDurationUnitChange(event.target.value as DurationUnit)}
+                      value={quickFormDurationUnit}
+                    >
+                      <option value="min">{isKo ? "분" : "min"}</option>
+                      <option value="hr">{isKo ? "시간" : "hr"}</option>
+                    </select>
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {DURATION_PRESET_MINUTES.map((minutes) => (
+                      <button
+                        className={`rounded-full px-2.5 py-1 text-[10px] font-black transition ${
+                          quickForm.duration === minutes
+                            ? "bg-blue-600 text-white"
+                            : "bg-white text-slate-600 hover:bg-slate-200"
+                        }`}
+                        key={`quick-form-preset-${minutes}`}
+                        onClick={() => setQuickFormDurationMinutes(minutes)}
+                        type="button"
+                      >
+                        {minutes < 60 ? `${minutes}m` : `${minutes / 60}h`}
+                      </button>
+                    ))}
+                  </div>
                 </label>
 
                 <div className="rounded-2xl bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-600">
