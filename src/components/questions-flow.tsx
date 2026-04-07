@@ -308,7 +308,11 @@ export function QuestionsFlow({
 }: Props) {
   const router = useRouter();
   const isKo = locale === "ko";
-  const initialStatus = (initialSubmission?.status ?? "") as SubmissionStatus | "";
+  const shouldResetPastDraft = Boolean(initialSubmission)
+    && selectedDate !== maxSelectableDate
+    && (initialSubmission?.status ?? "") === "draft";
+  const effectiveInitialSubmission = shouldResetPastDraft ? null : initialSubmission;
+  const initialStatus = (effectiveInitialSubmission?.status ?? "") as SubmissionStatus | "";
   const lockedByStatus = !isEditableStatus(initialStatus);
   const waitingReview = isWaitingReviewStatus(initialStatus);
 
@@ -328,7 +332,6 @@ export function QuestionsFlow({
   const [animatedScore, setAnimatedScore] = useState(0);
   const [isTextFieldFocused, setIsTextFieldFocused] = useState(false);
 
-  const initialLoadedRef = useRef(false);
   const autosaveTimerRef = useRef<number | null>(null);
   const skipAutosaveOnceRef = useRef(false);
 
@@ -414,40 +417,49 @@ export function QuestionsFlow({
   }, []);
 
   useEffect(() => {
+    skipAutosaveOnceRef.current = true;
+    setHydrated(false);
+    setSubmitError("");
+    setAlreadyDoneMessage("");
+    setShowAlreadyDonePopup(false);
+    setCurrentStep(0);
+    setDraft({ ...DEFAULT_DAILY_CHECKIN_DRAFT });
     setClientLocalDate(selectedDate);
   }, [selectedDate]);
 
   useEffect(() => {
-    if (!storageKey || initialLoadedRef.current) return;
+    if (!storageKey) return;
 
-    const merged = normalizeInitialDraft(initialSubmission);
-    let savedStep = Number(initialSubmission?.step_index ?? 1) - 1;
+    const merged = normalizeInitialDraft(effectiveInitialSubmission);
+    let savedStep = Number(effectiveInitialSubmission?.step_index ?? 1) - 1;
+    const allowLocalDraftHydration = selectedDate === maxSelectableDate;
 
-    try {
-      const raw = window.localStorage.getItem(storageKey);
-      if (raw) {
-        const parsed = JSON.parse(raw) as { draft?: Partial<DailyCheckInDraft>; step?: number };
-        if (parsed?.draft && typeof parsed.draft === "object") {
-          Object.assign(merged, {
-            ...parsed.draft,
-            q6: dedupe(parseStringList(parsed.draft.q6)),
-            evidence_files: dedupe(normalizeAttachmentTokens(parseStringList(parsed.draft.evidence_files))),
-            evidence_links: dedupe(parseStringList(parsed.draft.evidence_links))
-          });
+    if (allowLocalDraftHydration) {
+      try {
+        const raw = window.localStorage.getItem(storageKey);
+        if (raw) {
+          const parsed = JSON.parse(raw) as { draft?: Partial<DailyCheckInDraft>; step?: number };
+          if (parsed?.draft && typeof parsed.draft === "object") {
+            Object.assign(merged, {
+              ...parsed.draft,
+              q6: dedupe(parseStringList(parsed.draft.q6)),
+              evidence_files: dedupe(normalizeAttachmentTokens(parseStringList(parsed.draft.evidence_files))),
+              evidence_links: dedupe(parseStringList(parsed.draft.evidence_links))
+            });
+          }
+          if (Number.isFinite(parsed?.step)) {
+            savedStep = Math.max(0, Math.min(TOTAL_STEPS - 1, Math.round(parsed.step ?? 0)));
+          }
         }
-        if (Number.isFinite(parsed?.step)) {
-          savedStep = Math.max(0, Math.min(TOTAL_STEPS - 1, Math.round(parsed.step ?? 0)));
-        }
+      } catch {
+        // ignore broken local storage payload
       }
-    } catch {
-      // ignore broken local storage payload
     }
 
     setDraft(merged);
     setCurrentStep(Math.max(0, Math.min(TOTAL_STEPS - 1, savedStep)));
     setHydrated(true);
-    initialLoadedRef.current = true;
-  }, [initialSubmission, storageKey]);
+  }, [effectiveInitialSubmission, maxSelectableDate, selectedDate, storageKey]);
 
   useEffect(() => {
     if (currentStep !== FINAL_STEP_INDEX) {
@@ -735,7 +747,6 @@ export function QuestionsFlow({
       }
     }
 
-    setClientLocalDate(nextDate);
     const nextPath = nextDate === maxSelectableDate
       ? "/app/questions/check-in"
       : `/app/questions/check-in?date=${encodeURIComponent(nextDate)}`;
