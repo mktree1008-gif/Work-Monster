@@ -42,7 +42,7 @@ type DayPointStat = {
 };
 
 type ActivityLevel = "none" | "light" | "moderate" | "strong";
-type CalorieLevel = "far_above" | "slightly_above" | "close" | "on_target";
+type CalorieLevel = "far_below" | "slightly_below" | "close" | "on_target" | "slightly_above" | "far_above";
 
 function parseISODate(raw: string): Date {
   const [year, month, day] = raw.split("-").map((value) => Number(value));
@@ -186,6 +186,21 @@ function normalizeActivityValue(raw: unknown): ActivityLevel | "" {
 function normalizeCalorieValue(raw: unknown): CalorieLevel | "" {
   const value = normalizeAnswer(raw);
   if (!value) return "";
+  if (
+    value === "far_below"
+    || value.includes("🥶")
+    || value.includes("far below")
+    || value.includes("much below")
+    || value.includes("too low")
+    || value.includes("많이 부족")
+  ) return "far_below";
+  if (
+    value === "slightly_below"
+    || value.includes("🫥")
+    || value.includes("slightly below")
+    || value.includes("below goal")
+    || value.includes("조금 부족")
+  ) return "slightly_below";
   if (
     value === "far_above"
     || value.includes("🍔")
@@ -560,6 +575,8 @@ export function ManagerUserAnalytics({
     strong: "💪 Strong"
   };
   const calorieLabel: Record<CalorieLevel, string> = {
+    far_below: "🥶 Far below",
+    slightly_below: "🫥 Slightly below",
     far_above: "🍔 Far above",
     slightly_above: "🍕 Slightly above",
     close: "🥗 Close",
@@ -573,6 +590,8 @@ export function ManagerUserAnalytics({
     strong: 0
   };
   const calorieCounts: Record<CalorieLevel, number> = {
+    far_below: 0,
+    slightly_below: 0,
     far_above: 0,
     slightly_above: 0,
     close: 0,
@@ -598,6 +617,8 @@ export function ManagerUserAnalytics({
     strong: 100
   };
   const calorieScore: Record<CalorieLevel, number> = {
+    far_below: 18,
+    slightly_below: 45,
     far_above: 10,
     slightly_above: 35,
     close: 75,

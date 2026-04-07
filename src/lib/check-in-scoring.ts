@@ -62,6 +62,8 @@ const WELLNESS_Q8_SCORE: Record<string, number> = {
 };
 
 const WELLNESS_Q9_SCORE: Record<string, number> = {
+  far_below: 0.3,
+  slightly_below: 0.58,
   far_above: 0.28,
   slightly_above: 0.56,
   close: 0.82,

@@ -75,10 +75,10 @@ export const DAILY_CHECKIN_QUESTIONS: CheckInQuestion[] = [
     description: "Single tap to answer",
     type: "choice",
     options: [
-      { value: "not_much", emoji: "😓", label: "Not much" },
-      { value: "some", emoji: "😐", label: "Some of it" },
-      { value: "most", emoji: "🙂", label: "Most of it" },
-      { value: "almost_all", emoji: "😎", label: "Almost all" }
+      { value: "not_much", emoji: "😓", label: "Not much (0-25%)" },
+      { value: "some", emoji: "😐", label: "Some of it (26-50%)" },
+      { value: "most", emoji: "🙂", label: "Most of it (51-80%)" },
+      { value: "almost_all", emoji: "😎", label: "Almost all (81-100%)" }
     ]
   },
   {
@@ -87,22 +87,22 @@ export const DAILY_CHECKIN_QUESTIONS: CheckInQuestion[] = [
     description: "Single tap to answer",
     type: "choice",
     options: [
-      { value: "no", emoji: "❌", label: "No" },
-      { value: "partly", emoji: "⚡", label: "Partly" },
-      { value: "yes", emoji: "✅", label: "Yes" },
-      { value: "no_main_task", emoji: "➖", label: "No main task" }
+      { value: "no", emoji: "❌", label: "No (0%)" },
+      { value: "partly", emoji: "⚡", label: "Partly (40-70%)" },
+      { value: "yes", emoji: "✅", label: "Yes (100%)" },
+      { value: "no_main_task", emoji: "➖", label: "No main task (N/A)" }
     ]
   },
   {
     id: "q3",
-    title: "How well did your day follow your plan?",
+    title: "Across tasks, food goal, and workout, how on track were you today?",
     description: "Single tap to answer",
     type: "choice",
     options: [
-      { value: "very_off", emoji: "😵", label: "Very off track" },
-      { value: "a_bit_off", emoji: "😕", label: "A bit off" },
-      { value: "mostly_on", emoji: "🙂", label: "Mostly on track" },
-      { value: "fully_on", emoji: "🔥", label: "Fully on track" }
+      { value: "very_off", emoji: "😵", label: "Very off track (0-30%)" },
+      { value: "a_bit_off", emoji: "😕", label: "A bit off track (31-60%)" },
+      { value: "mostly_on", emoji: "🙂", label: "Mostly on track (61-85%)" },
+      { value: "fully_on", emoji: "🔥", label: "Fully on track (86-100%)" }
     ]
   },
   {
@@ -167,14 +167,16 @@ export const DAILY_CHECKIN_QUESTIONS: CheckInQuestion[] = [
   },
   {
     id: "q9",
-    title: "How did you do with your calorie goal?",
+    title: "How did you do with your food (calorie) goal?",
     description: "Single tap to answer",
     type: "choice",
     options: [
-      { value: "far_above", emoji: "🍔", label: "Far above" },
-      { value: "slightly_above", emoji: "🍕", label: "Slightly above" },
-      { value: "close", emoji: "🥗", label: "Close to goal" },
-      { value: "on_target", emoji: "🎯", label: "On target" }
+      { value: "far_below", emoji: "🥶", label: "Far below goal (negative)" },
+      { value: "slightly_below", emoji: "🫥", label: "Slightly below goal (negative)" },
+      { value: "slightly_above", emoji: "🍕", label: "Slightly above goal (negative)" },
+      { value: "far_above", emoji: "🍔", label: "Far above goal (negative)" },
+      { value: "close", emoji: "🥗", label: "Close to goal (positive)" },
+      { value: "on_target", emoji: "🎯", label: "On target (best)" }
     ]
   },
   {

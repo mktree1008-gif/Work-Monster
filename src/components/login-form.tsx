@@ -168,7 +168,7 @@ export function LoginForm({ initialRole = "user", initialLocale = "en" }: Props)
           <option value="ko">한국어</option>
         </select>
 
-        <div className="mb-4 grid grid-cols-2 gap-2">
+        <div className={`mb-4 grid gap-2 ${role === "manager" ? "grid-cols-1" : "grid-cols-2"}`}>
           <button
             className="anim-pulse-soft rounded-2xl border border-cyan-200 bg-gradient-to-r from-cyan-50 via-white to-emerald-50 p-3 text-left shadow-[0_8px_24px_rgba(45,212,191,0.18)]"
             disabled={pending || quickLoginPending}
@@ -187,24 +187,26 @@ export function LoginForm({ initialRole = "user", initialLocale = "en" }: Props)
               {quickLoginTarget === "ashton" ? "Connecting" : "Tap"}
             </span>
           </button>
-          <button
-            className="anim-pulse-soft rounded-2xl border border-indigo-200 bg-gradient-to-r from-indigo-50 via-white to-blue-50 p-3 text-left shadow-[0_8px_24px_rgba(79,70,229,0.18)]"
-            disabled={pending || quickLoginPending}
-            onClick={() => onQuickLogin("mong")}
-            type="button"
-          >
-            <div className="flex items-center gap-2">
-              <ChibiAvatar className="shrink-0" emotion="approval" role="manager" size={34} />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-black text-indigo-900">Mong</p>
-                <p className="truncate text-[11px] font-semibold text-slate-500">mktree1008@gmail.com</p>
+          {role !== "manager" && (
+            <button
+              className="anim-pulse-soft rounded-2xl border border-indigo-200 bg-gradient-to-r from-indigo-50 via-white to-blue-50 p-3 text-left shadow-[0_8px_24px_rgba(79,70,229,0.18)]"
+              disabled={pending || quickLoginPending}
+              onClick={() => onQuickLogin("mong")}
+              type="button"
+            >
+              <div className="flex items-center gap-2">
+                <ChibiAvatar className="shrink-0" emotion="approval" role="manager" size={34} />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-black text-indigo-900">Mong</p>
+                  <p className="truncate text-[11px] font-semibold text-slate-500">mktree1008@gmail.com</p>
+                </div>
               </div>
-            </div>
-            <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2 py-1 text-[10px] font-black uppercase tracking-[0.1em] text-indigo-700">
-              <Sparkles size={12} />
-              {quickLoginTarget === "mong" ? "Connecting" : role === "manager" ? "Manager" : "User"}
-            </span>
-          </button>
+              <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-indigo-100 px-2 py-1 text-[10px] font-black uppercase tracking-[0.1em] text-indigo-700">
+                <Sparkles size={12} />
+                {quickLoginTarget === "mong" ? "Connecting" : "User"}
+              </span>
+            </button>
+          )}
         </div>
 
         <label className="mb-2 block text-xs font-bold uppercase tracking-[0.2em] text-slate-500">{copy.id}</label>

@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isManagerOwnerEmail } from "@/lib/constants";
 import { getGameRepository } from "@/lib/repositories/game-repository";
 import { awardDailyLoginPoints } from "@/lib/services/game-service";
 import { LOCALE_COOKIE, ROLE_COOKIE, UID_COOKIE } from "@/lib/session";
@@ -35,6 +34,13 @@ export async function POST(request: NextRequest) {
       requestedRole = "user";
     }
 
+    if (requestedRole === "manager") {
+      return NextResponse.json(
+        { error: "Manager quick login is disabled. Please use regular manager login." },
+        { status: 403 }
+      );
+    }
+
     const repo = getGameRepository();
     const user = await repo.findUserByLoginOrEmail(MONG_LOGIN_EMAIL)
       ?? await repo.findUserByLoginOrEmail(MONG_LOGIN_ID);
@@ -43,13 +49,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "Mong quick-login account was not found. Please contact manager." },
         { status: 404 }
-      );
-    }
-
-    if (requestedRole === "manager" && !isManagerOwnerEmail(user.email)) {
-      return NextResponse.json(
-        { error: "권한이 없습니다. 관리자 모드는 호스트 계정만 사용할 수 있습니다." },
-        { status: 403 }
       );
     }
 
@@ -88,9 +87,7 @@ export async function POST(request: NextRequest) {
 
     const redirectTo = nicknameMissing
       ? "/auth/nickname"
-      : requestedRole === "manager"
-        ? "/manager"
-        : "/app/welcome";
+      : "/app/welcome";
 
     const response = NextResponse.json({
       ok: true,
