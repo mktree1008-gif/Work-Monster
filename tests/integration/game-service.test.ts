@@ -2,8 +2,10 @@ import { beforeEach, describe, expect, test } from "vitest";
 import { getGameRepository, resetInMemoryRepositoryForTests } from "@/lib/repositories/game-repository";
 import {
   acknowledgeRuleVersion,
+  applyManualScoreAdjustment,
   approveSubmission,
   recalculateScore,
+  rebuildUserScoreFromHistory,
   submitDailyCheckIn,
   updateRules
 } from "@/lib/services/game-service";
@@ -18,7 +20,7 @@ describe("game service integration", () => {
     const user = await repo.signIn("user-a@workmonster.app", "user", "en");
     const manager = await repo.signIn("manager-a@workmonster.app", "manager", "en");
 
-    const submission = await submitDailyCheckIn(user.id, {
+    const result = await submitDailyCheckIn(user.id, {
       mood: "Focused",
       feeling: "Great",
       calories: 520,
@@ -28,14 +30,14 @@ describe("game service integration", () => {
       file_url: ""
     });
 
-    expect(submission.status).toBe("pending");
+    expect(result.submission.status).toBe("submitted");
 
     const pending = await repo.listPendingSubmissions();
     expect(pending.length).toBe(1);
 
     await approveSubmission(
       {
-        submissionId: submission.id,
+        submissionId: result.submission.id,
         approved: true,
         note: "Nice output",
         points: 10
@@ -95,5 +97,35 @@ describe("game service integration", () => {
     const recovered = await recalculateScore(user.id);
     expect(recovered.penalty_active).toBe(false);
     expect(recovered.negative_balance).toBe(0);
+  });
+
+  test("manager can apply manual bonus/penalty and score rebuild keeps it", async () => {
+    const repo = getGameRepository();
+    const user = await repo.signIn("user-d@workmonster.app", "user", "en");
+    const manager = await repo.signIn("manager-d@workmonster.app", "manager", "en");
+
+    const first = await applyManualScoreAdjustment(manager.id, {
+      target_user_id: user.id,
+      bonus_points: 7,
+      penalty_points: 2,
+      note: "Weekly bonus and penalty adjustment"
+    });
+    expect(first.appliedPoints).toBe(5);
+
+    const second = await applyManualScoreAdjustment(manager.id, {
+      target_user_id: user.id,
+      bonus_points: 0,
+      penalty_points: 3
+    });
+    expect(second.appliedPoints).toBe(-3);
+
+    const scoreAfter = await repo.getScore(user.id);
+    expect(scoreAfter.total_points).toBe(2);
+    expect(scoreAfter.lifetime_points).toBe(5);
+
+    await rebuildUserScoreFromHistory(user.id);
+    const rebuilt = await repo.getScore(user.id);
+    expect(rebuilt.total_points).toBe(2);
+    expect(rebuilt.lifetime_points).toBe(5);
   });
 });

@@ -8,6 +8,7 @@ import { clearSession, getSession, setSession, updateLocale } from "@/lib/sessio
 import { uploadFileToStorage } from "@/lib/storage-upload";
 import {
   acknowledgeRuleVersion,
+  applyManualScoreAdjustment,
   applyInactivityPenalty,
   approveSubmission,
   assignMission,
@@ -380,6 +381,49 @@ export async function skipInactivityPenaltyAction(formData: FormData): Promise<v
   revalidatePath("/app/welcome");
   revalidatePath("/app/score");
   revalidatePath("/app/record");
+  redirect(`/manager?${params.toString()}`);
+}
+
+export async function applyManualScoreAdjustmentAction(formData: FormData): Promise<void> {
+  const session = await getSession();
+  if (!session || session.role !== "manager") redirect("/auth/login");
+  await assertManagerOwner(session.uid);
+
+  const params = new URLSearchParams();
+  params.set("manager_tab", "inbox");
+
+  const targetUserId = String(formData.get("target_user_id") ?? "").trim();
+  const rawBonus = Number(formData.get("bonus_points") ?? 0);
+  const rawPenalty = Number(formData.get("penalty_points") ?? 0);
+  const bonusPoints = Number.isFinite(rawBonus) ? Math.max(0, Math.round(rawBonus)) : 0;
+  const penaltyPoints = Number.isFinite(rawPenalty) ? Math.max(0, Math.round(rawPenalty)) : 0;
+  const note = String(formData.get("note") ?? "").trim();
+
+  params.set("manual_target_user", targetUserId);
+
+  try {
+    const result = await applyManualScoreAdjustment(session.uid, {
+      target_user_id: targetUserId,
+      bonus_points: bonusPoints,
+      penalty_points: penaltyPoints,
+      note
+    });
+    params.set("manual_points_applied", "1");
+    params.set("manual_user_id", result.userId);
+    params.set("manual_points", String(result.appliedPoints));
+    params.set("manual_bonus", String(result.bonusPoints));
+    params.set("manual_penalty", String(result.penaltyPoints));
+  } catch (error) {
+    const text = error instanceof Error ? error.message : "Failed to apply manual score adjustment.";
+    params.set("manual_points_error", text);
+  }
+
+  revalidatePath("/manager");
+  revalidatePath("/app");
+  revalidatePath("/app/welcome");
+  revalidatePath("/app/score");
+  revalidatePath("/app/record");
+  revalidatePath("/app/questions");
   redirect(`/manager?${params.toString()}`);
 }
 

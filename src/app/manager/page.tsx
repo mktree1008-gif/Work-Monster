@@ -24,6 +24,7 @@ import {
   acknowledgeManagerRewardAlertsAction,
   acknowledgeNotificationsAction,
   applyInactivityPenaltyAction,
+  applyManualScoreAdjustmentAction,
   assignMissionAction,
   createAnnouncementAction,
   createRewardAction,
@@ -142,9 +143,19 @@ export default async function ManagerPage({ searchParams }: Props) {
   const inactivityApplied = params.inactivity_applied === "1";
   const inactivitySkipped = params.inactivity_skipped === "1";
   const inactivityError = typeof params.inactivity_error === "string" ? params.inactivity_error : "";
+  const manualPointsApplied = params.manual_points_applied === "1";
+  const manualPointsError = typeof params.manual_points_error === "string" ? params.manual_points_error : "";
+  const manualTargetUserIdFromParams = typeof params.manual_target_user === "string" ? params.manual_target_user : "";
+  const manualAppliedUserId = typeof params.manual_user_id === "string" ? params.manual_user_id : "";
+  const manualAppliedPoints = Number(params.manual_points ?? 0);
+  const manualAppliedBonus = Number(params.manual_bonus ?? 0);
+  const manualAppliedPenalty = Number(params.manual_penalty ?? 0);
   const announceError = typeof params.announce_error === "string" ? params.announce_error : "";
   const rulesVersion = Number(params.version ?? data.rules.rule_version);
   const safeRulesVersion = Number.isFinite(rulesVersion) && rulesVersion > 0 ? Math.floor(rulesVersion) : data.rules.rule_version;
+  const manualTargetUserId = manualTargetUserIdFromParams || manualAppliedUserId;
+  const manualTargetUser = userMap.get(manualAppliedUserId || manualTargetUserId);
+  const manualTargetUserDisplay = (manualTargetUser?.name ?? "").trim() || manualTargetUser?.login_id || manualAppliedUserId;
 
   const managerClaimAlerts = data.rewardClaimAlerts.map((item) => ({
     claimId: item.claim.id,
@@ -291,6 +302,56 @@ export default async function ManagerPage({ searchParams }: Props) {
 
       {activeTab === "inbox" && (
         <>
+          <section className="card mb-4 p-4" id="manual-score-adjustment">
+            <h2 className="text-xl font-black text-indigo-900">Always-on score adjustment</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Apply bonus points or penalty points to any user anytime. Net score update = bonus - penalty.
+            </p>
+            {manualPointsApplied && (
+              <p className="mt-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800">
+                Applied to {manualTargetUserDisplay || manualAppliedUserId}:{" "}
+                {manualAppliedPoints > 0 ? `+${manualAppliedPoints}` : manualAppliedPoints} pts
+                {" "}(
+                bonus {Number.isFinite(manualAppliedBonus) ? Math.max(0, Math.round(manualAppliedBonus)) : 0}
+                {" / "}
+                penalty {Number.isFinite(manualAppliedPenalty) ? Math.max(0, Math.round(manualAppliedPenalty)) : 0}
+                ).
+              </p>
+            )}
+            {manualPointsError && (
+              <p className="mt-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">
+                {manualPointsError}
+              </p>
+            )}
+            <form action={applyManualScoreAdjustmentAction} className="mt-3 space-y-2">
+              <label className="block text-xs font-semibold text-slate-600">
+                Target user
+                <select className="input mt-1" defaultValue={manualTargetUserId} name="target_user_id" required>
+                  <option value="">Select user</option>
+                  {analyticsUsers.map((candidate) => (
+                    <option key={candidate.id} value={candidate.id}>
+                      {candidate.displayName} ({candidate.loginId})
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="text-xs font-semibold text-slate-600">
+                  Bonus points (+)
+                  <input className="input mt-1" defaultValue={0} min={0} name="bonus_points" step={1} type="number" />
+                </label>
+                <label className="text-xs font-semibold text-slate-600">
+                  Penalty points (-)
+                  <input className="input mt-1" defaultValue={0} min={0} name="penalty_points" step={1} type="number" />
+                </label>
+              </div>
+              <input className="input" name="note" placeholder="Reason / memo (optional)" />
+              <button className="btn btn-primary w-full" type="submit">
+                Apply score adjustment
+              </button>
+            </form>
+          </section>
+
           <section className="card mb-4 p-4" id="inactivity-penalty-inbox">
             <h2 className="text-xl font-black text-indigo-900">Inactive login penalty review</h2>
             <p className="mt-1 text-sm text-slate-600">

@@ -384,6 +384,17 @@ export function ManagerUserAnalytics({
         created_at: log.created_at,
         source: "manager_review"
       });
+      continue;
+    }
+
+    if (log.action === "score.manual_adjusted" && selectedUser && String(log.details.user_id ?? "") === selectedUser.id) {
+      pointEvents.push({
+        id: log.id,
+        date: safeDateKey(log.details.date, log.created_at),
+        delta: toSafeInt(log.details.points),
+        created_at: log.created_at,
+        source: "manager_review"
+      });
     }
   }
 

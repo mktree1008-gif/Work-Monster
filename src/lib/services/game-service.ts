@@ -641,6 +641,59 @@ export async function skipInactivityPenalty(
   };
 }
 
+export async function applyManualScoreAdjustment(
+  managerId: string,
+  payload: {
+    target_user_id: string;
+    bonus_points?: number;
+    penalty_points?: number;
+    note?: string;
+  }
+): Promise<{ userId: string; appliedPoints: number; bonusPoints: number; penaltyPoints: number; note: string }> {
+  const repo = getGameRepository();
+  const targetUserId = String(payload.target_user_id ?? "").trim();
+  if (!targetUserId) {
+    throw new Error("Target user is required.");
+  }
+
+  const targetUser = await repo.getUser(targetUserId);
+  if (!targetUser || targetUser.role !== "user") {
+    throw new Error("Target user is invalid.");
+  }
+
+  const rawBonus = Number(payload.bonus_points ?? 0);
+  const rawPenalty = Number(payload.penalty_points ?? 0);
+  const bonusPoints = Number.isFinite(rawBonus) ? Math.max(0, Math.round(rawBonus)) : 0;
+  const penaltyPoints = Number.isFinite(rawPenalty) ? Math.max(0, Math.round(rawPenalty)) : 0;
+  const appliedPoints = bonusPoints - penaltyPoints;
+  const note = String(payload.note ?? "").trim();
+
+  if (appliedPoints === 0) {
+    throw new Error("Bonus and penalty cannot cancel each other to zero.");
+  }
+
+  await repo.saveAuditLog(
+    createAuditLog(managerId, "score.manual_adjusted", `users/${targetUserId}`, {
+      user_id: targetUserId,
+      points: appliedPoints,
+      bonus_points: bonusPoints,
+      penalty_points: penaltyPoints,
+      note,
+      date: toISODate()
+    })
+  );
+
+  await rebuildUserScoreFromHistory(targetUserId);
+
+  return {
+    userId: targetUserId,
+    appliedPoints,
+    bonusPoints,
+    penaltyPoints,
+    note
+  };
+}
+
 export async function approveSubmission(
   input: ManagerReviewInput,
   managerId: string
@@ -822,6 +875,11 @@ export async function rebuildUserScoreFromHistory(userId: string): Promise<Score
 
     if (log.action === "login.inactivity_penalty_applied" && String(log.details.user_id ?? "") === userId) {
       addDelta(toSafeInt(log.details.points_applied));
+      continue;
+    }
+
+    if (log.action === "score.manual_adjusted" && String(log.details.user_id ?? "") === userId) {
+      addDelta(toSafeInt(log.details.points));
       continue;
     }
 
@@ -1437,6 +1495,39 @@ export async function getDashboard(uid: string): Promise<DashboardBundle> {
         message: note.length > 0 ? `${note} • ${summaryMessage}` : summaryMessage,
         created_at: log.created_at,
         review_points: pointsApplied,
+        deep_link: "/app/score"
+      };
+      managerUpdateFeed.push(updateItem);
+      if (log.created_at > threshold) {
+        managerUpdates.push(updateItem);
+      }
+    }
+
+    if (log.action === "score.manual_adjusted" && String(log.details.user_id ?? "") === bundle.user.id) {
+      const pointsApplied = toSafeInt(log.details.points);
+      const bonusPoints = Math.max(0, toSafeInt(log.details.bonus_points));
+      const penaltyPoints = Math.max(0, toSafeInt(log.details.penalty_points));
+      const note = String(log.details.note ?? "").trim();
+      const summary = isKo
+        ? `보너스 ${bonusPoints} pts / 페널티 ${penaltyPoints} pts 반영`
+        : `Bonus ${bonusPoints} pts / penalty ${penaltyPoints} pts applied`;
+      const fallbackMessage = isKo
+        ? `${pointsApplied > 0 ? `+${pointsApplied}` : pointsApplied} pts가 점수에 반영됐어요.`
+        : `${pointsApplied > 0 ? `+${pointsApplied}` : pointsApplied} pts reflected in your score.`;
+      const updateItem: ManagerUpdateNotification = {
+        id: log.id,
+        kind: "submission_review",
+        title: pointsApplied > 0
+          ? isKo
+            ? "매니저 보너스 점수가 적용됐어요"
+            : "Manager bonus points applied"
+          : isKo
+            ? "매니저 페널티 점수가 적용됐어요"
+            : "Manager penalty points applied",
+        message: note.length > 0 ? `${note} • ${summary}` : `${summary}. ${fallbackMessage}`,
+        created_at: log.created_at,
+        review_points: pointsApplied,
+        bonus_points: bonusPoints > 0 ? bonusPoints : 0,
         deep_link: "/app/score"
       };
       managerUpdateFeed.push(updateItem);
